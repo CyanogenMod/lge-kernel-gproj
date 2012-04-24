@@ -909,6 +909,11 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	mutex_lock(&device->mutex);
 	kgsl_check_suspended(device);
 
+	/* clean up any to-be-freed entries that belong to this
+	 * process and this device
+	 */
+	kgsl_cancel_events(device, dev_priv);
+
 	while (1) {
 		context = idr_get_next(&device->context_idr, &next);
 		if (context == NULL)
