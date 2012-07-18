@@ -6617,6 +6617,9 @@ static void __init reg_init(void)
 			/* Ref clk = 27MHz and program pll14 to 480MHz */
 			configure_sr_pll(&pll14_config, &pll14_regs, 1);
 
+		/* Program PLL15 to 975MHz with ref clk = 27MHz */
+		configure_sr_pll(&pll15_config, &pll15_regs, 0);
+
 		/* Check if PLL4 is active */
 		is_pll_enabled = readl_relaxed(LCC_PLL0_STATUS_REG) & BIT(16);
 		if (!is_pll_enabled)
