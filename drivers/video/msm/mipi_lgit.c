@@ -150,6 +150,9 @@ int mipi_lgit_lcd_off(struct platform_device *pdev)
 	int rc = 0;
 	int cnt = 0;
 
+	if (mipi_lgit_pdata->bl_pwm_disable)
+		mipi_lgit_pdata->bl_pwm_disable();
+
 	mfd = platform_get_drvdata(pdev);
 
 	if (!mfd)

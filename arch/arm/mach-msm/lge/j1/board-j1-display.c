@@ -1925,6 +1925,9 @@ static struct msm_panel_common_pdata mipi_lgit_pdata = {
 	.power_off_set_2 = lgit_power_off_set_2,
 	.power_off_set_size_1 = ARRAY_SIZE(lgit_power_off_set_1),
 	.power_off_set_size_2 =ARRAY_SIZE(lgit_power_off_set_2),
+#if defined(CONFIG_LGE_BACKLIGHT_CABC)
+	.bl_pwm_disable = lm3530_lcd_backlight_pwm_disable,
+#endif
 };
 static struct platform_device mipi_dsi_lgit_panel_device = {
 	.name = "mipi_lgit",
