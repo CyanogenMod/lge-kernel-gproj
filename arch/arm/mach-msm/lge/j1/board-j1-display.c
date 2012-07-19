@@ -1491,9 +1491,7 @@ error:
 	return rc;
 }
 
-#if defined (CONFIG_BACKLIGHT_LM3530)
-extern void lm3530_lcd_backlight_set_level( int level);
-#elif defined (CONFIG_BACKLIGHT_LM3533)
+#if defined (CONFIG_BACKLIGHT_LM3533)
 extern void lm3533_lcd_backlight_set_level( int level);
 #endif /* CONFIG_BACKLIGHT_LMXXXX */
 
@@ -1928,6 +1926,7 @@ static struct msm_panel_common_pdata mipi_lgit_pdata = {
 #if defined(CONFIG_LGE_BACKLIGHT_CABC)
 	.bl_pwm_disable = lm3530_lcd_backlight_pwm_disable,
 #endif
+	.bl_on_status = lm3530_lcd_backlight_on_status,
 };
 static struct platform_device mipi_dsi_lgit_panel_device = {
 	.name = "mipi_lgit",
