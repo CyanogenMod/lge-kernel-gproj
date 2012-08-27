@@ -2358,6 +2358,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 {
 	static unsigned int io_cnt;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct adreno_context *adreno_ctx = context->devctxt;
 	unsigned int context_id = _get_context_id(context);
 	unsigned int prev_reg_val[hang_detect_regs_count];
 	unsigned int time_elapsed = 0;
@@ -2376,8 +2377,13 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	 * timestamp issued. If it is complain once and return error.
 	 */
 
-	if (_check_pending_timestamp(device, context, timestamp))
-		return -EINVAL;
+	if (adreno_ctx && !(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS)) {
+		if (_check_pending_timestamp(device, context, timestamp))
+			return -EINVAL;
+
+		/* Reset the invalid timestamp flag on a valid wait */
+		context->wait_on_invalid_ts = false;
+	}
 
 	/* Clear the registers used for hang detection */
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
