@@ -200,7 +200,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 	uint D_INV = 0;
 	uint clk_id = gp_clk_id;
 
-	INFO_MSG("amp=%d, n_value=%d\n", amp, n_value);
+	pr_debug("amp=%d, n_value=%d\n", amp, n_value);
 
 	if (enable) {
 		if (amp)
@@ -226,7 +226,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 			(3U << 3U) +   /* PRE_DIV_SEL[4:3]  : Div-4 (3) */
 			(5U << 0U)),   /* SRC_SEL[2:0]      : CXO (5)  */
 			GPn_NS_REG(clk_id));
-		INFO_MSG("GPIO_LIN_MOTOR_PWM is enable with M=%d N=%d D=%d\n", M_VAL, n_value, D_VAL);
+		pr_debug("GPIO_LIN_MOTOR_PWM is enable with M=%d N=%d D=%d\n", M_VAL, n_value, D_VAL);
 	} else {
 		REG_WRITEL(
 			((((~(n_value-M_VAL)) & 0xffU) << 16U) + /* N_VAL[23:16] */
@@ -239,7 +239,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 			(3U << 3U) +   /* PRE_DIV_SEL[4:3]  : Div-4 (3) */
 			(5U << 0U)),   /* SRC_SEL[2:0]      : CXO (5)  */
 			GPn_NS_REG(clk_id));
-		INFO_MSG("GPIO_LIN_MOTOR_PWM is disalbe \n");
+		pr_debug("GPIO_LIN_MOTOR_PWM is disalbe \n");
 	}
 
 	return 0;
@@ -247,7 +247,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 
 static int vibrator_ic_enable_set(int enable)
 {
-	INFO_MSG("enable=%d\n", enable);
+	pr_debug("enable=%d\n", enable);
 
 	//gpio_lin_motor_en = gpio_vibrator_en;
 
@@ -268,8 +268,8 @@ static int vibrator_init(void)
 
 	rc = gpio_request_one(gpio_vibrator_en, GPIOF_OUT_INIT_LOW, "motor_en");
 	if (rc) {
-		ERR_MSG("GPIO_LIN_MOTOR_EN %d request failed\n", gpio_vibrator_en);
-		return 0;
+		pr_err("GPIO_LIN_MOTOR_EN %d request failed\n", gpio_vibrator_en);
+		return rc;
 	}
 
 	vreg_l16 = regulator_get(NULL, "8921_l16");   //2.6 ~ 3V
@@ -560,7 +560,7 @@ static struct platform_device cradle_device = {
 
 void __init apq8064_init_misc(void)
 {
-	INFO_MSG("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 
 #if defined(CONFIG_ANDROID_VIBRATOR)
 
