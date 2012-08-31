@@ -6823,7 +6823,7 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 {
 	int ret;
 	dhd_bus_t *bus;
-#ifdef GET_CUSTOM_MAC_ENABLE
+#ifdef GET_CUSTOM_MAC_ENABLE_NOPE
 	struct ether_addr ea_addr;
 #endif /* GET_CUSTOM_MAC_ENABLE */
 
@@ -6986,7 +6986,7 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 
 	DHD_INFO(("%s: completed!!\n", __FUNCTION__));
 
-#ifdef GET_CUSTOM_MAC_ENABLE
+#ifdef GET_CUSTOM_MAC_ENABLE_NOPE
 	/* Read MAC address from external customer place 	*/
 	memset(&ea_addr, 0, sizeof(ea_addr));
 	ret = dhd_custom_get_mac_address(ea_addr.octet);

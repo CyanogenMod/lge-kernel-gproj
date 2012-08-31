@@ -3608,6 +3608,7 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 	int roam_env_mode = AP_ENV_INDETERMINATE;
 #endif /* ROAM_AP_ENV_DETECTION */
 
+printk("dhd preinit: %s\n",name);
 	if (!strcmp(name, "country")) {
 		revstr = strchr(value, '/');
 		if (revstr) {
@@ -3808,6 +3809,7 @@ static int dhd_preinit_config(dhd_pub_t *dhd, int ifidx)
 		(len = dhd_os_get_image_block(buf, stat.size, fp)) < 0)
 		goto err;
 
+printk("dhd preinit: %d\n",__LINE__);
 	buf[stat.size] = '\0';
 	for (p = buf; *p; p++) {
 		if (isspace(*p))
@@ -3818,6 +3820,7 @@ static int dhd_preinit_config(dhd_pub_t *dhd, int ifidx)
 				p++;
 				for (value = p; *p && !isspace(*p); p++);
 				*p = '\0';
+printk("dhd preinit: %s:%s\n",name, value);
 				if ((ret = dhd_preinit_proc(dhd, ifidx, name, value)) < 0) {
 					printk(KERN_ERR "%s: %s=%s\n",
 							bcmerrorstr(ret), name, value);
