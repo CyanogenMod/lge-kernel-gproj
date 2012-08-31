@@ -120,49 +120,47 @@ static int vibrator_gpio_init(void)
 
 #ifdef CONFIG_ANDROID_VIBRATOR
 static struct regulator *vreg_l16 = NULL;
-static bool snddev_reg_8921_l16_status = false;
+static int vibrator_enabled = 0;
 
 static int vibrator_power_set(int enable)
 {
 	int rc = -EINVAL;
+
 	if (NULL == vreg_l16) {
 
 		vreg_l16 = regulator_get(NULL, "8921_l16");   //2.6 ~ 3V
-		INFO_MSG("enable=%d\n", enable);
 
 		if (IS_ERR(vreg_l16)) {
+			rc = PTR_ERR(vreg_l16);
 			pr_err("%s: regulator get of 8921_lvs6 failed (%ld)\n"
 					, __func__, PTR_ERR(vreg_l16));
-			printk("woosock ERROR\n");
-			rc = PTR_ERR(vreg_l16);
 			return rc;
 		}
 	}	
 	//rc = regulator_set_voltage(vreg_l16, 3000000, 3000000);
 	rc = regulator_set_voltage(vreg_l16, 2800000, 2800000);
-	
-	if(enable == snddev_reg_8921_l16_status) return 0;
 
+	if (rc < 0)
+		pr_err("%s: regulator_set_voltage failed\n", __func__);
+
+	if (enable == vibrator_enabled)
+		return 0;
+
+	vibrator_enabled = enable;
 	if (enable) {
-		rc = regulator_set_voltage(vreg_l16, 2800000, 2800000);
-		if (rc < 0)
-			pr_err("LGE:  VIB %s: regulator_set_voltage(l1) failed (%d)\n",
-			__func__, rc);
 			
 		rc = regulator_enable(vreg_l16);
 
 		if (rc < 0)
-			pr_err("LGE: VIB %s: regulator_enable(l1) failed (%d)\n", __func__, rc);
-		snddev_reg_8921_l16_status = true;
+			pr_err("%s: regulator_enable failed\n", __func__);
 
 	} else {
 		rc = regulator_disable(vreg_l16);
 		if (rc < 0)
-			pr_err("%s: regulator_disable(l1) failed (%d)\n", __func__, rc);
-		snddev_reg_8921_l16_status = false;
+			pr_err("%s: regulator_disable failed\n", __func__);
 	}	
 
-	return 0;
+	return rc;
 }
 
 static int vibrator_pwm_set(int enable, int amp, int n_value)
