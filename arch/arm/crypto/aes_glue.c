@@ -6,12 +6,31 @@
 #include <linux/crypto.h>
 #include <crypto/aes.h>
 
+<<<<<<< HEAD
 #include "aes_glue.h"
 
 EXPORT_SYMBOL(AES_encrypt);
 EXPORT_SYMBOL(AES_decrypt);
 EXPORT_SYMBOL(private_AES_set_encrypt_key);
 EXPORT_SYMBOL(private_AES_set_decrypt_key);
+=======
+#define AES_MAXNR 14
+
+typedef struct {
+	unsigned int rd_key[4 *(AES_MAXNR + 1)];
+	int rounds;
+} AES_KEY;
+
+struct AES_CTX {
+	AES_KEY enc_key;
+	AES_KEY dec_key;
+};
+
+asmlinkage void AES_encrypt(const u8 *in, u8 *out, AES_KEY *ctx);
+asmlinkage void AES_decrypt(const u8 *in, u8 *out, AES_KEY *ctx);
+asmlinkage int private_AES_set_decrypt_key(const unsigned char *userKey, const int bits, AES_KEY *key);
+asmlinkage int private_AES_set_encrypt_key(const unsigned char *userKey, const int bits, AES_KEY *key);
+>>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 
 static void aes_encrypt(struct crypto_tfm *tfm, u8 *dst, const u8 *src)
 {
@@ -71,7 +90,11 @@ static struct crypto_alg aes_alg = {
 		.cipher	= {
 			.cia_min_keysize	= AES_MIN_KEY_SIZE,
 			.cia_max_keysize	= AES_MAX_KEY_SIZE,
+<<<<<<< HEAD
 			.cia_setkey		= aes_set_key,
+=======
+			.cia_setkey			= aes_set_key,
+>>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 			.cia_encrypt		= aes_encrypt,
 			.cia_decrypt		= aes_decrypt
 		}
