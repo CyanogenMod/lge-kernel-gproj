@@ -24,6 +24,7 @@
 #include <mach/gpiomux.h>
 //#include <linux/regulator/gpio-regulator.h>
 #include <mach/board_lge.h>
+#include <mach/msm_xo.h>
 
 #include "devices.h"
 #include <linux/android_vibrator.h>
@@ -105,6 +106,7 @@ static struct msm_gpiomux_config gpio2_vibrator_configs[] = {
 	},
 };
 
+static struct msm_xo_voter *vib_clock;
 static int gpio_vibrator_en = 33;
 static int gpio_vibrator_pwm = 3;
 static int gp_clk_id = 0;
@@ -114,6 +116,28 @@ static int vibrator_gpio_init(void)
 	gpio_vibrator_en = GPIO_LIN_MOTOR_EN;
 	gpio_vibrator_pwm = GPIO_LIN_MOTOR_PWM;
 	return 0;
+}
+
+static void vibrator_clock_init(void)
+{
+	/* Vote for XO clock */
+	vib_clock = msm_xo_get(MSM_XO_TCXO_D0, "vib_clock");
+	if (IS_ERR(vib_clock)) {
+		pr_warn("%s: Couldn't get TCXO_D0 vote for vibrator\n",
+				__func__);
+	}
+}
+
+static inline void vibrator_clock_on(void)
+{
+	if (msm_xo_mode_vote(vib_clock, MSM_XO_MODE_ON) < 0)
+		pr_warn("%s: Failed to vote for TCX0_D0_ON\n", __func__);
+}
+
+static inline void vibrator_clock_off(void)
+{
+	if (msm_xo_mode_vote(vib_clock, MSM_XO_MODE_OFF) < 0)
+		pr_warn("%s: Failed to vote for TCX0_D0_OFF\n", __func__);
 }
 #endif
 
@@ -171,6 +195,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 	INFO_MSG("amp=%d, n_value=%d\n", amp, n_value);
 
 	if (enable) {
+		vibrator_clock_on();
 		D_VAL = ((GP_CLK_D_MAX * amp) >> 7);
 		if (D_VAL > GP_CLK_D_HALF) {
 			if (D_VAL == GP_CLK_D_MAX) {      /* Max duty is 99% */
@@ -200,6 +225,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 		INFO_MSG("GPIO_LIN_MOTOR_PWM is enable with M=%d N=%d D=%d\n",
 				M_VAL, n_value, D_VAL);
 	} else {
+		vibrator_clock_off();
 		REG_WRITEL(
 			((((~(n_value-M_VAL)) & 0xffU) << 16U) + /* N_VAL[23:16] */
 			(0U << 11U) +  /* CLK_ROOT_ENA[11]  : Disable(0) */
@@ -247,17 +273,18 @@ static int vibrator_init(void)
 
 	/* GPIO setting for Motor EN in pmic8921 */
 	gpio_motor_en = PM8921_GPIO_PM_TO_SYS(GPIO_LIN_MOTOR_EN);
-	rc = gpio_request(gpio_motor_en, "lin_motor_en");
+	rc = gpio_request(gpio_motor_en, "motor_en");
 	if (rc) {
 		ERR_MSG("GPIO_LIN_MOTOR_EN %d request failed\n", gpio_motor_en);
 		return 0;
 	}
 
 	/* gpio init */
-	rc = gpio_request(gpio_motor_pwm, "lin_motor_pwm");
+	rc = gpio_request(gpio_motor_pwm, "motor_pwm");
 	if (unlikely(rc < 0))
 		ERR_MSG("not able to get gpio\n");
 
+	vibrator_clock_init();
 	vibrator_ic_enable_set(0);
 	vibrator_pwm_set(0, 0, GP_CLK_N_DEFAULT);
 	vibrator_power_set(0);
