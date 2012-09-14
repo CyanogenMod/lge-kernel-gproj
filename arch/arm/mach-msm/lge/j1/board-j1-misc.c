@@ -30,6 +30,7 @@
 #include <linux/android_vibrator.h>
 
 #include <linux/i2c.h>
+#include <linux/mutex.h>
 
 #ifdef CONFIG_SII8334_MHL_TX
 #include <linux/platform_data/mhl_device.h>
@@ -101,6 +102,7 @@ static struct msm_xo_voter *vib_clock;
 static int gpio_vibrator_en = 33;
 static int gpio_vibrator_pwm = 3;
 static int gp_clk_id = 0;
+static DEFINE_MUTEX(vib_lock);
 
 static int vibrator_gpio_init(void)
 {
@@ -148,27 +150,18 @@ static int vibrator_enabled = 0;
 
 static int vibrator_power_set(int enable)
 {
-	int rc = -EINVAL;
+	int rc;
 
-	if (NULL == vreg_l16) {
+	if (enable == vibrator_enabled)
+		return 0;
 
-		vreg_l16 = regulator_get(NULL, "8921_l16");   //2.6 ~ 3V
+	mutex_lock(&vib_lock);
 
-		if (IS_ERR(vreg_l16)) {
-			rc = PTR_ERR(vreg_l16);
-			pr_err("%s: regulator get of 8921_lvs6 failed (%ld)\n"
-					, __func__, PTR_ERR(vreg_l16));
-			return rc;
-		}
-	}	
 	//rc = regulator_set_voltage(vreg_l16, 3000000, 3000000);
 	rc = regulator_set_voltage(vreg_l16, 2800000, 2800000);
 
 	if (rc < 0)
 		pr_err("%s: regulator_set_voltage failed\n", __func__);
-
-	if (enable == vibrator_enabled)
-		return 0;
 
 	vibrator_enabled = enable;
 	if (enable) {
@@ -179,10 +172,14 @@ static int vibrator_power_set(int enable)
 			pr_err("%s: regulator_enable failed\n", __func__);
 
 	} else {
-		rc = regulator_disable(vreg_l16);
-		if (rc < 0)
-			pr_err("%s: regulator_disable failed\n", __func__);
+		if (regulator_is_enabled(vreg_l16) > 0 ) {
+			rc = regulator_disable(vreg_l16);
+			if (rc < 0)
+				pr_err("%s: regulator_disable failed\n", __func__);
+		}
 	}	
+
+	mutex_unlock(&vib_lock);
 
 	return rc;
 }
@@ -284,8 +281,18 @@ static int vibrator_init(void)
 
 	/* gpio init */
 	rc = gpio_request(gpio_motor_pwm, "motor_pwm");
-	if (unlikely(rc < 0))
+	if (unlikely(rc < 0)) {
 		ERR_MSG("not able to get gpio\n");
+		goto err_gpio_motor_pwm;
+	}
+
+	vreg_l16 = regulator_get(NULL, "8921_l16");   //2.6 ~ 3V
+	if (IS_ERR(vreg_l16)) {
+		rc = PTR_ERR(vreg_l16);
+		pr_err("%s: regulator get of vibrator failed\n",
+				__func__);
+		goto err_regulator_get;
+	}
 
 	vibrator_clock_init();
 	vibrator_ic_enable_set(0);
@@ -293,6 +300,12 @@ static int vibrator_init(void)
 	vibrator_power_set(0);
 
 	return 0;
+
+err_regulator_get:
+	gpio_free(gpio_motor_pwm);
+err_gpio_motor_pwm:
+	gpio_free(gpio_motor_en);
+	return rc;
 }
 
 
