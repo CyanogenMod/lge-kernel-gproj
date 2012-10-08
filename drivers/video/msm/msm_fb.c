@@ -1048,7 +1048,7 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 					ret = pdata->on(mfd->pdev);
 					if (ret == 0) {
 						mfd->panel_power_on = TRUE;
-
+						mfd->panel_driver_on = mfd->op_enable;
 						break;
 					} else {
 						pdata->off(mfd->pdev);
@@ -1061,6 +1061,7 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 				ret = pdata->on(mfd->pdev);
 				if (ret == 0) {
 					mfd->panel_power_on = TRUE;
+					mfd->panel_driver_on = mfd->op_enable;
 				}
 			}
 			printk(KERN_INFO "[LCD][DEBUG] %s : FB_BLANK_UNBLANK : ret = %d, retry_cnt = %d\n",
