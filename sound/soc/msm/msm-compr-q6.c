@@ -461,6 +461,9 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 			return ret;
 		}
 		break;
+	case SND_AUDIOCODEC_MP2:
+		pr_debug("%s: SND_AUDIOCODEC_MP2\n", __func__);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -691,7 +694,7 @@ static void populate_codec_list(struct compr_audio *compr,
 {
 	pr_debug("%s\n", __func__);
 	/* MP3 Block */
-	compr->info.compr_cap.num_codecs = 10;
+	compr->info.compr_cap.num_codecs = 13;
 	compr->info.compr_cap.min_fragment_size = runtime->hw.period_bytes_min;
 	compr->info.compr_cap.max_fragment_size = runtime->hw.period_bytes_max;
 	compr->info.compr_cap.min_fragments = runtime->hw.periods_min;
@@ -706,6 +709,9 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.codecs[7] = SND_AUDIOCODEC_DTS_PASS_THROUGH;
 	compr->info.compr_cap.codecs[8] = SND_AUDIOCODEC_AMRWB;
 	compr->info.compr_cap.codecs[9] = SND_AUDIOCODEC_AMRWBPLUS;
+	compr->info.compr_cap.codecs[10] = SND_AUDIOCODEC_PASS_THROUGH;
+	compr->info.compr_cap.codecs[11] = SND_AUDIOCODEC_PCM;
+	compr->info.compr_cap.codecs[12] = SND_AUDIOCODEC_MP2;
 	/* Add new codecs here and update num_codecs*/
 }
 
@@ -1135,6 +1141,20 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_AMRWBPLUS:
 			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_AMRWBPLUS\n");
 			compr->codec = FORMAT_AMR_WB_PLUS;
+			break;
+		case SND_AUDIOCODEC_PASS_THROUGH:
+			/* format pass through is used for HDMI IN compressed
+			   where the decoder format is indicated by LPASS */
+			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_PASSTHROUGH\n");
+			compr->codec = FORMAT_PASS_THROUGH;
+			break;
+		case SND_AUDIOCODEC_PCM:
+			pr_debug("msm_compr_ioctl SND_AUDIOCODEC_PCM\n");
+			compr->codec = FORMAT_MULTI_CHANNEL_LINEAR_PCM;
+			break;
+		case SND_AUDIOCODEC_MP2:
+			pr_debug("SND_AUDIOCODEC_MP2\n");
+			compr->codec = FORMAT_MP2;
 			break;
 		default:
 			/*Needed for the HDMI IN compressed use case*/

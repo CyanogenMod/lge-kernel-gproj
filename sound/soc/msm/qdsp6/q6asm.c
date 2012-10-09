@@ -1470,6 +1470,9 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format)
 	case FORMAT_MAT:
 		open.format = MAT;
 		break;
+	case FORMAT_MP2:
+		open.format = MP2;
+		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
 		goto fail_cmd;
@@ -1569,6 +1572,9 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 		open.format = AMR_WB_PLUS;
 		pr_debug("q6asm_open_write FORMAT_AMR_WB_PLUS");
 		break;
+	case FORMAT_MP2:
+		open.format = MP2;
+		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
 		goto fail_cmd;
@@ -1662,6 +1668,9 @@ int q6asm_open_read_write(struct audio_client *ac,
 		break;
 	case FORMAT_MP3:
 		open.write_format = MP3;
+		break;
+	case FORMAT_MP2:
+		open.write_format = MP2;
 		break;
 	default:
 		pr_err("Invalid format[%d]\n", wr_format);
@@ -2627,6 +2636,9 @@ int q6asm_media_format_block(struct audio_client *ac, uint32_t format)
 		break;
 	case FORMAT_DTS_LBR:
 		fmt.format = DTS_LBR;
+		break;
+	case FORMAT_MP2:
+		fmt.format = MP2;
 		break;
 	default:
 		pr_err("Invalid format[%d]\n", format);
