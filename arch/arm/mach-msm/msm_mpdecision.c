@@ -362,10 +362,7 @@ static struct notifier_block msm_mpd_hotplug_nb = {
 static int __cpuinit msm_mpd_do_hotplug(void *data)
 {
 	int *event = (int *)data;
-	static struct sched_param param = {.sched_priority = MAX_RT_PRIO - 1};
 	int cpu;
-
-	sched_setscheduler(current, SCHED_FIFO, &param);
 
 	while (1) {
 		wait_event(msm_mpd.wait_hpq, *event || kthread_should_stop());
@@ -406,12 +403,9 @@ restart:
 static int msm_mpd_do_update_scm(void *data)
 {
 	struct msm_mpd_scm_data *scm_data = (struct msm_mpd_scm_data *)data;
-	static struct sched_param param = {.sched_priority = MAX_RT_PRIO - 1};
 	unsigned long flags;
 	enum msm_dcvs_scm_event event;
 	int nr;
-
-	sched_setscheduler(current, SCHED_FIFO, &param);
 
 	while (1) {
 		wait_event(msm_mpd.wait_q,
