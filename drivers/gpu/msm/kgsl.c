@@ -1368,6 +1368,7 @@ static long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 static long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data)
 {
+	int result = 0;
 	struct kgsl_sharedmem_free *param = data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry = NULL;
@@ -1376,20 +1377,22 @@ static long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 	entry = kgsl_sharedmem_find(private, param->gpuaddr);
 	spin_unlock(&private->mem_lock);
 
-	if (!entry) {
-		KGSL_MEM_INFO(dev_priv->device, "invalid gpuaddr %08x\n",
-				param->gpuaddr);
-		return -EINVAL;
+	if (entry) {
+		trace_kgsl_mem_free(entry);
+
+		kgsl_memfree_hist_set_event(
+			entry->priv->pid,
+			entry->memdesc.gpuaddr,
+			entry->memdesc.size,
+			entry->memdesc.flags);
+
+		kgsl_mem_entry_detach_process(entry);
+	} else {
+		KGSL_CORE_ERR("invalid gpuaddr %08x\n", param->gpuaddr);
+		result = -EINVAL;
 	}
-	trace_kgsl_mem_free(entry);
 
-	kgsl_memfree_hist_set_event(entry->priv->pid,
-				    entry->memdesc.gpuaddr,
-				    entry->memdesc.size,
-				    entry->memdesc.flags);
-
-	kgsl_mem_entry_detach_process(entry);
-	return 0;
+	return result;
 }
 
 static long kgsl_ioctl_gpumem_free_id(struct kgsl_device_private *dev_priv,
