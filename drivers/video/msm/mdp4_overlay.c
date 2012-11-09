@@ -749,13 +749,11 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 		op_mode &= ~(MDP4_OP_FLIP_UD + MDP4_OP_SCALEY_EN);
 		outpdw(rgb_base + 0x0058, op_mode);/* MDP_RGB_OP_MODE */
 	} else {
-//[S_QCT_PATCH][01009159] patch for pre-rotation	
 		if (pipe->op_mode & MDP4_OP_FLIP_LR && mdp_rev >= MDP_REV_42) {
 			/* Enable x-scaling bit to enable LR flip */
 			/* for MDP > 4.2 targets */
 			pipe->op_mode |= 0x01;
 		}
-//[E_QCT_PATCH]		
 		outpdw(rgb_base + 0x0058, pipe->op_mode);/* MDP_RGB_OP_MODE */
 	}
 	outpdw(rgb_base + 0x005c, pipe->phasex_step);
