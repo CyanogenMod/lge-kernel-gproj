@@ -3890,13 +3890,14 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 		&mfd->cur_rel_fen_fd, sizeof(int));
 	if (ret) {
 		pr_err("%s:copy_to_user failed", __func__);
-		goto buf_sync_err_2;
+		goto buf_sync_err_3;
 	}
 	mutex_unlock(&mfd->sync_mutex);
 	return ret;
+buf_sync_err_3:
+	put_unused_fd(mfd->cur_rel_fen_fd);
 buf_sync_err_2:
 	sync_fence_put(mfd->cur_rel_fence);
-	put_unused_fd(mfd->cur_rel_fen_fd);
 	mfd->cur_rel_fence = NULL;
 	mfd->cur_rel_fen_fd = 0;
 buf_sync_err_1:
