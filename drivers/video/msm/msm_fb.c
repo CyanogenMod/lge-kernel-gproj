@@ -867,15 +867,6 @@ static struct platform_driver msm_fb_driver = {
 		   },
 };
 
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_FB_MSM_MDP303)
-static void memset32_io(u32 __iomem *_ptr, u32 val, size_t count)
-{
-	count >>= 2;
-	while (count--)
-		writel(val, _ptr++);
-}
-#endif
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void msmfb_early_suspend(struct early_suspend *h)
 {
@@ -884,22 +875,6 @@ static void msmfb_early_suspend(struct early_suspend *h)
 	struct msm_fb_panel_data *pdata = NULL;
 
 	msm_fb_pan_idle(mfd);
-#if defined(CONFIG_FB_MSM_MDP303)
-	/*
-	* For MDP with overlay, set framebuffer with black pixels
-	* to show black screen on HDMI.
-	*/
-	struct fb_info *fbi = mfd->fbi;
-	switch (mfd->fbi->var.bits_per_pixel) {
-	case 32:
-		memset32_io((void *)fbi->screen_base, 0xFF000000,
-							fbi->fix.smem_len);
-		break;
-	default:
-		memset32_io((void *)fbi->screen_base, 0x00, fbi->fix.smem_len);
-		break;
-	}
-#endif
 	msm_fb_suspend_sub(mfd);
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
