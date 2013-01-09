@@ -395,9 +395,6 @@ void mdp4_hw_init(void)
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 	mdp_clk_ctrl(1);
 
-	mdp_bus_scale_update_request
-		(MDP_BUS_SCALE_INIT, MDP_BUS_SCALE_INIT);
-
 #ifdef MDP4_ERROR
 	/*
 	 * Issue software reset on DMA_P will casue DMA_P dma engine stall

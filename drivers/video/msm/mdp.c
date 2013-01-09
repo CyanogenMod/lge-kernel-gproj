@@ -2397,6 +2397,9 @@ void mdp4_hw_init(void)
 }
 
 #endif
+
+static int mdp_bus_scale_restore_request(void);
+
 static int mdp_on(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2409,6 +2412,7 @@ static int mdp_on(struct platform_device *pdev)
 	if (mdp_rev >= MDP_REV_40) {
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		mdp_clk_ctrl(1);
+		mdp_bus_scale_restore_request();
 		mdp4_hw_init();
 		/* Initialize HistLUT to last LUT */
 		for (i = 0; i < MDP_HIST_LUT_SIZE; i++) {
@@ -2540,10 +2544,9 @@ static int mdp_bus_scale_register(void)
 	return 0;
 }
 
+static int bus_index = 1;
 int mdp_bus_scale_update_request(u64 ab, u64 ib)
 {
-	static int bus_index = 1;
-
 	if (mdp_bus_scale_handle < 1) {
 		pr_err("%s invalid bus handle\n", __func__);
 		return -EINVAL;
@@ -2568,6 +2571,20 @@ int mdp_bus_scale_update_request(u64 ab, u64 ib)
 
 	return msm_bus_scale_client_update_request
 		(mdp_bus_scale_handle, bus_index);
+}
+static int mdp_bus_scale_restore_request(void)
+{
+	pr_debug("%s: index=%d ab=%llu ib=%llu\n", __func__, bus_index,
+		mdp_bus_usecases[bus_index].vectors->ab,
+		mdp_bus_usecases[bus_index].vectors->ib);
+	return mdp_bus_scale_update_request
+		(mdp_bus_usecases[bus_index].vectors->ab,
+		 mdp_bus_usecases[bus_index].vectors->ib);
+}
+#else
+static int mdp_bus_scale_restore_request(void)
+{
+	return 0;
 }
 #endif
 DEFINE_MUTEX(mdp_clk_lock);
@@ -3155,9 +3172,7 @@ static int mdp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/* req bus bandwidth immediately */
-	if (!(mfd->cont_splash_done))
-		mdp_bus_scale_update_request
-			(MDP_BUS_SCALE_INIT, MDP_BUS_SCALE_INIT);
+	mdp_bus_scale_update_request(mdp_max_bw, mdp_max_bw);
 #endif
 
 	/* set driver data */
