@@ -1,4 +1,5 @@
-/* drivers/video/msm/msm_fb.c
+/*
+ * drivers/video/msm/msm_fb.c
  *
  * Core MSM framebuffer driver.
  *
@@ -650,10 +651,6 @@ static int msm_fb_suspend_sub(struct msm_fb_data_type *mfd)
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
 
-	if (mfd->msmfb_no_update_notify_timer.function)
-		del_timer(&mfd->msmfb_no_update_notify_timer);
-	complete(&mfd->msmfb_no_update_notify);
-
 	/*
 	 * suspend this channel
 	 */
@@ -1093,6 +1090,11 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			curr_pwr_state = mfd->panel_power_on;
 			mfd->panel_power_on = FALSE;
 			cancel_delayed_work_sync(&mfd->backlight_worker);
+
+			if (mfd->msmfb_no_update_notify_timer.function)
+				del_timer(&mfd->msmfb_no_update_notify_timer);
+			complete(&mfd->msmfb_no_update_notify);
+
 			bl_updated = 0;
 		#if defined(CONFIG_MACH_LGE)
 			check_updated = 0;
@@ -3452,6 +3454,9 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 	int	ret;
 	struct msmfb_overlay_data req;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
+	if (!mfd->panel_power_on) /* suspended */
+		return -EPERM;
 
 	if (mfd->overlay_play_enable == 0)	/* nothing to do */
 		return 0;
