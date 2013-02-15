@@ -50,6 +50,7 @@
 static int first_pixel_start_x;
 static int first_pixel_start_y;
 static int dsi_video_enabled;
+static int vsync_irq_cnt;
 
 #define MAX_CONTROLLER	1
 
@@ -287,7 +288,6 @@ int mdp4_dsi_video_pipe_commit(int cndx, int wait)
 static void mdp4_video_vsync_irq_ctrl(int cndx, int enable)
 {
 	struct vsycn_ctrl *vctrl;
-	static int vsync_irq_cnt;
 
 	vctrl = &vsync_ctrl_db[cndx];
 
@@ -576,6 +576,8 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	vctrl->mfd = mfd;
 	vctrl->dev = mfd->fbi->dev;
 	vctrl->blt_ctrl = pinfo->lcd.blt_ctrl;
+	vctrl->vsync_irq_enabled = 0;
+	vsync_irq_cnt = 0;
 
 	printk(KERN_INFO "[LCD][DEBUG] %s is started.. \n", __func__);
 	/* mdp clock on */
