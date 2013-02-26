@@ -72,6 +72,7 @@ static int kgsl_sync_pt_compare(struct sync_pt *a, struct sync_pt *b)
 
 struct kgsl_fence_event_priv {
 	struct kgsl_context *context;
+	unsigned int timestamp;
 };
 
 /**
@@ -130,6 +131,7 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 	if (event == NULL)
 		return -ENOMEM;
 	event->context = context;
+	event->timestamp = timestamp;
 	kgsl_context_get(context);
 
 	pt = kgsl_sync_pt_create(context->timeline, timestamp);
