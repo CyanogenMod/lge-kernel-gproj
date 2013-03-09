@@ -578,15 +578,18 @@ static int check_vaddr_bounds(unsigned long start, unsigned long end)
 	if (end < start)
 		goto out;
 
+	down_read(&mm->mmap_sem);
 	vma = find_vma(mm, start);
 	if (vma && vma->vm_start < end) {
 		if (start < vma->vm_start)
-			goto out;
+			goto out_up;
 		if (end > vma->vm_end)
-			goto out;
+			goto out_up;
 		ret = 0;
 	}
 
+out_up:
+	up_read(&mm->mmap_sem);
 out:
 	return ret;
 }
@@ -604,11 +607,19 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 		unsigned long start, end;
 		struct ion_handle *handle = NULL;
 		int ret;
-		struct mm_struct *mm = current->active_mm;
 
 		if (copy_from_user(&data, (void __user *)arg,
 					sizeof(struct ion_flush_data)))
 			return -EFAULT;
+
+		start = (unsigned long) data.vaddr;
+		end = (unsigned long) data.vaddr + data.length;
+
+		if (start && check_vaddr_bounds(start, end)) {
+			pr_err("%s: virtual address %p is out of bounds\n",
+				__func__, data.vaddr);
+			return -EINVAL;
+		}
 
 		if (!data.handle) {
 			handle = ion_import_dma_buf(client, data.fd);
@@ -619,26 +630,10 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 			}
 		}
 
-		down_read(&mm->mmap_sem);
-
-		start = (unsigned long) data.vaddr;
-		end = (unsigned long) data.vaddr + data.length;
-
-		if (check_vaddr_bounds(start, end)) {
-			up_read(&mm->mmap_sem);
-			pr_err("%s: virtual address %p is out of bounds\n",
-				__func__, data.vaddr);
-			if (!data.handle)
-				ion_free(client, handle);
-			return -EINVAL;
-		}
-
 		ret = ion_do_cache_op(client,
 				data.handle ? data.handle : handle,
 				data.vaddr, data.offset, data.length,
 				cmd);
-
-		up_read(&mm->mmap_sem);
 
 		if (!data.handle)
 			ion_free(client, handle);
