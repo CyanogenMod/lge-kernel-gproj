@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1585,7 +1585,6 @@ static void add_supported_video_format(
 			DEV_DBG("%s: Default resolution %d [%s] supported\n",
 					__func__, video_format,
 					video_format_2string(video_format));
-			external_common_state->default_res_supported = true;
 		}
 	}
 }
@@ -2028,7 +2027,6 @@ int hdmi_common_read_edid(void)
 		sizeof(external_common_state->spkr_alloc_data_block));
 	external_common_state->adb_size = 0;
 	external_common_state->sadb_size = 0;
-	external_common_state->default_res_supported = false;
 
 	status = hdmi_common_read_edid_block(0, edid_buf);
 	if (status || !check_edid_header(edid_buf)) {
