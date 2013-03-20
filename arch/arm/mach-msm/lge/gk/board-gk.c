@@ -3061,6 +3061,7 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_BATTERY_BCL
 	&battery_bcl_device,
 #endif
+	&adsp_loader_device,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
