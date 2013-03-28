@@ -1319,7 +1319,8 @@ static int msm_rotator_rotate_prepare(
 		pr_err("%s() : Attempt to use invalid session_id %d\n",
 			__func__, s);
 		rc = -EINVAL;
-		goto do_rotate_unlock_mutex;
+		mutex_unlock(&msm_rotator_dev->rotator_lock);
+		return rc;
 	}
 
 	img_info = &(msm_rotator_dev->rot_session[s]->img_info);
@@ -1327,7 +1328,8 @@ static int msm_rotator_rotate_prepare(
 		dev_dbg(msm_rotator_dev->device,
 			"%s() : Session_id %d not enabled\n", __func__, s);
 		rc = -EINVAL;
-		goto do_rotate_unlock_mutex;
+		mutex_unlock(&msm_rotator_dev->rotator_lock);
+		return rc;
 	}
 
 	if (msm_rotator_get_plane_sizes(img_info->src.format,
@@ -1336,7 +1338,8 @@ static int msm_rotator_rotate_prepare(
 					&src_planes)) {
 		pr_err("%s: invalid src format\n", __func__);
 		rc = -EINVAL;
-		goto do_rotate_unlock_mutex;
+		mutex_unlock(&msm_rotator_dev->rotator_lock);
+		return rc;
 	}
 	if (msm_rotator_get_plane_sizes(img_info->dst.format,
 					img_info->dst.width,
@@ -1344,7 +1347,8 @@ static int msm_rotator_rotate_prepare(
 					&dst_planes)) {
 		pr_err("%s: invalid dst format\n", __func__);
 		rc = -EINVAL;
-		goto do_rotate_unlock_mutex;
+		mutex_unlock(&msm_rotator_dev->rotator_lock);
+		return rc;
 	}
 
 	rc = get_img(&info.src, ROTATOR_SRC_DOMAIN, (unsigned long *)&in_paddr,
