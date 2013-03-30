@@ -39,7 +39,16 @@ menuconfig BT
 	  utilities like hciconfig and bluetoothd.  These utilities and updates
 	  to Bluetooth kernel modules are provided in the BlueZ packages.  For
 	  more information, see <http://www.bluez.org/>.
+# [S] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
+if BT != n
+config BT_SCO
+	bool "SCO links support"
+	help
+	  SCO link provides voice transport over Bluetooth.  SCO support is
+	  required for voice applications like Headset and Audio.
 
+endif
+# [E] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
 source "net/bluetooth/rfcomm/Kconfig"
 
 source "net/bluetooth/bnep/Kconfig"

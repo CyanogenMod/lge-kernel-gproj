@@ -14,11 +14,15 @@
 #include "msm_sensor.h"
 #include "msm.h"
 #include "msm_sensor_bayer.h"
-#include "imx091.h"
+/* LGE_CHANGE_S, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+// #include "imx091.h"
+/* LGE_CHANGE_E, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
 
 static struct i2c_driver *sensor_i2c_driver[] = {
 	/* back camera */
-	&imx091_i2c_driver,
+/* LGE_CHANGE_S, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+//	&imx091_i2c_driver,
+/* LGE_CHANGE_E, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
 	/* front camera */
 };
 

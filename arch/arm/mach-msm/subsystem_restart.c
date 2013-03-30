@@ -38,6 +38,11 @@
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+#include <mach/restart.h>
+#include <mach/board_lge.h>
+#endif
+
 #include "smd_private.h"
 
 struct subsys_soc_restart_order {
@@ -138,9 +143,14 @@ static struct bus_type subsys_bus_type = {
 static DEFINE_IDA(subsys_ida);
 
 static int enable_ramdumps;
+
 module_param(enable_ramdumps, int, S_IRUGO | S_IWUSR);
 
 struct workqueue_struct *ssr_wq;
+
+#ifdef CONFIG_MACH_LGE
+static int modem_reboot_cnt = 0;
+#endif
 
 static LIST_HEAD(restart_log_list);
 static DEFINE_MUTEX(soc_order_reg_lock);
@@ -180,6 +190,18 @@ static struct subsys_soc_restart_order restart_orders_8960_fusion_sglte = {
 static struct subsys_soc_restart_order *restart_orders_8960_sglte[] = {
 	&restart_orders_8960_fusion_sglte,
 	};
+/* MSM 8960 restart ordering info */
+static const char * const order_8960[] = {"modem", "lpass"};
+
+static struct subsys_soc_restart_order restart_orders_8960_one = {
+	.subsystem_list = order_8960,
+	.count = ARRAY_SIZE(order_8960),
+	.subsys_ptrs = {[ARRAY_SIZE(order_8960)] = NULL}
+	};
+
+static struct subsys_soc_restart_order *restart_orders_8960[] = {
+	&restart_orders_8960_one,
+};
 
 /* These will be assigned to one of the sets above after
  * runtime SoC identification.
@@ -188,6 +210,10 @@ static struct subsys_soc_restart_order **restart_orders;
 static int n_restart_orders;
 
 static int restart_level = RESET_SOC;
+
+#ifdef CONFIG_MACH_LGE
+module_param(modem_reboot_cnt, int, S_IRUGO | S_IWUSR);
+#endif
 
 int get_restart_level()
 {
@@ -402,6 +428,10 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	unsigned count;
 	unsigned long flags;
 
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+	int subsys_magic_key = lge_get_magic_for_subsystem();
+#endif
+
 	if (restart_level != RESET_SUBSYS_INDEPENDENT)
 		soc_restart_order = dev->restart_order;
 
@@ -442,9 +472,13 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	 * who initiated the original restart but has crashed while the restart
 	 * order is being rebooted.
 	 */
-	if (!mutex_trylock(powerup_lock))
+	if (!mutex_trylock(powerup_lock)) {
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+		msm_set_restart_mode(subsys_magic_key|SUB_THD_F_PWR);
+#endif
 		panic("%s[%p]: Subsystem died during powerup!",
 						__func__, current);
+	}
 
 	do_epoch_check(dev);
 
@@ -479,6 +513,10 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	pr_info("[%p]: Restart sequence for %s completed.\n",
 			current, desc->name);
 
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+	lge_set_magic_for_subsystem("clear");
+#endif
+
 	mutex_unlock(powerup_lock);
 
 	mutex_unlock(&soc_order_reg_lock);
@@ -491,6 +529,19 @@ out:
 	wake_unlock(&dev->wake_lock);
 	spin_unlock_irqrestore(&dev->restart_lock, flags);
 }
+
+#ifdef CONFIG_LGE_EMS_CH
+enum {
+	EMS_NO_SUBSYSTEM,			// no subsystem crash was occurred.
+	EMS_SUBSYSTEM_MODEM,		// AP 8k modem subsystem crash was occured.
+	EMS_SUBSYSTEM_RIVA,		
+	EMS_SUBSYSTEM_DSPS,
+	EMS_SUBSYSTEM_LPASS,		// AP lpass subsystem crash was occured.
+	EMS_SUBSYSTEM_MDM,		// mdm  subsystem crash was occurred.	
+	EMS_SUBSYSTEM_OTHER		// this should not be used.	
+};
+int ems_the_kind_of_subsys = EMS_NO_SUBSYSTEM;	// store current subsystem
+#endif
 
 static void __subsystem_restart_dev(struct subsys_device *dev)
 {
@@ -523,6 +574,10 @@ int subsystem_restart_dev(struct subsys_device *dev)
 {
 	const char *name;
 
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+        u32 subsys_magic_key;
+#endif
+
 	if (!get_device(&dev->dev))
 		return -ENODEV;
 
@@ -547,16 +602,71 @@ int subsystem_restart_dev(struct subsys_device *dev)
 	pr_info("Restart sequence requested for %s, restart_level = %d.\n",
 		name, restart_level);
 
-	switch (restart_level) {
+#ifdef CONFIG_MACH_LGE
+	if (!strcmp(name, "external_modem")) {
+		modem_reboot_cnt++;
+		if (modem_reboot_cnt < 0)
+			modem_reboot_cnt = 1;
+	}
+#endif
 
+#ifdef CONFIG_LGE_EMS_CH
+        pr_info("subsys_name = %s", name);
+        if (strncmp("modem", name, 5) == 0)
+        {
+                ems_the_kind_of_subsys = EMS_SUBSYSTEM_MODEM;
+        }
+        else if (strncmp("wcnss", name, 5) == 0)
+        {
+                ems_the_kind_of_subsys = EMS_SUBSYSTEM_RIVA;
+        }
+        else if (strncmp("dsps", name, 4) == 0)
+        {
+                ems_the_kind_of_subsys = EMS_SUBSYSTEM_DSPS;
+        }
+        else if (strncmp("lpass", name, 5) == 0)
+        {
+                ems_the_kind_of_subsys = EMS_SUBSYSTEM_LPASS;
+        }
+        else if (strncmp("external_modem", name, 14) == 0)
+        {
+                ems_the_kind_of_subsys = EMS_SUBSYSTEM_MDM;
+        }
+        else // this should not be happened.
+        {
+                ems_the_kind_of_subsys = EMS_SUBSYSTEM_OTHER;
+                pr_info("%s: Unkown subsystem: Restart sequence requested for  %s\n",
+                                __func__, name);
+        }
+#endif
+
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+	lge_set_magic_for_subsystem(name);
+#endif
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+	subsys_magic_key = lge_get_magic_for_subsystem();
+#endif
+
+	switch (restart_level) {
 	case RESET_SUBSYS_COUPLED:
 	case RESET_SUBSYS_INDEPENDENT:
 		__subsystem_restart_dev(dev);
 		break;
 	case RESET_SOC:
+		// bluetooth.kang@lge.com  Force RIVA SSR level 3
+		if (strncmp("wcnss", name, 5) == 0) {
+			__subsystem_restart_dev(dev);
+			break;	
+		}
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+		msm_set_restart_mode(subsys_magic_key|SUB_RESET_SOC);
+#endif
 		panic("subsys-restart: Resetting the SoC - %s crashed.", name);
 		break;
 	default:
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+		msm_set_restart_mode(subsys_magic_key|SUB_UNKNOWN);
+#endif
 		panic("subsys-restart: Unknown restart level!\n");
 		break;
 	}
@@ -788,8 +898,12 @@ static int __init ssr_init_soc_restart_orders(void)
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
 		restart_orders = restart_orders_8960_sglte;
 		n_restart_orders = ARRAY_SIZE(restart_orders_8960_sglte);
+	}else if(cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
+	    cpu_is_msm9615() || cpu_is_apq8064() || cpu_is_msm8627()) {
+		restart_orders = restart_orders_8960;
+		n_restart_orders = ARRAY_SIZE(restart_orders_8960);
 	}
-
+	
 	for (i = 0; i < n_restart_orders; i++) {
 		mutex_init(&restart_orders[i]->powerup_lock);
 		mutex_init(&restart_orders[i]->shutdown_lock);

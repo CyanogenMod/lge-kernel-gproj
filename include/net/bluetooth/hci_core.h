@@ -424,6 +424,8 @@ enum {
 	HCI_CONN_RSWITCH_PEND,
 	HCI_CONN_MODE_CHANGE_PEND,
 	HCI_CONN_SCO_SETUP_PEND,
+//QCT_Local : Mozen Carkit SCO Noise issue 13.01.03
+	HCI_CONN_CHANGE_LP_DURING_CONNECTION, // jasper disable_sniff
 };
 
 static inline void hci_conn_hash_init(struct hci_dev *hdev)
@@ -615,6 +617,11 @@ void hci_disconnect(struct hci_conn *conn, __u8 reason);
 void hci_disconnect_amp(struct hci_conn *conn, __u8 reason);
 
 void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active);
+// [S] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
+// +s LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO
+void hci_conn_enter_active_mode_no_timer(struct hci_conn *conn);
+// +e LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO
+// [E] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
 void hci_conn_enter_sniff_mode(struct hci_conn *conn);
 
 void hci_conn_hold_device(struct hci_conn *conn);
@@ -623,6 +630,8 @@ void hci_conn_put_device(struct hci_conn *conn);
 void hci_conn_set_rssi_reporter(struct hci_conn *conn,
 		s8 rssi_threshold, u16 interval, u8 updateOnThreshExceed);
 void hci_conn_unset_rssi_reporter(struct hci_conn *conn);
+//QCT_Local : Mozen Carkit SCO Noise issue 13.01.03
+int hci_conn_change_link_policy(struct hci_conn *conn, __u8 lp);  //jasper disable_sniff
 
 static inline void hci_conn_hold(struct hci_conn *conn)
 {

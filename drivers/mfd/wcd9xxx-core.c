@@ -1109,7 +1109,8 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	struct wcd9xxx *wcd9xxx;
 	struct wcd9xxx_pdata *pdata;
 	int ret = 0;
-
+	int sgla_retry_cnt; // [GK][SoundBSP] 2012-10-24 : retry when slim probe fail.
+	
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
 		pdata = wcd9xxx_populate_dt_pdata(&slim->dev);
@@ -1147,6 +1148,9 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		goto err_codec;
 	usleep_range(5, 5);
 
+// [GK][SoundBSP] 2012-10-24 : retry when slim probe fail.
+for(sgla_retry_cnt=0;sgla_retry_cnt<5;sgla_retry_cnt++)
+{
 	ret = wcd9xxx_reset(wcd9xxx);
 	if (ret) {
 		pr_err("%s: Resetting Codec failed\n", __func__);
@@ -1156,11 +1160,23 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	ret = wcd9xxx_slim_get_laddr(wcd9xxx->slim, wcd9xxx->slim->e_addr,
 				     ARRAY_SIZE(wcd9xxx->slim->e_addr),
 				     &wcd9xxx->slim->laddr);
+
+	printk("%s: get slimbus %s [sgla_retry_cnt = %d]\n",
+		       __func__,wcd9xxx->slim->name, sgla_retry_cnt);
+	if (!ret)
+		break;
+	else
+		wcd9xxx_free_reset(wcd9xxx);
+}
+
 	if (ret) {
 		pr_err("%s: failed to get slimbus %s logical address: %d\n",
 		       __func__, wcd9xxx->slim->name, ret);
+		
+		panic("Unable to find wcd9310 codec chip\n"); // [GK][SoundBSP] 2012-10-24 : retry when slim probe fail.
 		goto err_reset;
 	}
+
 	wcd9xxx->read_dev = wcd9xxx_slim_read_device;
 	wcd9xxx->write_dev = wcd9xxx_slim_write_device;
 	wcd9xxx->irq = pdata->irq;

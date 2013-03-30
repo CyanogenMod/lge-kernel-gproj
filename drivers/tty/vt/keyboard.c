@@ -610,7 +610,11 @@ static void fn_show_mem(struct vc_data *vc)
 
 static void fn_show_state(struct vc_data *vc)
 {
+#if 1 /* prevent watchdog bark */ 
+	printk(KERN_INFO "tty doesn't support fn_show_state\n");
+#else 
 	show_state();
+#endif 
 }
 
 static void fn_boot_it(struct vc_data *vc)

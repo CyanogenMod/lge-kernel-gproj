@@ -20,8 +20,19 @@
 static inline void led_set_brightness(struct led_classdev *led_cdev,
 					enum led_brightness value)
 {
+#ifdef CONFIG_LGE_PM_PWM_LED
+	if ((strcmp("led:green",led_cdev->name) == 0) || (strcmp("led:red",led_cdev->name)==0))	{
+		if (value != 0xFE && value > led_cdev->max_brightness)
+			value = led_cdev->max_brightness;
+	}
+	else {
+		if (value > led_cdev->max_brightness)
+			value = led_cdev->max_brightness;
+	}
+#else
 	if (value > led_cdev->max_brightness)
 		value = led_cdev->max_brightness;
+#endif
 	led_cdev->brightness = value;
 	if (!(led_cdev->flags & LED_SUSPENDED))
 		led_cdev->brightness_set(led_cdev, value);

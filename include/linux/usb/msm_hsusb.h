@@ -205,7 +205,7 @@ enum usb_vdd_value {
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
-	int (*vbus_power)(bool on);
+	bool (*vbus_power)(bool on);
 	unsigned power_budget;
 	enum usb_mode_type mode;
 	enum otg_control_type otg_control;
@@ -332,6 +332,9 @@ struct msm_otg {
 	unsigned cur_power;
 	struct delayed_work chg_work;
 	struct delayed_work pmic_id_status_work;
+#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
+	struct delayed_work pmic_id_work;
+#endif
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	u8 dcd_retries;
@@ -379,7 +382,12 @@ struct msm_hsic_host_platform_data {
 	unsigned data;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	unsigned log2_irq_thresh;
+
+	/*swfi latency is required while driving resume on to the bus */
 	u32 swfi_latency;
+
+	/*standalone latency is required when HSCI is active*/
+	u32 standalone_latency;
 };
 
 struct msm_usb_host_platform_data {

@@ -866,7 +866,12 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 			 */
 			limit_us = 3000000;
 		else
+#ifdef CONFIG_MACH_LGE
+            /* LGE_UPDATE_S apply D1L patch */
+            limit_us = 300000;
+#else
 			limit_us = 100000;
+#endif
 
 		/*
 		 * SDHC cards always use these fixed values.
@@ -1478,6 +1483,7 @@ void mmc_power_up(struct mmc_host *host)
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
 	 */
+	/* DGMS MC-C05409-5 SD Card re-init fail */
 	mmc_delay(10);
 
 	host->ios.clock = host->f_init;
@@ -1489,6 +1495,7 @@ void mmc_power_up(struct mmc_host *host)
 	 * This delay must be at least 74 clock sizes, or 1 ms, or the
 	 * time required to reach a stable voltage.
 	 */
+	/* DGMS MC-C05409-5 SD Card re-init fail */
 	mmc_delay(10);
 
 	mmc_host_clk_release(host);

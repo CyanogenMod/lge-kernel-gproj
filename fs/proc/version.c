@@ -32,3 +32,10 @@ static int __init proc_version_init(void)
 	return 0;
 }
 module_init(proc_version_init);
+
+static int __init ccs_show_version(void)
+{
+	printk(KERN_INFO "Hook version: 3.4.7 2012/08/02\n");
+	return 0;
+}
+module_init(ccs_show_version);

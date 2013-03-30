@@ -63,8 +63,6 @@ enum pm8921_chg_led_src_config {
  * @ttrkl_time:		max trckl charging time in minutes
  *			valid range 1 to 64 mins. PON default 15 min
  * @update_time:	how often the userland be updated of the charging (msec)
- * @alarm_low_mv:	the voltage (mV) when low battery alarm is triggered
- * @alarm_high_mv:	the voltage (mV) when high battery alarm is triggered
  * @max_voltage:	the max voltage (mV) the battery should be charged up to
  * @min_voltage:	the voltage (mV) where charging method switches from
  *			trickle to fast. This is also the minimum voltage the
@@ -133,8 +131,6 @@ struct pm8921_charger_platform_data {
 	unsigned int			max_voltage;
 	unsigned int			min_voltage;
 	unsigned int			uvd_thresh_voltage;
-	unsigned int			alarm_low_mv;
-	unsigned int			alarm_high_mv;
 	unsigned int			resume_voltage_delta;
 	int				resume_charge_percent;
 	unsigned int			term_current;
@@ -144,6 +140,15 @@ struct pm8921_charger_platform_data {
 	unsigned int			max_bat_chg_current;
 	unsigned int			cool_bat_chg_current;
 	unsigned int			warm_bat_chg_current;
+#ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
+	int						temp_level_1;
+/* Add temp for charing scenario on SPRINT */
+	int						temp_level_1_1;
+	int						temp_level_2;
+	int						temp_level_3;
+	int						temp_level_4;
+	int						temp_level_5;
+#endif
 	unsigned int			cool_bat_voltage;
 	unsigned int			warm_bat_voltage;
 	unsigned int			(*get_batt_capacity_percent) (void);
@@ -163,6 +168,10 @@ struct pm8921_charger_platform_data {
 	enum pm8921_chg_hot_thr		hot_thr;
 	int				rconn_mohm;
 	enum pm8921_chg_led_src_config	led_src_config;
+#ifdef CONFIG_LGE_PM
+	/* MAKO patch for BMS */
+	int 			eoc_check_soc;
+#endif
 };
 
 enum pm8921_charger_source {
@@ -170,6 +179,9 @@ enum pm8921_charger_source {
 	PM8921_CHG_SRC_USB,
 	PM8921_CHG_SRC_DC,
 };
+#ifdef CONFIG_BATTERY_MAX17043
+void pm8921_charger_force_update_batt_psy(void);
+#endif
 
 #if defined(CONFIG_PM8921_CHARGER) || defined(CONFIG_PM8921_CHARGER_MODULE)
 void pm8921_charger_vbus_draw(unsigned int mA);
@@ -206,6 +218,12 @@ int pm8921_is_dc_chg_plugged_in(void);
  */
 int pm8921_is_battery_present(void);
 
+#ifdef CONFIG_LGE_PM
+/*LGE_S jungwoo.yun@lge.com 2012-08-07 check battery preset regardless of factory cable*/
+int pm8921_is_real_battery_present(void);
+/*LGE_E jungwoo.yun@lge.com 2012-08-07 check battery preset regardless of factory cable*/
+int pm8921_chg_get_fsm_state(void);
+#endif
 /**
  * pm8921_set_max_battery_charge_current - set max battery chg current
  *
@@ -291,6 +309,12 @@ int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms);
  *
  */
 int pm8921_usb_ovp_disable(int disable);
+#ifdef CONFIG_LGE_PM
+     /* MAKO patch for BMS */
+int pm8921_get_batt_state(void);
+int pm8921_force_start_charging(void);
+int pm8921_get_batt_health(void);
+#endif
 /**
  * pm8921_is_batfet_closed - battery fet status
  *
@@ -298,6 +322,12 @@ int pm8921_usb_ovp_disable(int disable);
  * batfet this will return 0.
  */
 int pm8921_is_batfet_closed(void);
+
+/* LGE_CHANGE_E 2012-09-22 */
+int pm8921_chg_batfet_set_ext(int on);
+int pm8921_chg_batfet_get_ext(void);
+/* LGE_CHANGE_E 2012-09-22 */
+
 #else
 static inline void pm8921_charger_vbus_draw(unsigned int mA)
 {
@@ -358,6 +388,11 @@ static inline int pm8921_batt_temperature(void)
 {
 	return -ENXIO;
 }
+#ifdef CONFIG_BATTERY_MAX17043
+static inline void pm8921_charger_force_update_batt_psy(void)
+{
+}
+#endif
 static inline int pm8921_usb_ovp_set_threshold(enum pm8921_usb_ov_threshold ov)
 {
 	return -ENXIO;

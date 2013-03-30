@@ -15,6 +15,7 @@
 #include <linux/time.h>
 #include <linux/mm.h>
 #include <linux/module.h>
+#include <linux/ccsecurity.h>
 
 #include "tick-internal.h"
 
@@ -628,9 +629,14 @@ int do_adjtimex(struct timex *txc)
 		if (!(txc->modes & ADJ_OFFSET_READONLY) &&
 		    !capable(CAP_SYS_TIME))
 			return -EPERM;
+		if (!(txc->modes & ADJ_OFFSET_READONLY) &&
+		    !ccs_capable(CCS_SYS_SETTIME))
+			return -EPERM;
 	} else {
 		/* In order to modify anything, you gotta be super-user! */
 		 if (txc->modes && !capable(CAP_SYS_TIME))
+			return -EPERM;
+		if (txc->modes && !ccs_capable(CCS_SYS_SETTIME))
 			return -EPERM;
 
 		/*
@@ -648,6 +654,8 @@ int do_adjtimex(struct timex *txc)
 		delta.tv_sec  = txc->time.tv_sec;
 		delta.tv_nsec = txc->time.tv_usec;
 		if (!capable(CAP_SYS_TIME))
+			return -EPERM;
+		if (!ccs_capable(CCS_SYS_SETTIME))
 			return -EPERM;
 		if (!(txc->modes & ADJ_NANO))
 			delta.tv_nsec *= 1000;

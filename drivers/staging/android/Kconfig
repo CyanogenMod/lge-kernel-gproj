@@ -32,11 +32,18 @@ config ANDROID_PERSISTENT_RAM
 	select REED_SOLOMON_ENC8
 	select REED_SOLOMON_DEC8
 
+choice
+	prompt "Android RAM Console Type"
+	default ANDROID_RAM_CONSOLE
 config ANDROID_RAM_CONSOLE
 	bool "Android RAM buffer console"
 	depends on !S390 && !UML && HAVE_MEMBLOCK
 	select ANDROID_PERSISTENT_RAM
-	default n
+config ANDROID_NEW_RAM_CONSOLE
+	bool "Android NEW RAM buffer console"
+	depends on !S390 && !UML && HAVE_MEMBLOCK
+	select ANDROID_PERSISTENT_RAM
+endchoice
 
 config PERSISTENT_TRACER
 	bool "Persistent function tracer"
@@ -66,6 +73,15 @@ config ANDROID_LOW_MEMORY_KILLER
 	default N
 	---help---
 	  Register processes to be killed when memory is low
+
+config ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
+	bool "Android Low Memory Killer: detect oom_adj values"
+	depends on ANDROID_LOW_MEMORY_KILLER
+	default y
+	---help---
+	  Detect oom_adj values written to
+	  /sys/module/lowmemorykiller/parameters/adj and convert them
+	  to oom_score_adj values.
 
 source "drivers/staging/android/switch/Kconfig"
 

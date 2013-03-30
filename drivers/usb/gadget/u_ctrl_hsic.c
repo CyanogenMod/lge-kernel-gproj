@@ -34,7 +34,12 @@
 #define ACM_CTRL_DCD		(1 << 0)
 
 
+#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_MSM_HSIC_TTY)
+/* Skip "dun_ctrl_hsic0" */
+static unsigned int	no_ctrl_ports = 1;
+#else
 static unsigned int	no_ctrl_ports;
+#endif
 
 static const char	*ctrl_bridge_names[] = {
 	"dun_ctrl_hsic0",

@@ -74,7 +74,9 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	mfd = platform_get_drvdata(pdev);
 	pinfo = &mfd->panel_info;
 
-	if (mdp_rev >= MDP_REV_41)
+	printk(KERN_INFO"%s is started.. \n", __func__);
+
+	if (mdp_rev >= MDP_REV_41 && mfd->panel_info.type == MIPI_CMD_PANEL)
 		mutex_lock(&mfd->dma->ov_mutex);
 	else
 		down(&mfd->dma->mutex);
@@ -92,7 +94,14 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	 * Desctiption: change to DSI_CMD_MODE since it needed to
 	 * tx DCS dsiplay off comamnd to panel
 	 */
+
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT) \
+	|| defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT) \
+       || defined(CONFIG_FB_MSM_MIPI_DSI_LGIT_FHD)
+	//for power sequence of lgit panel
+#else
 	mipi_dsi_op_mode_config(DSI_CMD_MODE);
+#endif
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {
@@ -104,7 +113,13 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		}
 	}
 
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT) \
+	|| defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT) \
+       || defined(CONFIG_FB_MSM_MIPI_DSI_LGIT_FHD)
+	//for power sequence of lgit panel.
+#else
 	ret = panel_next_off(pdev);
+#endif
 
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
@@ -123,13 +138,14 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(0);
 
-	if (mdp_rev >= MDP_REV_41)
+	if (mdp_rev >= MDP_REV_41 && mfd->panel_info.type == MIPI_CMD_PANEL)
 		mutex_unlock(&mfd->dma->ov_mutex);
 	else
 		up(&mfd->dma->mutex);
 
 	pr_debug("End of %s ....:\n", __func__);
 
+	printk(KERN_INFO"%s is ended.. \n", __func__);
 	return ret;
 }
 
@@ -154,6 +170,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	var = &fbi->var;
 	pinfo = &mfd->panel_info;
 	esc_byte_ratio = pinfo->mipi.esc_byte_ratio;
+	printk(KERN_INFO"%s is started.. \n", __func__);
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(1);
@@ -258,10 +275,32 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		mutex_lock(&mfd->dma->ov_mutex);
 	else
 		down(&mfd->dma->mutex);
+#if defined(CONFIG_MACH_LGE)
+/* LGE_CHANGE
+ * in case of WXGA panel,
+ * video mode MUST NOT be set prior to power_on_cmd seq.
+ * 2012-09-01 chaeuk.lee@lge.com
+ */
+	ret = panel_next_on(pdev);
+	if (ret < 0)
+	{
+		if (mdp_rev >= MDP_REV_41)
+			mutex_unlock(&mfd->dma->ov_mutex);
+		else
+			up(&mfd->dma->mutex);
 
+		return ret;
+	} else {
+		ret = 0;
+	}
+	#if defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT) || defined(CONFIG_FB_MSM_MIPI_DSI_LGIT_FHD)
+	mipi_dsi_op_mode_config(mipi->mode);
+	#endif
+#else
 	ret = panel_next_on(pdev);
 
 	mipi_dsi_op_mode_config(mipi->mode);
+#endif
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {
@@ -322,7 +361,8 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	else
 		up(&mfd->dma->mutex);
 
-	pr_debug("End of %s....:\n", __func__);
+        pr_debug("End of %s....:\n", __func__);
+	printk(KERN_INFO"%s is ended.. \n", __func__);
 
 	return ret;
 }

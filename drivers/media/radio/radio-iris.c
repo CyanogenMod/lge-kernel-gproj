@@ -2800,7 +2800,8 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 				return retval;
 			}
 			radio->mode = FM_RECV;
-			radio->mute_mode.soft_mute = CTRL_ON;
+			//radio->mute_mode.soft_mute = CTRL_ON;
+                        radio->mute_mode.soft_mute = CTRL_OFF;
 			retval = hci_set_fm_mute_mode(
 						&radio->mute_mode,
 							radio->fm_hdev);

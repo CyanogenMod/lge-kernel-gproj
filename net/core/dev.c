@@ -5715,11 +5715,23 @@ static void netdev_wait_allrefs(struct net_device *dev)
 
 		refcnt = netdev_refcnt_read(dev);
 
+#if 1 /* LGE workaround */
+        if (time_after(jiffies, warning_time + 3 * HZ)) {
+            pr_emerg("unregister_netdevice: %s timeout. Usage count = %d\n",
+                    dev->name, refcnt);
+            if (refcnt)
+            {
+                dev_put(dev);
+                refcnt = netdev_refcnt_read(dev);
+            }
+        }
+#else
 		if (time_after(jiffies, warning_time + 10 * HZ)) {
 			pr_emerg("unregister_netdevice: waiting for %s to become free. Usage count = %d\n",
 				 dev->name, refcnt);
 			warning_time = jiffies;
 		}
+#endif
 	}
 }
 

@@ -30,6 +30,24 @@
 #include "msm_fb.h"
 #include "hdmi_msm.h"
 
+#ifdef CONFIG_SLIMPORT_ANX7808
+//#include "../../misc/slimport_anx7808/slimport.h"
+#include <linux/slimport.h>
+#endif
+
+/* LGE_CHANGE
+ * do device driver initialization
+ * using multithread during booting,
+ * in order to reduce booting time.
+ *
+ * ported from G1-project
+ * 2012-11-29, chaeuk.lee@lge.com
+ */
+#define LGE_MULTICORE_FASTBOOT
+#if defined(CONFIG_MACH_LGE) && defined(LGE_MULTICORE_FASTBOOT)
+#include <linux/kthread.h>
+#endif
+
 /* Supported HDMI Audio channels */
 #define MSM_HDMI_AUDIO_CHANNEL_2		0
 #define MSM_HDMI_AUDIO_CHANNEL_4		1
@@ -964,10 +982,12 @@ int hdmi_msm_process_hdcp_interrupts(void)
 			& ~((1 << 6) | (1 << 4)));
 		DEV_INFO("HDCP: AUTH_FAIL_INT received, LINK0_STATUS=0x%08x\n",
 			link_status);
-		if (hdmi_msm_state->full_auth_done) {
+		if (hdmi_msm_state->full_auth_done) {			
+#ifndef CONFIG_LGE_HDMI_NO_SWITCH_STATE_SET /* not to broadcast connect/disconnect event to app.*/			
 			switch_set_state(&external_common_state->sdev, 0);
 			DEV_INFO("Hdmi state switched to %d: %s\n",
 				external_common_state->sdev.state,  __func__);
+#endif
 
 			envp[0] = "HDCP_STATE=FAIL";
 			envp[1] = NULL;
@@ -2147,6 +2167,10 @@ static int hdmi_msm_read_edid(void)
 	}
 
 	external_common_state->read_edid_block = hdmi_msm_read_edid_block;
+#ifdef CONFIG_SLIMPORT_ANX7808
+	external_common_state->read_edid_block = slimport_read_edid_block;
+#endif
+
 	status = hdmi_common_read_edid();
 	if (!status)
 		DEV_DBG("EDID: successfully read\n");
@@ -3088,9 +3112,11 @@ static void hdmi_msm_hdcp_enable(void)
 		    KOBJ_CHANGE, envp);
 	}
 
+#ifndef CONFIG_LGE_HDMI_NO_SWITCH_STATE_SET /* not to broadcast connect/disconnect event to app.*/
 	switch_set_state(&external_common_state->sdev, 1);
 	DEV_INFO("Hdmi state switched to %d: %s\n",
 		external_common_state->sdev.state, __func__);
+#endif
 	return;
 
 error:
@@ -3110,9 +3136,11 @@ error:
 			queue_work(hdmi_work_queue,
 			    &hdmi_msm_state->hdcp_reauth_work);
 	}
+#ifndef CONFIG_LGE_HDMI_NO_SWITCH_STATE_SET /* not to broadcast connect/disconnect event to app.*/	
 	switch_set_state(&external_common_state->sdev, 0);
 	DEV_INFO("Hdmi state switched to %d: %s\n",
 		external_common_state->sdev.state, __func__);
+#endif
 }
 
 static void hdmi_msm_video_setup(int video_format)
@@ -3703,8 +3731,14 @@ static uint8 hdmi_msm_avi_iframe_lut[][16] = {
 	 0x10,	0x10,	0x10,	0x10,	0x10, 0x10, 0x10}, /*00*/
 	{0x18,	0x18,	0x28,	0x28,	0x28,	 0x28,	0x28,	0x28,	0x28,
 	 0x28,	0x28,	0x28,	0x28,	0x18, 0x28, 0x18}, /*01*/
+ /*  QCT patch to fix avi information frame issue for MHL compliance test */
+#ifdef CONFIG_MACH_LGE
+	{0x00,  0x00,   0x00,   0x00,   0x00,    0x00,  0x00,   0x00,   0x00,
+	 0x00,  0x00,   0x00,   0x00,   0x00, 0x00, 0x00}, /*02*/
+#else
 	{0x00,	0x04,	0x04,	0x04,	0x04,	 0x04,	0x04,	0x04,	0x04,
 	 0x04,	0x04,	0x04,	0x04,	0x88, 0x00, 0x04}, /*02*/
+#endif
 	{0x02,	0x06,	0x11,	0x15,	0x04,	 0x13,	0x10,	0x05,	0x1F,
 	 0x14,	0x20,	0x22,	0x21,	0x01, 0x03, 0x11}, /*03*/
 	{0x00,	0x01,	0x00,	0x01,	0x00,	 0x00,	0x00,	0x00,	0x00,
@@ -4391,6 +4425,7 @@ static int hdmi_msm_power_ctrl(boolean enable)
 {
 	int rc = 0;
 
+#ifndef CONFIG_MACH_LGE
 	if (enable) {
 		/*
 		 * Enable HPD only if the UI option is on or if
@@ -4405,7 +4440,7 @@ static int hdmi_msm_power_ctrl(boolean enable)
 		DEV_DBG("%s: Turning HPD ciruitry off\n", __func__);
 		hdmi_msm_hpd_off();
 	}
-
+#endif
 	return rc;
 }
 
@@ -4449,6 +4484,12 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 	return 0;
 }
 
+/* LGE_CHANGE
+ * not used api
+ * (feature CONFIG_FB_MSM_HDMI_MHL_8334 is disabled)
+ * 2012-09-07, chaeuk.lee@lge.com
+ */
+#ifdef CONFIG_FB_MSM_HDMI_MHL_8334
 void mhl_connect_api(boolean on)
 {
 	char *envp[2];
@@ -4491,6 +4532,7 @@ void mhl_connect_api(boolean on)
 	}
 }
 EXPORT_SYMBOL(mhl_connect_api);
+#endif /* CONFIG_FB_MSM_HDMI_MHL_8334 */
 
 /* Note that power-off will also be called when the cable-remove event is
  * processed on the user-space and as a result the framebuffer is powered
@@ -4517,7 +4559,15 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 	hdcp_deauthenticate();
 	hdmi_msm_powerdown_phy();
 
+#ifdef CONFIG_MACH_LGE
+	mutex_lock(&external_common_state_hpd_mutex);
+	if (!external_common_state->hpd_feature_on)
+		hdmi_msm_hpd_off();
+	mutex_unlock(&external_common_state_hpd_mutex);
+#endif
+
 	hdmi_msm_state->panel_power_on = FALSE;
+
 	return 0;
 }
 
@@ -4547,6 +4597,39 @@ void hdmi_msm_config_hdcp_feature(void)
 	DEV_INFO("%s: HDCP Feature: %s\n", __func__,
 			hdmi_msm_state->hdcp_enable ? "Enabled" : "Disabled");
 }
+
+#if defined(CONFIG_MACH_LGE) && defined(LGE_MULTICORE_FASTBOOT)
+static int hdmi_msm_probe_thread(void *arg)
+{
+	hdmi_msm_hpd_on();
+
+	if (!hdmi_prim_display) {
+		msleep(2);
+		hdmi_msm_hpd_off();
+	}
+
+	DEV_INFO("HDMI HPD: ON\n");
+
+	hdmi_msm_config_hdcp_feature();
+
+	/* Initialize hdmi node and register with switch driver */
+	if (hdmi_prim_display)
+		external_common_state->sdev.name = "hdmi_as_primary";
+	else
+		external_common_state->sdev.name = "hdmi";
+	if (switch_dev_register(&external_common_state->sdev) < 0)
+		DEV_ERR("Hdmi switch registration failed\n");
+
+	/* Set the default video resolution for MHL-enabled display */
+	if (hdmi_msm_state->is_mhl_enabled) {
+		DEV_DBG("MHL Enabled. Restricting default video resolution\n");
+		external_common_state->video_resolution =
+			HDMI_VFRMT_1920x1080p30_16_9;
+	}
+
+	return 0;
+}
+#endif
 
 static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 {
@@ -4680,11 +4763,33 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 	} else
 		DEV_ERR("Init FAILED: failed to add fb device\n");
 
+#if defined(CONFIG_MACH_LGE) && defined(LGE_MULTICORE_FASTBOOT)
+	{
+		struct task_struct *th;
+		th = kthread_create(hdmi_msm_probe_thread, NULL, "hdmi_msm_probe");
+		if (IS_ERR(th)) {
+			rc = PTR_ERR(th);
+			goto error;
+		}
+		wake_up_process(th);
+		return 0;
+	}
+#else
 	if (hdmi_prim_display) {
 		rc = hdmi_msm_hpd_on();
 		if (rc)
 			goto error;
 	}
+#ifdef CONFIG_MACH_LGE
+	else {
+		//hdmi_msm_hpd_on(false);
+                hdmi_msm_hpd_on();   //FIXME
+		msleep(2);
+		hdmi_msm_hpd_off();
+	}
+#endif
+
+	DEV_INFO("HDMI HPD: ON\n");
 
 	hdmi_msm_config_hdcp_feature();
 
@@ -4703,6 +4808,7 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 			HDMI_VFRMT_1920x1080p30_16_9;
 	}
 	return 0;
+#endif /* CONFIG_MACH_LGE && LGE_MULTICORE_FASTBOOT */
 
 error:
 	if (hdmi_msm_state->qfprom_io)
@@ -4823,12 +4929,13 @@ static int __init hdmi_msm_init(void)
 
 	external_common_state = &hdmi_msm_state->common;
 
-	if (hdmi_prim_display && hdmi_prim_resolution)
-		external_common_state->video_resolution =
-			hdmi_prim_resolution - 1;
-	else
-		external_common_state->video_resolution =
-			HDMI_VFRMT_1920x1080p60_16_9;
+#ifdef CONFIG_MACH_LGE
+	external_common_state->video_resolution = LGE_DEFAULT_HDMI_VIDEO_RESOLUTION;
+	external_common_state->hpd_feature_on = 0;
+	external_common_state->boot_completed = 0;
+#else /* below the original */
+	external_common_state->video_resolution = HDMI_VFRMT_1920x1080p60_16_9;
+#endif
 
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	external_common_state->switch_3d = hdmi_msm_switch_3d;

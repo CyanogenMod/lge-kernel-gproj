@@ -1,0 +1,15 @@
+#
+# Inlcude the specific Kconfig file for LGE board
+#
+
+# J1V
+source "arch/arm/mach-msm/lge/j1/Kconfig"
+
+# GK
+source "arch/arm/mach-msm/lge/gk/Kconfig"
+
+# GV
+source "arch/arm/mach-msm/lge/gv/Kconfig"
+
+config MACH_LGE_DUMMY
+	bool "NONE (No device)"

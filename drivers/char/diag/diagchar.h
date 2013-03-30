@@ -13,6 +13,9 @@
 #ifndef DIAGCHAR_H
 #define DIAGCHAR_H
 
+//#define DEBUG
+//#define DIAG_DEBUG
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/mempool.h>
@@ -29,6 +32,7 @@
 #define IN_BUF_SIZE		16384
 #define MAX_IN_BUF_SIZE	32768
 #define MAX_SYNC_OBJ_NAME_SIZE	32
+#define UINT32_MAX	UINT_MAX
 /* Size of the buffer used for deframing a packet
   reveived from the PC tool*/
 #define HDLC_MAX 4096

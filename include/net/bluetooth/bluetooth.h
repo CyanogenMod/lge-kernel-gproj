@@ -286,10 +286,14 @@ extern void bt_sysfs_cleanup(void);
 
 extern struct dentry *bt_debugfs;
 
+
 int l2cap_init(void);
 void l2cap_exit(void);
 
+
+
 int sco_init(void);
 void sco_exit(void);
+
 
 #endif /* __BLUETOOTH_H */

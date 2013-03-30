@@ -38,6 +38,15 @@
 #endif
 #include <linux/timer.h>
 
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+#include <linux/platform_device.h>
+#include "diag_lock.h"
+#endif
+
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE_ONLY_MDM
+#include <mach/board_lge.h>
+#endif
+
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("1.0");
@@ -343,7 +352,7 @@ void diag_clear_reg(int proc_num)
 }
 
 void diag_add_reg(int j, struct bindpkt_params *params,
-					  int *success, int *count_entries)
+			int *success, unsigned int *count_entries)
 {
 	*success = 1;
 	driver->table[j].cmd_code = params->cmd_code;
@@ -368,77 +377,152 @@ void diag_add_reg(int j, struct bindpkt_params *params,
 long diagchar_ioctl(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
-	int i, j, count_entries = 0, temp;
-	int success = -1;
+	int i, j, temp, success = -1, status;
+	unsigned int count_entries = 0, interim_count = 0;
 	void *temp_buf;
 	uint16_t support_list = 0;
-	struct dci_notification_tbl *notify_params;
-	int status;
+	struct dci_notification_tbl *dci_params;
 
 	if (iocmd == DIAG_IOCTL_COMMAND_REG) {
-		struct bindpkt_params_per_process *pkt_params =
-			 (struct bindpkt_params_per_process *) ioarg;
+		struct bindpkt_params_per_process pkt_params;
+		struct bindpkt_params *params;
+		struct bindpkt_params *head_params;
+		if (copy_from_user(&pkt_params, (void *)ioarg,
+			   sizeof(struct bindpkt_params_per_process))) {
+			return -EFAULT;
+		}
+		if ((UINT32_MAX/sizeof(struct bindpkt_params)) <
+							 pkt_params.count) {
+			pr_warning("diag: integer overflow while multiply\n");
+			return -EFAULT;
+		}
+		params = kzalloc(pkt_params.count*sizeof(
+			struct bindpkt_params), GFP_KERNEL);
+		if (!params) {
+			pr_err("diag: unable to alloc memory\n");
+			return -ENOMEM;
+		} else
+			head_params = params;
+
+		if (copy_from_user(params, pkt_params.params,
+			   pkt_params.count*sizeof(struct bindpkt_params))) {
+			kfree(head_params);
+			return -EFAULT;
+		}
 		mutex_lock(&driver->diagchar_mutex);
 		for (i = 0; i < diag_max_reg; i++) {
 			if (driver->table[i].process_id == 0) {
-				diag_add_reg(i, pkt_params->params,
-						&success, &count_entries);
-				if (pkt_params->count > count_entries) {
-					pkt_params->params++;
+				diag_add_reg(i, params,
+					     &success, &count_entries);
+				if (pkt_params.count > count_entries) {
+					params++;
 				} else {
 					mutex_unlock(&driver->diagchar_mutex);
+					kfree(head_params);
 					return success;
 				}
 			}
 		}
 		if (i < diag_threshold_reg) {
 			/* Increase table size by amount required */
-			diag_max_reg += pkt_params->count -
+			if (pkt_params.count >= count_entries) {
+				interim_count = pkt_params.count -
 							 count_entries;
+			} else {
+				pr_warning("diag: error in params count\n");
+				kfree(head_params);
+				mutex_unlock(&driver->diagchar_mutex);
+				return -EFAULT;
+			}
+			if (UINT32_MAX - diag_max_reg >=
+							interim_count) {
+				diag_max_reg += interim_count;
+			} else {
+				pr_warning("diag: Integer overflow\n");
+				kfree(head_params);
+				mutex_unlock(&driver->diagchar_mutex);
+				return -EFAULT;
+			}
 			/* Make sure size doesnt go beyond threshold */
 			if (diag_max_reg > diag_threshold_reg) {
 				diag_max_reg = diag_threshold_reg;
 				pr_info("diag: best case memory allocation\n");
 			}
+			if (UINT32_MAX/sizeof(struct diag_master_table) <
+								 diag_max_reg) {
+				pr_warning("diag: integer overflow\n");
+				kfree(head_params);
+				mutex_unlock(&driver->diagchar_mutex);
+				return -EFAULT;
+			}
 			temp_buf = krealloc(driver->table,
 					 diag_max_reg*sizeof(struct
 					 diag_master_table), GFP_KERNEL);
 			if (!temp_buf) {
-				diag_max_reg -= pkt_params->count -
-							 count_entries;
-				pr_alert("diag: Insufficient memory for reg.");
+				pr_alert("diag: Insufficient memory for reg.\n");
 				mutex_unlock(&driver->diagchar_mutex);
+
+				if (pkt_params.count >= count_entries) {
+					interim_count = pkt_params.count -
+								 count_entries;
+				} else {
+					pr_warning("diag: params count error\n");
+					mutex_unlock(&driver->diagchar_mutex);
+					kfree(head_params);
+					return -EFAULT;
+				}
+				if (diag_max_reg >= interim_count) {
+					diag_max_reg -= interim_count;
+				} else {
+					pr_warning("diag: Integer underflow\n");
+					mutex_unlock(&driver->diagchar_mutex);
+					kfree(head_params);
+					return -EFAULT;
+				}
+				kfree(head_params);
 				return 0;
 			} else {
 				driver->table = temp_buf;
 			}
 			for (j = i; j < diag_max_reg; j++) {
-				diag_add_reg(j, pkt_params->params,
+				diag_add_reg(j, params,
 						&success, &count_entries);
-				if (pkt_params->count > count_entries) {
-					pkt_params->params++;
+				if (pkt_params.count > count_entries) {
+					params++;
 				} else {
 					mutex_unlock(&driver->diagchar_mutex);
+					kfree(head_params);
 					return success;
 				}
 			}
+			kfree(head_params);
 			mutex_unlock(&driver->diagchar_mutex);
 		} else {
 			mutex_unlock(&driver->diagchar_mutex);
+			kfree(head_params);
 			pr_err("Max size reached, Pkt Registration failed for"
 						" Process %d", current->tgid);
 		}
 		success = 0;
 	} else if (iocmd == DIAG_IOCTL_GET_DELAYED_RSP_ID) {
-		struct diagpkt_delay_params *delay_params =
-					(struct diagpkt_delay_params *) ioarg;
-
-		if ((delay_params->rsp_ptr) &&
-		 (delay_params->size == sizeof(delayed_rsp_id)) &&
-				 (delay_params->num_bytes_ptr)) {
-			*((uint16_t *)delay_params->rsp_ptr) =
-				DIAGPKT_NEXT_DELAYED_RSP_ID(delayed_rsp_id);
-			*(delay_params->num_bytes_ptr) = sizeof(delayed_rsp_id);
+		struct diagpkt_delay_params delay_params;
+		uint16_t interim_rsp_id;
+		int interim_size;
+		if (copy_from_user(&delay_params, (void *)ioarg,
+					   sizeof(struct diagpkt_delay_params)))
+			return -EFAULT;
+		if ((delay_params.rsp_ptr) &&
+		 (delay_params.size == sizeof(delayed_rsp_id)) &&
+				 (delay_params.num_bytes_ptr)) {
+			interim_rsp_id = DIAGPKT_NEXT_DELAYED_RSP_ID(
+							delayed_rsp_id);
+			if (copy_to_user((void *)delay_params.rsp_ptr,
+					 &interim_rsp_id, sizeof(uint16_t)))
+				return -EFAULT;
+			interim_size = sizeof(delayed_rsp_id);
+			if (copy_to_user((void *)delay_params.num_bytes_ptr,
+						 &interim_size, sizeof(int)))
+				return -EFAULT;
 			success = 0;
 		}
 	} else if (iocmd == DIAG_IOCTL_DCI_REG) {
@@ -446,7 +530,15 @@ long diagchar_ioctl(struct file *filp,
 			return DIAG_DCI_NO_REG;
 		if (driver->num_dci_client >= MAX_DCI_CLIENT)
 			return DIAG_DCI_NO_REG;
-		notify_params = (struct dci_notification_tbl *) ioarg;
+		dci_params = kzalloc(sizeof(struct dci_notification_tbl),
+								 GFP_KERNEL);
+		if (dci_params == NULL) {
+			pr_err("diag: unable to alloc memory\n");
+			return -ENOMEM;
+		}
+		if (copy_from_user(dci_params, (void *)ioarg,
+				 sizeof(struct dci_notification_tbl)))
+			return -EFAULT;
 		mutex_lock(&driver->dci_mutex);
 		driver->num_dci_client++;
 		pr_debug("diag: id = %d\n", driver->dci_client_id);
@@ -455,13 +547,14 @@ long diagchar_ioctl(struct file *filp,
 			if (driver->dci_notify_tbl[i].client == NULL) {
 				driver->dci_notify_tbl[i].client = current;
 				driver->dci_notify_tbl[i].list =
-							 notify_params->list;
+							 dci_params->list;
 				driver->dci_notify_tbl[i].signal_type =
-					 notify_params->signal_type;
+					 dci_params->signal_type;
 				break;
 			}
 		}
 		mutex_unlock(&driver->dci_mutex);
+		kfree(dci_params);
 		return driver->dci_client_id;
 	} else if (iocmd == DIAG_IOCTL_DCI_DEINIT) {
 		success = -1;
@@ -950,13 +1043,20 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			      size_t count, loff_t *ppos)
 {
 	int err, ret = 0, pkt_type;
+
+#ifdef CONFIG_LGE_DM_APP
+	char *buf_cmp;
+#endif
+
 #ifdef DIAG_DEBUG
+#if 0
 	int length = 0, i;
+#endif
 #endif
 	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 	void *buf_copy = NULL;
-	int payload_size;
+	unsigned int payload_size;
 #ifdef CONFIG_DIAG_OVER_USB
 	if (((driver->logging_mode == USB_MODE) && (!driver->usb_connected)) ||
 				(driver->logging_mode == NO_LOGGING_MODE)) {
@@ -967,7 +1067,26 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	/* Get the packet type F3/log/event/Pkt response */
 	err = copy_from_user((&pkt_type), buf, 4);
 	/* First 4 bytes indicate the type of payload - ignore these */
+	if (count < 4) {
+		pr_err("diag: Client sending short data\n");
+		return -EBADMSG;
+	}
 	payload_size = count - 4;
+	if (payload_size > USER_SPACE_DATA) {
+		pr_err("diag: Dropping packet, packet payload size crosses 8KB limit. Current payload size %d\n",
+				payload_size);
+		driver->dropped_count++;
+		return -EBADMSG;
+	}
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		/* only diag cmd #250 for supporting testmode tool */
+		buf_cmp = (char *)buf + 4;
+		if (*(buf_cmp) != 0xFA)
+			return 0;
+	}
+#endif
 
 	if (pkt_type == DCI_DATA_TYPE) {
 		err = copy_from_user(driver->user_space_data, buf + 4,
@@ -993,8 +1112,12 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		buf = buf + 4;
 #ifdef DIAG_DEBUG
 		pr_debug("diag: user space data %d\n", payload_size);
+#if 1
+        print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 16, 1, driver->user_space_data, payload_size, 1);
+#else
 		for (i = 0; i < payload_size; i++)
 			pr_debug("\t %x", *((driver->user_space_data)+i));
+#endif
 #endif
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* send masks to 9k too */
@@ -1061,8 +1184,12 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	}
 #ifdef DIAG_DEBUG
 	printk(KERN_DEBUG "data is -->\n");
+#if 1
+    print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 16, 1, buf_copy, payload_size, 1);
+#else
 	for (i = 0; i < payload_size; i++)
 		printk(KERN_DEBUG "\t %x \t", *(((unsigned char *)buf_copy)+i));
+#endif
 #endif
 	send.state = DIAG_STATE_START;
 	send.pkt = buf_copy;
@@ -1071,12 +1198,19 @@ static int diagchar_write(struct file *file, const char __user *buf,
 #ifdef DIAG_DEBUG
 	pr_debug("diag: Already used bytes in buffer %d, and"
 	" incoming payload size is %d\n", driver->used, payload_size);
+#if 1
+    if (buf_hdlc) {
+        printk(KERN_DEBUG "hdlc encoded data is -->\n");
+        print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET, 16, 1, buf_hdlc, payload_size + 8, 1);
+    }
+#else
 	printk(KERN_DEBUG "hdlc encoded data is -->\n");
 	for (i = 0; i < payload_size + 8; i++) {
 		printk(KERN_DEBUG "\t %x \t", *(((unsigned char *)buf_hdlc)+i));
 		if (*(((unsigned char *)buf_hdlc)+i) != 0x7e)
 			length++;
 	}
+#endif
 #endif
 	mutex_lock(&driver->diagchar_mutex);
 	if (!buf_hdlc)
@@ -1320,6 +1454,88 @@ void diag_bridge_fn(int type)
 #else
 inline void diag_bridge_fn(int type) {}
 #endif
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+extern void diagfwd_enable(int enable);
+extern void diagfwd_hsic_enable(int enable);
+
+static void diag_enable(int enable)
+{
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE_ONLY_MDM
+    if(lge_get_factory_boot())
+    {
+        pr_info("diag_lock : force to enable, pifcable\n");
+        diagfwd_hsic_enable(DIAG_ENABLE);
+    }
+    else
+    {
+        pr_info("diag_lock : enable = %d, pifcable is not\n", enable);
+        set_diag_state(enable);
+        diagfwd_hsic_enable(enable);
+    }
+#else
+        set_diag_state(enable);
+        diagfwd_enable(enable);
+        diagfwd_hsic_enable(enable);
+#endif
+}
+
+static ssize_t read_diag_enable(struct device *dev,
+        struct device_attribute *attr,
+        char *buf)
+{
+    return sprintf(buf, "%d", diag_state());
+}
+
+static ssize_t write_diag_enable(struct device *dev,
+        struct device_attribute *attr,
+        const char *buf, size_t size)
+{
+    char *p;
+
+    p = strchr(buf, '\n');
+    if (p) *p = '\0';
+
+    if (!strcmp(buf, "1"))
+        diag_enable(DIAG_ENABLE);
+    else if (!strcmp(buf, "0"))
+        diag_enable(DIAG_DISABLE);
+    else
+        pr_err("%s: unknown value\n", __func__);
+
+    return size;
+}
+
+static DEVICE_ATTR(diag_enable, S_IRUGO | S_IWUSR, read_diag_enable, write_diag_enable);
+
+static int lg_diag_cmd_probe(struct platform_device *pdev)
+{
+    int ret;
+
+    /* /sys/devices/platform/lg_diag_cmd/diag_enable */
+    ret = device_create_file(&pdev->dev, &dev_attr_diag_enable);
+    if (ret) {
+        pr_err("%s: create fail diag_enable\n", __func__);
+        device_remove_file(&pdev->dev, &dev_attr_diag_enable);
+    }
+
+    return ret;
+}
+
+static int lg_diag_cmd_remove(struct platform_device *pdev)
+{
+    device_remove_file(&pdev->dev, &dev_attr_diag_enable);
+    return 0;
+}
+
+static struct platform_driver lg_diag_cmd_driver = {
+    .probe		= lg_diag_cmd_probe,
+    .remove 	= lg_diag_cmd_remove,
+    .driver 	= {
+        .name = "lg_diag_cmd",
+        .owner	= THIS_MODULE,
+    },
+};
+#endif /* CONFIG_LGE_USB_DIAG_DISABLE */
 
 static int __init diagchar_init(void)
 {
@@ -1396,6 +1612,10 @@ static int __init diagchar_init(void)
 		printk(KERN_INFO "kzalloc failed\n");
 		goto fail;
 	}
+
+#ifdef CONFIG_LGE_USB_DIAG_DISABLE
+	platform_driver_register(&lg_diag_cmd_driver);
+#endif
 
 	pr_info("diagchar initialized now");
 	return 0;

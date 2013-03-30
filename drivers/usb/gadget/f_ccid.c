@@ -26,7 +26,7 @@
 #define BULK_IN_BUFFER_SIZE sizeof(struct ccid_bulk_in_header)
 #define BULK_OUT_BUFFER_SIZE sizeof(struct ccid_bulk_out_header)
 #define CTRL_BUF_SIZE	4
-#define FUNCTION_NAME	"ccid"
+#define FUNCTION_NAME_CCID	"ccid"
 #define CCID_NOTIFY_INTERVAL	5
 #define CCID_NOTIFY_MAXPACKET	4
 
@@ -944,7 +944,7 @@ static int ccid_bind_config(struct usb_configuration *c)
 
 	pr_debug("ccid_bind_config\n");
 	ccid_dev->cdev = c->cdev;
-	ccid_dev->function.name = FUNCTION_NAME;
+	ccid_dev->function.name = FUNCTION_NAME_CCID;
 	ccid_dev->function.descriptors = ccid_fs_descs;
 	ccid_dev->function.hs_descriptors = ccid_hs_descs;
 	ccid_dev->function.bind = ccid_function_bind;

@@ -2793,6 +2793,14 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
 		fl4->saddr = FIB_RES_PREFSRC(net, res);
 
 	dev_out = FIB_RES_DEV(res);
+	// LGE_DATA_CHANGE_S, [120810_COM_0028], http://dev.lge.com/wiki/datacop/patch_0028
+	if (dev_out == NULL) {
+		printk(KERN_DEBUG "dev_out is null\n");
+		rth = ERR_PTR(-ENETUNREACH);
+		goto out;
+	}
+	// LGE_DATA_CHANGE_E, [120810_COM_0028], http://dev.lge.com/wiki/datacop/patch_0028
+
 	fl4->flowi4_oif = dev_out->ifindex;
 
 

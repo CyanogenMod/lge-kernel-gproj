@@ -161,6 +161,13 @@ int usbnet_get_endpoints(struct usbnet *dev, struct usb_interface *intf)
 	dev->out = usb_sndbulkpipe (dev->udev,
 			out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 	dev->status = status;
+#ifdef LG_FW_HSIC_EMS_DEBUG /* secheol.pyo - endpoint logging */
+	printk("[%s] usbnet bulk_in_Addr = %d, bulk_out_Addr = %d,  bulk_in_endpoint = %d , bulk_out_endpoint = %d \n", __func__,
+		in->desc.bEndpointAddress,
+		out->desc.bEndpointAddress,
+		in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK,
+		out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+#endif /* secheol.pyo - endpoint logging */
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usbnet_get_endpoints);

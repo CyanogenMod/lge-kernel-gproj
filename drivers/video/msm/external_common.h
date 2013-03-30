@@ -237,6 +237,9 @@ struct external_common_state_type {
 	int (*read_edid_block)(int block, uint8 *edid_buf);
 	int (*hpd_feature)(int on);
 #endif
+#ifdef CONFIG_MACH_LGE
+	boolean boot_completed;
+#endif
 };
 
 /* The external interface driver needs to initialize the common state. */

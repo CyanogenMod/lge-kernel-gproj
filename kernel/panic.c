@@ -106,7 +106,14 @@ void panic(const char *fmt, ...)
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
+#ifdef CONFIG_LGE_HANDLE_PANIC
+	set_crash_store_enable();
+	lge_set_kernel_crash_magic();
+#endif
 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
+#ifdef CONFIG_LGE_HANDLE_PANIC
+	set_crash_store_disable();
+#endif
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing

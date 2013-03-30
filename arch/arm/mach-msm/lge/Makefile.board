@@ -1,0 +1,36 @@
+#
+# Makefile for the LGE board
+#
+
+# J1V
+obj-$(CONFIG_MACH_APQ8064_J1V) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1U) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1A) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1SP)+= j1/
+obj-$(CONFIG_MACH_APQ8064_J1D) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1SK) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1KT) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1KD) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1R) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1B) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1TL) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1TM) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1VD) += j1/
+obj-$(CONFIG_MACH_APQ8064_J1X) += j1/
+
+# MAKO
+obj-$(CONFIG_MACH_APQ8064_MAKO) += mako/
+
+# GK
+obj-$(CONFIG_MACH_APQ8064_GKU) += gk/
+obj-$(CONFIG_MACH_APQ8064_GKSK) += gk/
+obj-$(CONFIG_MACH_APQ8064_GKKT) += gk/
+obj-$(CONFIG_MACH_APQ8064_GKATT) += gk/
+
+# GV
+obj-$(CONFIG_MACH_APQ8064_GVDCM) += gv/
+obj-$(CONFIG_MACH_APQ8064_GVKDDI) += gv/
+
+# COMMON
+obj-y += common/
+

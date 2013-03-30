@@ -428,12 +428,18 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ifc_desc = ifc->cur_altsetting;
 	for (i = 0; i < ifc_desc->desc.bNumEndpoints; i++) {
 		ep_desc = &ifc_desc->endpoint[i].desc;
+#ifdef LG_FW_HSIC_EMS_DEBUG /* secheol.pyo - endpoint logging */
+		printk("[%s]for ++, i= %d, ifc_desc->desc.bNumEndpoints = %d\n", __func__,i, ifc_desc->desc.bNumEndpoints);
+#endif /* secheol.pyo - endpoint logging */
 
 		if (!dev->in_epAddr && usb_endpoint_is_bulk_in(ep_desc))
 			dev->in_epAddr = ep_desc->bEndpointAddress;
 
 		if (!dev->out_epAddr && usb_endpoint_is_bulk_out(ep_desc))
 			dev->out_epAddr = ep_desc->bEndpointAddress;
+#ifdef LG_FW_HSIC_EMS_DEBUG /* secheol.pyo - endpoint logging */
+		printk("[%s]for --, i= %d, dev->in_epAddr = %d, dev->out_epAddr = %d \n", __func__,i, dev->in_epAddr, dev->out_epAddr);
+#endif/* secheol.pyo - endpoint logging */
 	}
 
 	if (!(dev->in_epAddr && dev->out_epAddr)) {

@@ -167,3 +167,6 @@ obj-$(CONFIG_FB_VIRTUAL)          += vfb.o
 
 #video output switch sysfs driver
 obj-$(CONFIG_VIDEO_OUTPUT_CONTROL) += output.o
+
+# sii8334 mhl device
+obj-$(CONFIG_SII8334_MHL_TX)  += mhl/

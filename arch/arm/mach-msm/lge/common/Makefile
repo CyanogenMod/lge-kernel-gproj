@@ -1,0 +1,1 @@
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += board-g-input.o

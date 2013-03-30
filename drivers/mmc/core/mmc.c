@@ -23,6 +23,10 @@
 #include "mmc_ops.h"
 #include "sd_ops.h"
 
+// 1: block cmd5 at eMMC suspend, 0: using cmd5 at eMMC suspend.
+// do not need cmd5 at this time.
+#define BLOCK_EMMC_CMD5_SLEEP 1
+
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0
@@ -1450,10 +1454,15 @@ static int mmc_suspend(struct mmc_host *host)
 	mmc_claim_host(host);
 	if (mmc_can_poweroff_notify(host->card))
 		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
+#if BLOCK_EMMC_CMD5_SLEEP
+        else if (!mmc_host_is_spi(host))
+                mmc_deselect_cards(host);
+#else
 	else if (mmc_card_can_sleep(host))
 		err = mmc_card_sleep(host);
 	else if (!mmc_host_is_spi(host))
 		mmc_deselect_cards(host);
+#endif
 	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 	mmc_release_host(host);
 

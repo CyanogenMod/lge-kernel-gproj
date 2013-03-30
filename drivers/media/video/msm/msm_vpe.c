@@ -1012,6 +1012,11 @@ static int msm_vpe_subdev_close(struct v4l2_subdev *sd,
 			frame_info->p_mctl->client, mctl->domain_num);
 		msm_mctl_unmap_user_frame(&frame_info->dest_frame,
 			frame_info->p_mctl->client, mctl->domain_num);
+// LGE_CHANGE_S, youngwook.song@lge.com 2012.12.30, this Patch is for ION MMUNMAP
+// Because of this, getting VT during the video capture always goes to Kernel Crash.
+		kfree(frame_info);
+		vpe_ctrl->pp_frame_info = NULL;
+// LGE_CHANGE_E, youngwook.song@lge.com 2012.12.30, this Patch is for ION MMUNMAP
 	}
 	/* Drain the payload queue. */
 	msm_queue_drain(&vpe_ctrl->eventData_q, list_eventdata);

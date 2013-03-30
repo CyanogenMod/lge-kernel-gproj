@@ -1121,4 +1121,130 @@ config RMNET_SDIO_SMD_DATA_CHANNEL
        help
 	  Data SMD channel for transferring network data
 
+config USB_ANDROID_RMNET_CTRL_SMD
+       boolean "RmNet(BAM) control over SMD driver"
+       depends on MSM_SMD
+       help
+         Enabling this option adds rmnet control over SMD
+
+# LGE_CHANGE
+# LGE android gadget config for ICS.
+# Toward simple, straightforward...
+# 2011-09-09, hyunhui.park@lge.com
+#
+config USB_G_LGE_ANDROID
+	boolean "LGE Android Gadget for LG PC host Driver"
+	depends on USB_G_ANDROID
+	help
+	  Customized Android Gadget USB framework for
+	  LGE United PC host USB driver.
+
+	default n
+
+config USB_G_LGE_ANDROID_PFSC
+	boolean "Force full speed support if pif is connected in LGE Android"
+	depends on USB_G_LGE_ANDROID
+	help
+	   This feature is that USB set forcely full speed if pif cable is
+	   connected. It is only for PIF cable, not normal USB cable.
+
+	   Say y if this must be needed.
+
+	default n
+
+config USB_G_LGE_ANDROID_STORAGE_NAME
+	string "USB mass & cdrom storage device name for LGE Android"
+	depends on USB_G_LGE_ANDROID_AUTORUN
+	default "Android Platform"
+	help
+	   Name for USB mass & cdrom device name used in LGE Andoird Autorun.
+
+	   NOTE: default name is "Android Platform", need to change your
+	   board config to use other device name(e.g. in VZW devices)
+
+config USB_G_LGE_ANDROID_AUTORUN
+	boolean "Common autorun support in LGE Android"
+	depends on USB_G_LGE_ANDROID
+	help
+	  Autorun is LGE specific feature which is able to install PC host
+	  USB driver automatically on Autorun-enabled OS(Ex. Windows). For this,
+	  virtual-cdrom device is provided on LGE Android powered device.
+	  (DGMS: MC-C05702-7)
+
+	default n
+
+config USB_G_LGE_ANDROID_AUTORUN_VZW
+	boolean "VZW specific autorun support in LGE Android"
+	depends on USB_G_LGE_ANDROID_AUTORUN
+	help
+	  It supports VZW specific autorun feature. note that this
+	  must be used in VZW devices.
+
+	  Say y if this must be needed.
+
+	default n
+
+config USB_G_LGE_ANDROID_AUTORUN_LGE
+	boolean "LGE specific autorun support in LGE Android"
+	depends on USB_G_LGE_ANDROID_AUTORUN
+	help
+	  It supports LGE specific autorun feature. note that this
+	  must be used in LGE(with non-VZW) devices.
+	  (DGMS: MC-C05702-7)
+
+	  Say y if this must be needed.
+
+	default n
+
+config USB_G_LGE_ANDROID_VZWLAN
+	boolean "VZW USB LAN support in LGE Android"
+	depends on USB_G_LGE_ANDROID
+	help
+	  VZW's Mobile UC Application communicate with docking station
+	  via USB LAN. When device connect with docking station, it must
+	  configure usb mode to USB LAN only. This feature can configure
+	  USB LAN only mode when a device connect with docking station.
+
+	  Say y if this feature must be used.
+
+	default n
+
+config USB_G_LGE_ANDROID_DTF
+	boolean "Aladin IC data transfer support in LGE Android"
+	depends on USB_G_LGE_ANDROID
+	help
+	  Aladin IC data transfer feature is used in user data transfering
+	  between old phone and new phone. For this, dedicated USB function
+	  gadget is needed. It is only for NTT-docomo device.
+
+	  Say y if this feature must be used.
+
+	default n
+
+config USB_G_LGE_ANDROID_CDROM_MAC_SUPPORT
+	boolean "USB CDROM support patch of LGE Android on Mac OS-X"
+	depends on USB_G_LGE_ANDROID
+	help
+	  This feature is based on Roger Quadros' patch as following;
+
+	  - usb:gadget:storage: Make CD-ROM emulation work with Mac OS-X
+	  - usb:gadget:f_mass_storage: Make CD-ROM emulation work with Mac OS-X
+
+	  ref: https://lkml.org/lkml/2011/4/5/190
+
+	  - Here is comment of committer:
+
+	  Mac OS-X expects CD-ROM TOC in raw format (i.e. format:2). It also
+	  sends the READ_TOC CDB in old style SFF8020i format. i.e. 2 format bits
+	  are encoded in MSBs of CDB byte 9.
+
+	  The first patch introduces a fsg_get_toc() helper which builds the
+	  Table of Contents (TOC) that can be used for the READ_TOC command.
+	  The remaining two patches simply make file_storage gadget and mass_storage
+	  gadget use the new helper function.
+
+	  Say y if this feature must be used.
+
+	default n
+
 endif # USB_GADGET

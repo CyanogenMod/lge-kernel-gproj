@@ -1,0 +1,31 @@
+#
+# MHL drivers configuration
+#
+
+menuconfig MHL_SUPPORT
+	bool "MHL device support"
+	help
+	  Enable this to be able to choose the drivers for controlling the
+	  MHL function to connect to any MHL devices, for example to MHL monitor.
+
+if MHL_SUPPORT
+
+config SII8334_MHL_TX
+	bool "MHL SiI8334 chip support"
+	depends on FB_MSM_HDMI_COMMON
+	default n
+	---help---
+	  Support for MHL sii8334 chip
+
+config LG_MAGIC_MOTION_REMOCON
+	bool "LG Magic motion remote controller support"
+	depends on SII8334_MHL_TX
+	default n
+	---help---
+	  Support for LG Magic motion controller
+
+config LGE_MHL_REMOCON_TEST
+	bool "LG Magic motion remote controller test"
+	default n
+
+endif

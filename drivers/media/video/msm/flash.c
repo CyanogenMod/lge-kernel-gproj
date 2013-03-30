@@ -32,6 +32,12 @@ enum msm_cam_flash_stat{
 	MSM_CAM_FLASH_ON,
 };
 
+
+/* [patch for Enabling flash LED for camera]
+  * 2012-03-14, jinsool.lee@lge.com
+  */
+extern int lm3559_flash_set_led_state(int state);
+
 static struct i2c_client *sc628a_client;
 
 static const struct i2c_device_id sc628a_i2c_id[] = {
@@ -748,8 +754,21 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 	sensor_data = sdata;
 	switch (flash_info->flashtype) {
 	case LED_FLASH:
+	#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GVDCM)
+		/* [patch for Enabling flash LED for camera]
+		* 2012-03-14, jinsool.lee@lge.com
+		*  This feature is for G... 
+		*/
+
+		rc = lm3559_flash_set_led_state(flash_info->ctrl_data.led_state);
+
+		pr_err(" mutul msm_flash_ctrl  lm3559_flash_set_led_state \n");
+	#else /* qualcomm original code */
+		// Here is for GK/GV
 		rc = msm_camera_flash_set_led_state(sdata->flash_data,
 			flash_info->ctrl_data.led_state);
+			pr_err("mutul msm_flash_ctrl  msm_camera_flash_set_led_state \n");
+	#endif		
 			break;
 	case STROBE_FLASH:
 		rc = msm_strobe_flash_ctrl(sdata->strobe_flash_data,

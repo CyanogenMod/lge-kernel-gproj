@@ -1068,8 +1068,23 @@ static int irda_connect(struct socket *sock, struct sockaddr *uaddr,
 
 	if (sk->sk_state != TCP_ESTABLISHED) {
 		sock->state = SS_UNCONNECTED;
+/* LGE_CHANGE
+ * sk->sk_prot->disconnect() function has never been registered
+ * which means it is always NULL.
+ * If the phone receives disconnect request while connecting to,
+ * sk->sk_prot->disconnect() function which is NULL is called
+ * and it causes kernel crash (NULL pointer exception)
+ * 2012-03-08, chaeuk.lee@lge.com
+ */
+#ifdef CONFIG_LGE_IRDA
+		if ((sk->sk_prot != NULL) && (sk->sk_prot->disconnect != NULL)) {
+			if (sk->sk_prot->disconnect(sk, flags))
+				sock->state = SS_DISCONNECTING;
+		}
+#else
 		if (sk->sk_prot->disconnect(sk, flags))
 			sock->state = SS_DISCONNECTING;
+#endif
 		err = sock_error(sk);
 		if (!err)
 			err = -ECONNRESET;
@@ -2584,8 +2599,19 @@ bed:
 				    NULL, NULL, NULL);
 
 		/* Check if the we got some results */
+/* LGE_CHANGE
+ * Releasing socket has to be done.
+ * 2012-04-06, chaeuk.lee@lge.com
+ */
+#ifdef CONFIG_LGE_IRDA
+		if (!self->cachedaddr) {
+			err = -EAGAIN;
+			goto out;
+		}
+#else /* below the original */
 		if (!self->cachedaddr)
 			return -EAGAIN;		/* Didn't find any devices */
+#endif /* CONFIG_LGE_IRDA */
 		daddr = self->cachedaddr;
 		/* Cleanup */
 		self->cachedaddr = 0;

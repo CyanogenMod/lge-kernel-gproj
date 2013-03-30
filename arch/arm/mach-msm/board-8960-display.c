@@ -586,8 +586,6 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mem_hid = MEMTYPE_EBI1,
 #endif
 	.cont_splash_enabled = 0x01,
-	.splash_screen_addr = 0x00,
-	.splash_screen_size = 0x00,
 	.mdp_iommu_split_domain = 0,
 };
 
@@ -735,7 +733,7 @@ static struct platform_device wfd_device = {
 };
 #endif
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 static struct msm_bus_vectors dtv_bus_init_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
@@ -1012,7 +1010,7 @@ void __init msm8960_init_fb(void)
 
 	msm_fb_register_device("mdp", &mdp_pdata);
 	msm_fb_register_device("mipi_dsi", &mipi_dsi_pdata);
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 	msm_fb_register_device("dtv", &dtv_pdata);
 #endif
 }

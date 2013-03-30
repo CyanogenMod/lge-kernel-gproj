@@ -75,6 +75,13 @@ enum wled_ovp_threshold {
 	WLED_OVP_37V,
 };
 
+/*debug_mask*/
+enum{
+	DEBUG_LED_NONE			= 0,
+	DEBUG_LED_TRACE			= (1U << 0),	// 1
+	DEBUG_LED_REG			= (1U << 1),	// 2
+};
+
 /**
  *  wled_config_data - wled configuration data
  *  @num_strings - number of wled strings supported

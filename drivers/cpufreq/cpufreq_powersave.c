@@ -32,8 +32,10 @@ static int cpufreq_governor_powersave(struct cpufreq_policy *policy,
 	return 0;
 }
 
+#ifndef CONFIG_LGE_PM_LOW_BATT_CHG
 #ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE
 static
+#endif
 #endif
 struct cpufreq_governor cpufreq_gov_powersave = {
 	.name		= "powersave",

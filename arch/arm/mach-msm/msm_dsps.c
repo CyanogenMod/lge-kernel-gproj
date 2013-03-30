@@ -51,6 +51,11 @@
 #define PPSS_TIMER0_32KHZ_REG	0x1004
 #define PPSS_TIMER0_20MHZ_REG	0x0804
 
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+#include <mach/restart.h>
+#include <mach/board_lge.h>
+#endif
+
 /**
  *  Driver Context
  *
@@ -397,6 +402,12 @@ static void dsps_log_sfr(void)
 		smem_reset_reason[smem_reset_size-1] = 0;
 		pr_err("%s: DSPS failure: %s\nResetting DSPS\n",
 			__func__, smem_reset_reason);
+#if defined(CONFIG_LGE_HANDLE_PANIC)	/* g-tdr-bsp-sensor@lge.com, 2012-11-29, print file name and line when crash was happened */
+                set_crash_store_enable();
+                printk(KERN_EMERG "%s\n", smem_reset_reason);
+                set_crash_store_disable(); 
+#endif
+
 		memset(smem_reset_reason, 0, smem_reset_size);
 		wmb();
 	} else

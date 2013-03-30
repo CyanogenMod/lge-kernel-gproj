@@ -290,6 +290,28 @@ void hci_acl_disconn(struct hci_conn *conn, __u8 reason)
 	}
 }
 
+//QCT_Local : Mozen Carkit SCO Noise issue 13.01.03 [s]
+//jasper disable_sniff
+static const __u8 hyundai_carkit_comp_id[] = {0xb2, 0x1e, 0x00};
+
+int hci_conn_change_link_policy(struct hci_conn *conn, __u8 lp)
+{
+	BT_DBG("change link policy %d cur_set %d",lp , 
+		test_bit(HCI_CONN_CHANGE_LP_DURING_CONNECTION,  &conn->pend));
+
+	if ((lp == 0 && !test_and_set_bit(HCI_CONN_CHANGE_LP_DURING_CONNECTION, &conn->pend)) ||
+		(lp !=0 && test_and_clear_bit(HCI_CONN_CHANGE_LP_DURING_CONNECTION, &conn->pend))) {
+		struct hci_cp_write_link_policy cp;
+		cp.handle = cpu_to_le16(conn->handle);
+		cp.policy = lp;
+		hci_send_cmd(conn->hdev, HCI_OP_WRITE_LINK_POLICY,
+							sizeof(cp), &cp);
+	}
+
+	return 0;
+}
+//QCT_Local : Mozen Carkit SCO Noise issue 13.01.03 [e]
+
 void hci_add_sco(struct hci_conn *conn, __u16 handle)
 {
 	struct hci_dev *hdev = conn->hdev;
@@ -434,6 +456,11 @@ void hci_sco_setup(struct hci_conn *conn, __u8 status)
 		return;
 
 	if (!status) {
+//QCT_Local : Mozen Carkit SCO Noise issue 13.01.03 [s]
+		BT_DBG("%s", batostr(&conn->dst));
+		if (!memcmp(&conn->dst.b[3],(void *)hyundai_carkit_comp_id, 3))
+			hci_conn_change_link_policy(conn, 0); //jasper disable_sniff
+//QCT_Local : Mozen Carkit SCO Noise issue 13.01.03 [e]
 		if (lmp_esco_capable(conn->hdev))
 			hci_setup_sync(sco, conn->handle);
 		else
@@ -884,7 +911,14 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 	if (acl->state == BT_CONNECTED &&
 			(sco->state == BT_OPEN || sco->state == BT_CLOSED)) {
 		acl->power_save = 1;
+// [S] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project		
+// +s LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
+		hci_conn_enter_active_mode_no_timer(acl);
+/* Google Original
 		hci_conn_enter_active_mode(acl, 1);
+*/		
+// +e LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
+// [E] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
 
 		if (test_bit(HCI_CONN_MODE_CHANGE_PEND, &acl->pend)) {
 			/* defer SCO setup until mode change completed */
@@ -1077,6 +1111,16 @@ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 	}
 
 timer:
+// [S] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
+// +s LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
+	BT_DBG("sco_last_tx : %ld, sco_num : %d", hdev->sco_last_tx, hdev->conn_hash.sco_num);
+	if(hdev->conn_hash.sco_num && conn->mode!= HCI_CM_SNIFF){
+		BT_DBG("Don't need timer when open sco");
+		del_timer(&conn->idle_timer);
+		return;
+	}
+// +e LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO  - teddy.ju
+// [E] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
 	if (hdev->idle_timeout > 0) {
 		spin_lock_bh(&conn->lock);
 		if (conn->conn_valid) {
@@ -1087,6 +1131,29 @@ timer:
 		spin_unlock_bh(&conn->lock);
 	}
 }
+// [S] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
+// +s LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
+void hci_conn_enter_active_mode_no_timer(struct hci_conn *conn)
+{
+	struct hci_dev *hdev = conn->hdev;
+
+	BT_DBG("conn %p mode %d", conn, conn->mode);
+	BT_DBG("sco_last_tx : %ld, sco_num : %d", hdev->sco_last_tx, hdev->conn_hash.sco_num);
+
+	if (test_bit(HCI_RAW, &hdev->flags))
+		return;
+	else if (conn->mode != HCI_CM_SNIFF)
+		return;
+
+	if (!test_and_set_bit(HCI_CONN_MODE_CHANGE_PEND, &conn->pend)) {
+		struct hci_cp_exit_sniff_mode cp;		
+		cp.handle = cpu_to_le16(conn->handle);		
+		del_timer(&conn->idle_timer);
+		hci_send_cmd(hdev, HCI_OP_EXIT_SNIFF_MODE, sizeof(cp), &cp);
+	}
+}
+// +e LGBT_COMMON_FUNCTION_NO_SNIFF_WHEN_OPEN_SCO - teddy.ju
+// [E] LGE_BT: MOD/ilbeom.kim/'12-09-18 - [GK] Merged based on G project
 
 static inline void hci_conn_stop_rssi_timer(struct hci_conn *conn)
 {

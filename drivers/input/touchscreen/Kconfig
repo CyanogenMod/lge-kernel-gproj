@@ -490,6 +490,43 @@ config SYNA_MULTI_TOUCH
 	depends on TOUCHSCREEN_SYNAPTICS_RMI4_I2C
 	default y
 
+# yoogyeong.lee@lge.com
+
+config TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+	tristate "Synaptics RMI4 protocol based I2C interface Touchscreen Driver"
+	help
+	  This enables support for Synaptics RMI4 protocol I2C interface Touchscreens.
+choice
+	prompt "Register map"
+	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+
+config TOUCH_REG_MAP_TM1804
+	bool "TM1804"
+	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+	help
+         Register map TM1804.
+config TOUCH_REG_MAP_TM1814
+	bool "TM1814"
+	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+	help
+         Register map TM1804.
+endchoice
+
+config TOUCH_REG_MAP_TM2000
+	tristate "synaptics TM2000 touchscreen"
+	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4 && !(MACH_APQ8064_J1D || MACH_APQ8064_J1KD)
+	default y
+	help
+         Register map TM2000.
+
+
+config TOUCH_REG_MAP_TM2372
+	tristate "synaptics TM2372 touchscreen"
+	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4 && (MACH_APQ8064_J1D || MACH_APQ8064_J1KD)
+	default y
+	help
+         Register map TM2372.
+         
 config TOUCHSCREEN_TOUCHRIGHT
 	tristate "Touchright serial touchscreen"
 	select SERIO
@@ -946,4 +983,16 @@ config TOUCHSCREEN_FT5X06
          To compile this driver as a module, choose M here: the
          module will be called ft5x06_ts.
 
+config TOUCHSCREEN_ATMEL_MAXT224E
+	tristate "Atmel maXT224E based touchscreens"
+	depends on I2C
+	default n
+	help
+	Say Y here if you have an Atmel Maxtouch based touchscreen.
+
+	If unsure, say N.
+
+	To compile this driver as a module, choose M here: the
+	module will be called atmel_ts.
 endif
+

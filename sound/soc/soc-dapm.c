@@ -1249,7 +1249,19 @@ static void dapm_seq_run_coalesced(struct snd_soc_dapm_context *dapm,
 		pop_dbg(dapm->dev, card->pop_time,
 			"pop test : Applying 0x%x/0x%x to %x in %dms\n",
 			value, mask, reg, card->pop_time);
-		pop_wait(card->pop_time);
+
+/* LGE_CHANGED_START 2012.08.23, sehwan.lee@lge.com
+ * Headset, Handset pop noise remove [Start]
+ */ 
+		if((!strcmp(w->name,"HPHL DAC")) || (!strcmp(w->name,"HPHR DAC"))){ /* LGE_CODE */
+			pop_wait(2);
+		}else if(!strcmp(w->name,"DAC1")){
+			msleep(15);
+		}else{ /* qualcomm original code */
+			pop_wait(card->pop_time);
+		}
+/* LGE_CHANGED_END 2012.08.23, sehwan.lee@lge.com */
+
 		soc_widget_update_bits(w, reg, mask, value);
 	}
 
@@ -1286,7 +1298,10 @@ static void dapm_seq_run(struct snd_soc_dapm_context *dapm,
 
 	list_for_each_entry_safe(w, n, list, power_list) {
 		ret = 0;
-
+		if (power_up)
+			pr_debug(" %s Power up widgets w->name %s",__func__,w->name);
+		else
+			pr_debug(" %s Power down widgets w->name %s",__func__,w->name);
 		/* Do we need to apply any queued changes? */
 		if (sort[w->id] != cur_sort || w->reg != cur_reg ||
 		    w->dapm != cur_dapm || w->subseq != cur_subseq) {
@@ -1872,7 +1887,7 @@ int snd_soc_dapm_mux_update_power(struct snd_soc_dapm_widget *widget,
 {
 	struct snd_soc_dapm_path *path;
 	int found = 0;
-
+	pr_debug("%s widget name %s change %d\n",__func__,widget->name,change);
 	if (widget->id != snd_soc_dapm_mux &&
 	    widget->id != snd_soc_dapm_virt_mux &&
 	    widget->id != snd_soc_dapm_value_mux)
@@ -1928,7 +1943,7 @@ int snd_soc_dapm_mixer_update_power(struct snd_soc_dapm_widget *widget,
 	    widget->id != snd_soc_dapm_mixer_named_ctl &&
 	    widget->id != snd_soc_dapm_switch)
 		return -ENODEV;
-
+	 pr_debug("%s widget name %s connect %d\n",__func__,widget->name,connect);
 	/* find dapm widget path assoc with kcontrol */
 	list_for_each_entry(path, &widget->dapm->card->paths, list) {
 		if (path->kcontrol != kcontrol)
@@ -2522,6 +2537,8 @@ int snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
 	mutex_lock(&codec->mutex);
 
 	change = snd_soc_test_bits(widget->codec, reg, mask, val);
+	pr_debug("%s widget->name %s change %d val %d connect %d widget->value %d\n",
+	__func__,widget->name,change,val,connect,widget->value);
 	if (change) {
 		for (wi = 0; wi < wlist->num_widgets; wi++) {
 			widget = wlist->widgets[wi];
@@ -2540,7 +2557,7 @@ int snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
 			widget->dapm->update = NULL;
 		}
 	}
-
+	pr_debug("%s widget->name %s new widget->value %d",__func__,widget->name,widget->value);
 	mutex_unlock(&codec->mutex);
 	return 0;
 }

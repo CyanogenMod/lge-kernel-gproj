@@ -24,6 +24,13 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <mach/cpufreq.h>
+#ifdef CONFIG_LGE_PM
+#include <mach/board_lge.h>
+#endif
+
+#ifdef CONFIG_LGE_PM
+#define DEF_ALLOWED_MAX_FREQ 918000
+#endif
 
 static int enabled;
 static struct msm_thermal_data msm_thermal_info;
@@ -34,6 +41,9 @@ static int limit_idx;
 static int limit_idx_low;
 static int limit_idx_high;
 static struct cpufreq_frequency_table *table;
+#ifdef CONFIG_LGE_PM
+static int pif_56k = 0;
+#endif
 
 static int msm_thermal_get_freq_table(void)
 {
@@ -52,6 +62,7 @@ static int msm_thermal_get_freq_table(void)
 
 	limit_idx_low = 0;
 	limit_idx_high = limit_idx = i - 1;
+
 	BUG_ON(limit_idx_high <= 0 || limit_idx_high <= limit_idx_low);
 fail:
 	return ret;
@@ -102,7 +113,11 @@ static void check_temp(struct work_struct *work)
 			limit_init = 1;
 	}
 
-	if (temp >= msm_thermal_info.limit_temp_degC) {
+	if (temp >= msm_thermal_info.limit_temp_degC
+#if defined(CONFIG_MACH_APQ8064_GK_KR)||defined(CONFIG_MACH_APQ8064_GKATT)||defined(CONFIG_MACH_APQ8064_GVDCM)
+		|| temp <= msm_thermal_info.limit_temp_degC_low
+#endif
+		) {
 		if (limit_idx == limit_idx_low)
 			goto reschedule;
 
@@ -110,8 +125,18 @@ static void check_temp(struct work_struct *work)
 		if (limit_idx < limit_idx_low)
 			limit_idx = limit_idx_low;
 		max_freq = table[limit_idx].frequency;
-	} else if (temp < msm_thermal_info.limit_temp_degC -
-		 msm_thermal_info.temp_hysteresis_degC) {
+#ifdef CONFIG_LGE_PM
+		if(!pif_56k)
+			max_freq = DEF_ALLOWED_MAX_FREQ;
+		pr_info("msm_thermal: tsens_temp %ld\n", temp); 	
+#endif
+
+	} else if ( (temp < msm_thermal_info.limit_temp_degC -
+		 msm_thermal_info.temp_hysteresis_degC)
+#if defined(CONFIG_MACH_APQ8064_GK_KR)||defined(CONFIG_MACH_APQ8064_GKATT)||defined(CONFIG_MACH_APQ8064_GVDCM)
+		 && (temp > msm_thermal_info.limit_temp_degC_low)
+#endif
+		) {
 		if (limit_idx == limit_idx_high)
 			goto reschedule;
 
@@ -126,7 +151,12 @@ static void check_temp(struct work_struct *work)
 		goto reschedule;
 
 	/* Update new limits */
+#ifdef CONFIG_LGE_PM 
+	/* for_each_possible_cpu() code makes kernel panic - hg.park */
+	for_each_online_cpu(cpu) {
+#else
 	for_each_possible_cpu(cpu) {
+#endif
 		ret = update_cpu_max_freq(cpu, max_freq);
 		if (ret)
 			pr_debug("Unable to limit cpu%d max freq to %d\n",
@@ -150,7 +180,13 @@ static void disable_msm_thermal(void)
 	if (limited_max_freq == MSM_CPUFREQ_NO_LIMIT)
 		return;
 
+#ifdef CONFIG_LGE_PM 
+	/* for_each_possible_cpu() code makes kernel panic */
+	for_each_online_cpu(cpu) {
+#else
 	for_each_possible_cpu(cpu) {
+#endif
+
 		update_cpu_max_freq(cpu, MSM_CPUFREQ_NO_LIMIT);
 	}
 }
@@ -185,6 +221,17 @@ int __devinit msm_thermal_init(struct msm_thermal_data *pdata)
 	BUG_ON(!pdata);
 	BUG_ON(pdata->sensor_id >= TSENS_MAX_SENSORS);
 	memcpy(&msm_thermal_info, pdata, sizeof(struct msm_thermal_data));
+	
+#ifdef CONFIG_LGE_PM // for Milky-U Power On-Off Test - hg.park
+	if (lge_get_factory_boot()) {
+		if(lge_get_boot_cable_type() == LGE_BOOT_LT_CABLE_56K) {
+			msm_thermal_info.poll_ms = 250;
+			msm_thermal_info.limit_temp_degC = 60;
+			pif_56k = 1;
+			pr_info("msm_thermal: 56K plugged\n");
+		}
+	}
+#endif
 
 	enabled = 1;
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);

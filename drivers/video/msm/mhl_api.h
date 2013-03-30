@@ -19,7 +19,11 @@ bool mhl_is_enabled(void);
 #else
 static bool mhl_is_enabled(void)
 {
+#ifdef CONFIG_MACH_LGE
+	return true;
+#else
 	return false;
+#endif
 }
 #endif
 

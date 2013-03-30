@@ -340,6 +340,7 @@ static struct pm8xxx_adc_amux apq8064_pm8921_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
+/* Add APQ THERM configuration to read from AMUX3 */
 };
 
 static struct pm8xxx_adc_properties apq8064_pm8921_adc_data = {
@@ -395,8 +396,6 @@ apq8064_pm8921_chg_pdata __devinitdata = {
 	.max_voltage		= MAX_VOLTAGE_MV,
 	.min_voltage		= 3200,
 	.uvd_thresh_voltage	= 4050,
-	.alarm_low_mv		= 3400,
-	.alarm_high_mv		= 4000,
 	.resume_voltage_delta	= 60,
 	.resume_charge_percent	= 99,
 	.term_current		= CHG_TERM_MA,
@@ -507,5 +506,9 @@ void __init apq8064_init_pmic(void)
 		apq8064_pm8921_bms_pdata.battery_type = BATT_DESAY;
 	} else if (machine_is_apq8064_cdp()) {
 		apq8064_pm8921_chg_pdata.has_dc_supply = true;
+	}
+
+	if (machine_is_apq8064_mtp()) {
+		apq8064_pm8921_adc_pdata.apq_therm = true;
 	}
 }

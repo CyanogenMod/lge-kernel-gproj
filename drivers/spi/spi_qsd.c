@@ -43,6 +43,11 @@
 #include <linux/of_gpio.h>
 #include "spi_qsd.h"
 
+// LGE_BROADCAST_ONESEG {
+#ifdef SPI_LGE_THREAD_FEATURE
+static int spi_thread(void *dd);
+#endif
+// LGE_BROADCAST_ONESEG }
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 					struct platform_device *pdev)
 {
@@ -404,6 +409,7 @@ static void msm_spi_setup_dm_transfer(struct msm_spi *dd)
 		if (bytes_sent < 0)
 			bytes_sent = 0;
 	}
+/* LGE_BROADCAST_ONESEG { */
 	/* We'll send in chunks of SPI_MAX_LEN if larger than
 	 * 4K bytes for targets that have only 12 bits in
 	 * QUP_MAX_OUTPUT_CNT register. If the target supports
@@ -541,8 +547,10 @@ static int msm_spi_dm_send_next(struct msm_spi *dd)
 
 	/* On targets which does not support infinite mode,
 	   We need to send more chunks, if we sent max last time  */
+/* LGE_BROADCAST_ONESEG { */
 	if (dd->tx_bytes_remaining > dd->max_trfr_len) {
 		dd->tx_bytes_remaining -= dd->max_trfr_len;
+/* LGE_BROADCAST_ONESEG } */
 		if (msm_spi_set_state(dd, SPI_OP_STATE_RESET))
 			return 0;
 		dd->read_len = dd->write_len = 0;
@@ -1292,10 +1300,20 @@ error:
 }
 
 /* workqueue - pull messages from queue & process */
+// LGE_BROADCAST_ONESEG {
+#ifndef SPI_LGE_THREAD_FEATURE
 static void msm_spi_workq(struct work_struct *work)
+#else // in case of SPI_LGE_THREAD_FEATURE
+static void msm_spi_workq(struct msm_spi *d)
+#endif	
 {
+#ifndef SPI_LGE_THREAD_FEATURE
 	struct msm_spi      *dd =
 		container_of(work, struct msm_spi, work_data);
+#else // in case of SPI_LGE_THREAD_FEATURE
+	struct msm_spi      *dd = d;
+#endif	
+/* LGE_BROADCAST_ONESEG } */
 	unsigned long        flags;
 	u32                  status_error = 0;
 	int                  rc = 0;
@@ -1409,8 +1427,17 @@ static int msm_spi_transfer(struct spi_device *spi, struct spi_message *msg)
 	}
 	dd->transfer_pending = 1;
 	list_add_tail(&msg->queue, &dd->queue);
+// LGE_BROADCAST_ONESEG {
+#ifdef SPI_LGE_THREAD_FEATURE
+	dd->spi_isr_sig++;
+#endif
 	spin_unlock_irqrestore(&dd->queue_lock, flags);
+#ifndef SPI_LGE_THREAD_FEATURE	
 	queue_work(dd->workqueue, &dd->work_data);
+#else // in case of SPI_LGE_THREAD_FEATURE
+	wake_up(&dd->spi_isr_wait);
+#endif	
+// LGE_BROADCAST_ONESEG }
 	return 0;
 }
 
@@ -1949,12 +1976,22 @@ skip_dma_resources:
 	spin_lock_init(&dd->queue_lock);
 	mutex_init(&dd->core_lock);
 	INIT_LIST_HEAD(&dd->queue);
+// LGE_BROADCAST_ONESEG {
+#ifndef SPI_LGE_THREAD_FEATURE	
 	INIT_WORK(&dd->work_data, msm_spi_workq);
+#endif
 	init_waitqueue_head(&dd->continue_suspend);
+#ifndef SPI_LGE_THREAD_FEATURE	
 	dd->workqueue = create_singlethread_workqueue(
 			dev_name(master->dev.parent));
 	if (!dd->workqueue)
 		goto err_probe_workq;
+#endif	
+#ifdef SPI_LGE_THREAD_FEATURE
+	dd->thread = kthread_run(spi_thread, (void*)dd, dev_name(master->dev.parent));
+	printk("msm_spi_probe : %s created\n", dev_name(master->dev.parent));
+#endif
+// LGE_BROADCAST_ONESEG }
 
 	if (!devm_request_mem_region(&pdev->dev, dd->mem_phys_addr,
 					dd->mem_size, SPI_DRV_NAME)) {
@@ -2112,8 +2149,16 @@ err_probe_clk_get:
 	}
 err_probe_rlock_init:
 err_probe_reqmem:
+// LGE_BROADCAST_ONESEG {
+#ifndef SPI_LGE_THREAD_FEATURE
 	destroy_workqueue(dd->workqueue);
+#else
+	kthread_stop(dd->thread);
+#endif	
+#ifndef SPI_LGE_THREAD_FEATURE	
 err_probe_workq:
+#endif	
+// LGE_BROADCAST_ONESEG }
 err_probe_res:
 	spi_master_put(master);
 err_probe_exit:
@@ -2178,13 +2223,69 @@ static int __devexit msm_spi_remove(struct platform_device *pdev)
 
 	clk_put(dd->clk);
 	clk_put(dd->pclk);
+// LGE_BROADCAST_ONESEG {
+#ifndef SPI_LGE_THREAD_FEATURE
 	destroy_workqueue(dd->workqueue);
+#else
+	kthread_stop(dd->thread);
+#endif
+// LGE_BROADCAST_ONESEG }
 	platform_set_drvdata(pdev, 0);
 	spi_unregister_master(master);
 	spi_master_put(master);
 
 	return 0;
 }
+
+// LGE_BROADCAST_ONESEG {
+#ifdef SPI_LGE_THREAD_FEATURE
+static int spi_thread(void *dd)
+{
+	struct msm_spi *pdata = (struct msm_spi*)dd;
+
+	static const struct sched_param param = {
+		.sched_priority = MAX_USER_RT_PRIO/2,
+	};
+	
+	//set_user_nice(current, -20);
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
+	
+	printk("spi_kthread enter\n");
+	
+	init_waitqueue_head(&pdata->spi_isr_wait);
+
+	pdata->spi_isr_sig = 0;
+	
+	while(1)
+	{
+		wait_event_interruptible(pdata->spi_isr_wait, pdata->spi_isr_sig || kthread_should_stop());
+
+		//if(pdata->spi_isr_sig > 1)
+		//{
+			//printk("more than 1 sig setted, %d\n", pdata->spi_isr_sig);
+			//usleep(10);
+		//}
+
+		msm_spi_workq(pdata);
+
+		spin_lock(&pdata->queue_lock);
+		if(pdata->spi_isr_sig > 0)
+		{
+			pdata->spi_isr_sig--;
+		}		
+		spin_unlock(&pdata->queue_lock);
+	
+		if (kthread_should_stop())
+			break;
+	}
+
+	printk("spi_kthread exit\n");
+
+	return 0;
+}
+#endif
+// LGE_BROADCAST_ONESEG }
 
 static struct of_device_id msm_spi_dt_match[] = {
 	{

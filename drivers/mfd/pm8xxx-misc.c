@@ -1160,6 +1160,42 @@ int pm8xxx_hsed_bias_control(enum pm8xxx_hsed_bias bias, bool enable)
 }
 EXPORT_SYMBOL(pm8xxx_hsed_bias_control);
 
+/*LGE_CHANGE_S 2012-08-11 jungwoo.yun@lge.com */
+int pm8921_usb_pwr_enable(int enable)
+{
+	
+	struct pm8xxx_misc_chip *chip;	
+	unsigned long flags;
+	int rc = 0;
+	
+	spin_lock_irqsave(&pm8xxx_misc_chips_lock, flags);
+	
+	/* Loop over all attached PMICs and call specific functions for them. */
+		list_for_each_entry(chip, &pm8xxx_misc_chips, link) {
+			switch (chip->version) {
+			case PM8XXX_VERSION_8921:
+				if(enable == 0)
+					rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1, PON_CTRL_1_USB_PWR_EN, 0);
+				else
+					rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1, PON_CTRL_1_USB_PWR_EN, PON_CTRL_1_USB_PWR_EN);
+								
+				if (rc < 0)
+					pr_err("pm8921_usb_pwr_enable=%d\n", rc);
+			break;
+			
+			default:
+				/* Functionality not supported */
+			break;
+			}
+		}
+	spin_unlock_irqrestore(&pm8xxx_misc_chips_lock, flags);
+
+	return rc;
+
+}
+EXPORT_SYMBOL(pm8921_usb_pwr_enable);
+/*LGE_CHANGE_E 2012-08-11 jungwoo.yun@lge.com */
+
 static int __devinit pm8xxx_misc_probe(struct platform_device *pdev)
 {
 	const struct pm8xxx_misc_platform_data *pdata = pdev->dev.platform_data;

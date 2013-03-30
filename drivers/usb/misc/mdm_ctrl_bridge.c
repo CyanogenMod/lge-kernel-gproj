@@ -622,6 +622,10 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 	dev->udev = udev;
 	dev->int_pipe = usb_rcvintpipe(udev,
 		int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+#ifdef LG_FW_HSIC_EMS_DEBUG/* secheol.pyo - endpoint logging */
+	printk("[%s] ctrl_bridge , interrupt in_endpoint = %d \n", __func__,
+		int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+#endif/* secheol.pyo - endpoint logging */
 	dev->intf = ifc;
 
 	init_usb_anchor(&dev->tx_submitted);
@@ -713,6 +717,13 @@ nomem:
 void ctrl_bridge_disconnect(unsigned int id)
 {
 	struct ctrl_bridge	*dev = __dev[id];
+
+#ifdef CONFIG_USB_G_LGE_ANDROID
+    if (!dev) {
+        err("%s: ctrl device not found\n", __func__);
+        return;
+    }
+#endif
 
 	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 

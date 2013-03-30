@@ -2999,6 +2999,9 @@ static int
 generic_ip_connect(struct TCP_Server_Info *server)
 {
 	int rc = 0;
+        //wh.shin add socket timeout option
+        int timeout = 13000;
+        //wh.shin add socket timeout option
 	__be16 sport;
 	int slen, sfamily;
 	struct socket *socket = server->ssocket;
@@ -3046,6 +3049,10 @@ generic_ip_connect(struct TCP_Server_Info *server)
 	 */
 	socket->sk->sk_rcvtimeo = 7 * HZ;
 	socket->sk->sk_sndtimeo = 5 * HZ;
+
+        //add socket timeout option
+        kernel_setsockopt ( socket, SOL_TCP , TCP_USER_TIMEOUT, (char*)&timeout, sizeof(timeout));
+        //add socket timeout option
 
 	/* make the bufsizes depend on wsize/rsize and max requests */
 	if (server->noautotune) {

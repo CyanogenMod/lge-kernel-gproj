@@ -293,6 +293,14 @@ config USB_QCOM_MDM_BRIDGE
 	  driver for dial up network and RMNET.
 	  To compile this driver as a module, choose M here: the module
 	  will be called mdm_bridge. If unsure, choose N.
+config LGE_EMS_CH
+	tristate "USB LGE EMS bridge and Channel driver for EMS"
+	depends on USB
+	help
+	  Say Y here if you want to add LGE Debugging channel connected via USB-HSIC that
+	  will be bridged in kernel space. 
+	  To compile this driver as a module, choose M here: the module
+	  will be called hsic_debug_ch. If unsure, choose N. From MDM-BSP(secheol.pyo@lge.com)
 
 config USB_QCOM_KS_BRIDGE
 	tristate "USB Qualcomm kick start bridge"
@@ -303,3 +311,20 @@ config USB_QCOM_KS_BRIDGE
 	  boot images, ram-dumps and efs sync
 	  To compile this driver as a module, choose M here: the module
 	  will be called ks_bridge. If unsure, choose N.
+
+config USB_LGE_DDM_BRIDGE
+	tristate "USB LG Electronics DDM bridge driver"
+	depends on USB
+	help
+	  Say Y here if you want to change rmnet3 to DDM Bridge connected via USB-HSIC that
+	  will be bridged in kernel space. This driver works as a bridge to communicate
+	  specific daemon (like a DDM process) in User space
+	  To compile this driver as a module, choose M here: the module
+	  will be called hsic_debug_ch. If unsure, choose N. From ModemBSP(secheol.pyo@lge.com)
+
+config USB_LGE_DDM_TTY
+	tristate "USB LG Electronics DDM tty driver"
+	depends on USB
+	help
+	  This driver works as a bridge to communicate specific daemon (like a DDM process)
+	  in User space.

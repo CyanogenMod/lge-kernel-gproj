@@ -23,6 +23,7 @@
 #include <linux/hwmon.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
+#include <linux/wakelock.h>
 #include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/hwmon-sysfs.h>
@@ -123,6 +124,10 @@
 #define PM8XXX_ADC_HWMON_NAME_LENGTH			32
 #define PM8XXX_ADC_BTM_INTERVAL_MAX			0x14
 #define PM8XXX_ADC_COMPLETION_TIMEOUT			(2 * HZ)
+/* Ref patch test */
+#define PM8XXX_ADC_APQ_THERM_VREG_UV_MIN               2220000
+#define PM8XXX_ADC_APQ_THERM_VREG_UV_MAX               2220000
+#define PM8XXX_ADC_APQ_THERM_VREG_UA_LOAD              100000
 
 struct pm8xxx_adc {
 	struct device				*dev;
@@ -141,9 +146,11 @@ struct pm8xxx_adc {
 	struct work_struct			cool_work;
 	uint32_t				mpp_base;
 	struct device				*hwmon;
+	struct wake_lock			adc_wakelock;
 	int					msm_suspend_check;
 	struct pm8xxx_adc_amux_properties	*conv;
 	struct pm8xxx_adc_arb_btm_param		batt;
+	bool					apq_therm;
 	struct sensor_device_attribute		sens_attr[0];
 };
 
@@ -164,6 +171,7 @@ static const struct pm8xxx_adc_scaling_ratio pm8xxx_amux_scaling_ratio[] = {
 
 static struct pm8xxx_adc *pmic_adc;
 static struct regulator *pa_therm;
+static struct regulator *apq_therm;
 
 static struct pm8xxx_adc_scale_fn adc_scale_fn[] = {
 	[ADC_SCALE_DEFAULT] = {pm8xxx_adc_scale_default},
@@ -171,6 +179,7 @@ static struct pm8xxx_adc_scale_fn adc_scale_fn[] = {
 	[ADC_SCALE_PA_THERM] = {pm8xxx_adc_scale_pa_therm},
 	[ADC_SCALE_PMIC_THERM] = {pm8xxx_adc_scale_pmic_therm},
 	[ADC_SCALE_XOTHERM] = {pm8xxx_adc_tdkntcg_therm},
+	[ADC_SCALE_APQ_THERM] = {pm8xxx_adc_scale_apq_therm},
 };
 
 /* On PM8921 ADC the MPP needs to first be configured
@@ -222,6 +231,7 @@ static int32_t pm8xxx_adc_arb_cntrl(uint32_t arb_cntrl,
 			pr_err("PM8xxx ADC request made after suspend_noirq "
 					"with channel: %d\n", channel);
 		data_arb_cntrl |= PM8XXX_ADC_ARB_USRP_CNTRL1_EN_ARB;
+		wake_lock(&adc_pmic->adc_wakelock);
 	}
 
 	/* Write twice to the CNTRL register for the arbiter settings
@@ -240,9 +250,55 @@ static int32_t pm8xxx_adc_arb_cntrl(uint32_t arb_cntrl,
 		INIT_COMPLETION(adc_pmic->adc_rslt_completion);
 		rc = pm8xxx_writeb(adc_pmic->dev->parent,
 			PM8XXX_ADC_ARB_USRP_CNTRL1, data_arb_cntrl);
-	}
+	} else
+		wake_unlock(&adc_pmic->adc_wakelock);
 
 	return 0;
+}
+
+static int32_t pm8xxx_adc_apqtherm_power(bool on)
+{
+	int rc = 0;
+
+	if (!apq_therm) {
+		pr_err("pm8xxx adc apq_therm not valid\n");
+		return -EINVAL;
+	}
+
+	if (on) {
+		rc = regulator_set_voltage(apq_therm,
+				PM8XXX_ADC_APQ_THERM_VREG_UV_MIN,
+				PM8XXX_ADC_APQ_THERM_VREG_UV_MAX);
+		if (rc < 0) {
+			pr_err("failed to set the voltage for "
+					"apq_therm with error %d\n", rc);
+			return rc;
+		}
+
+		rc = regulator_set_optimum_mode(apq_therm,
+				PM8XXX_ADC_APQ_THERM_VREG_UA_LOAD);
+		if (rc < 0) {
+			pr_err("failed to set optimum mode for "
+					"apq_therm with error %d\n", rc);
+			return rc;
+		}
+
+		rc = regulator_enable(apq_therm);
+		if (rc < 0) {
+			pr_err("failed to enable apq_therm vreg "
+					"with error %d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = regulator_disable(apq_therm);
+		if (rc < 0) {
+			pr_err("failed to disable apq_therm vreg "
+					"with error %d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
 }
 
 static int32_t pm8xxx_adc_patherm_power(bool on)
@@ -293,11 +349,18 @@ static int32_t pm8xxx_adc_patherm_power(bool on)
 static int32_t pm8xxx_adc_channel_power_enable(uint32_t channel,
 							bool power_cntrl)
 {
+	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	int rc = 0;
 
-	switch (channel)
+	switch (channel) {
 	case ADC_MPP_1_AMUX8:
 		rc = pm8xxx_adc_patherm_power(power_cntrl);
+		return rc;
+	case ADC_MPP_1_AMUX3:
+		if (adc_pmic->apq_therm)
+			rc = pm8xxx_adc_apqtherm_power(power_cntrl);
+		return rc;
+	}
 
 	return rc;
 }
@@ -1023,6 +1086,11 @@ uint32_t pm8xxx_adc_btm_end(void)
 }
 EXPORT_SYMBOL_GPL(pm8xxx_adc_btm_end);
 
+#if defined(CONFIG_MACH_APQ8064_J1D)
+static int temp_prev = 480; 
+static int highTemp_count = 0;
+#endif
+
 static ssize_t pm8xxx_adc_show(struct device *dev,
 			struct device_attribute *devattr, char *buf)
 {
@@ -1034,6 +1102,25 @@ static ssize_t pm8xxx_adc_show(struct device *dev,
 
 	if (rc)
 		return 0;
+
+/* [LGE_UPDATE_S for high temperature scaling]  only DCM*/
+#if defined(CONFIG_MACH_APQ8064_J1D)
+	if (attr->index == 8){
+		if (highTemp_count > 3){
+			highTemp_count = 0;
+			temp_prev = result.physical;
+		}
+		else if (result.physical >= 490 ){
+			result.physical = temp_prev;
+			highTemp_count++;
+		}
+		else {
+			highTemp_count = 0;
+			temp_prev = result.physical;
+		}
+	}
+#endif
+/* [LGE_UPDATE_# for high temperature scaling]  only DCM*/	
 
 	return snprintf(buf, PM8XXX_ADC_HWMON_NAME_LENGTH,
 		"Result:%lld Raw:%d\n", result.physical, result.adc_code);
@@ -1054,6 +1141,23 @@ static int get_adc(void *data, u64 *val)
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_adc, NULL, "%llu\n");
+
+static int get_mpp_adc(void *data, u64 *val)
+{
+	struct pm8xxx_adc_chan_result result;
+	int i = (int)data;
+	int rc;
+
+	rc = pm8xxx_adc_mpp_config_read(i,
+		ADC_MPP_1_AMUX6, &result);
+	if (!rc)
+		pr_info("ADC MPP value raw:%x physical:%lld\n",
+			result.adc_code, result.physical);
+	*val = result.physical;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(reg_mpp_fops, get_mpp_adc, NULL, "%llu\n");
 
 #ifdef CONFIG_DEBUG_FS
 static void create_debugfs_entries(void)
@@ -1147,6 +1251,7 @@ static int __devexit pm8xxx_adc_teardown(struct platform_device *pdev)
 	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	int i;
 
+	wake_lock_destroy(&adc_pmic->adc_wakelock);
 	platform_set_drvdata(pdev, NULL);
 	pmic_adc = NULL;
 	if (!pa_therm) {
@@ -1248,6 +1353,8 @@ static int __devinit pm8xxx_adc_probe(struct platform_device *pdev)
 
 	disable_irq_nosync(adc_pmic->btm_cool_irq);
 	platform_set_drvdata(pdev, adc_pmic);
+	wake_lock_init(&adc_pmic->adc_wakelock, WAKE_LOCK_SUSPEND,
+					"pm8xxx_adc_wakelock");
 	adc_pmic->msm_suspend_check = 0;
 	pmic_adc = adc_pmic;
 
@@ -1270,6 +1377,16 @@ static int __devinit pm8xxx_adc_probe(struct platform_device *pdev)
 		rc = PTR_ERR(pa_therm);
 		pr_err("failed to request pa_therm vreg with error %d\n", rc);
 		pa_therm = NULL;
+	}
+
+	if (pdata->apq_therm) {
+		apq_therm = regulator_get(adc_pmic->dev, "apq_therm");
+		if (IS_ERR(pa_therm)) {
+			rc = PTR_ERR(pa_therm);
+			pr_err("failed to request apq_therm vreg with error %d\n", rc);
+			apq_therm = NULL;
+		}
+		adc_pmic->apq_therm = true;
 	}
 	return 0;
 }

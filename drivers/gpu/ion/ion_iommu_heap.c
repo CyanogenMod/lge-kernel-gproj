@@ -75,7 +75,8 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 			goto err2;
 
 		for_each_sg(table->sgl, sg, table->nents, i) {
-			data->pages[i] = alloc_page(GFP_KERNEL | __GFP_ZERO);
+//			data->pages[i] = alloc_page(GFP_KERNEL | __GFP_ZERO);
+			data->pages[i] = alloc_page(GFP_KERNEL | __GFP_ZERO | __GFP_HIGHMEM);
 			if (!data->pages[i])
 				goto err3;
 

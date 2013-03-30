@@ -129,6 +129,32 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
+#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
+    POWER_SUPPLY_PROP_BATTERY_ID_CHECK,
+#endif
+/* [START] sungsookim */
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_PROP_PSEUDO_BATT,
+    POWER_SUPPLY_PROP_BLOCK_CHARGING,
+    POWER_SUPPLY_PROP_EXT_PWR_CHECK,
+/* LGE_S kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+    POWER_SUPPLY_PROP_BMS_BATT,
+/* LGE_E kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+
+/*2012-07-11 Add battery present check in the testmode */
+	POWER_SUPPLY_PROP_REAL_BATT_PRESENT,
+/*2012-07-11 Add battery present check in the testmode */
+#ifdef CONFIG_BATTERY_MAX17047
+/*doosan.baek@lge.com 20121108 Add battery condition */
+    POWER_SUPPLY_PROP_BATTERY_CONDITION,
+    POWER_SUPPLY_PROP_BATTERY_AGE,
+#endif
+#endif
+#ifdef CONFIG_LGE_FTT_CHARGER
+	POWER_SUPPLY_PROP_FTT_ANNTENA_LEVEL,
+#endif
+
+/* [END] */
 };
 
 enum power_supply_type {
@@ -140,7 +166,10 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* Charging Downstream Port */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
-	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
+        POWER_SUPPLY_TYPE_BMS,          /* Battery Monitor System */
+#ifdef CONFIG_LGE_WIRELESS_CHARGER
+	POWER_SUPPLY_TYPE_WIRELESS,
+#endif
 };
 
 union power_supply_propval {

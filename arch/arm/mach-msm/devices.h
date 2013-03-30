@@ -85,11 +85,21 @@ extern struct platform_device msm8960_device_ebi1_ch1_erp;
 
 extern struct platform_device apq8064_device_uart_gsbi1;
 extern struct platform_device apq8064_device_uart_gsbi3;
+extern struct platform_device apq8064_device_uart_gsbi4;
+#if defined(CONFIG_LGE_FELICA) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+extern struct platform_device apq8064_device_felica_gsbi6;
+extern struct platform_device apq8064_device_felica_gsbi3;
+#endif 
 extern struct platform_device apq8064_device_uart_gsbi7;
+
 extern struct platform_device apq8064_device_qup_i2c_gsbi1;
 extern struct platform_device apq8064_device_qup_i2c_gsbi3;
 extern struct platform_device apq8064_device_qup_i2c_gsbi4;
+
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
 extern struct platform_device apq8064_device_qup_spi_gsbi5;
+#endif	 /* CONFIG_LGE_BROADCAST */
+
 extern struct platform_device apq8064_slim_ctrl;
 extern struct platform_device apq8064_device_ssbi_pmic1;
 extern struct platform_device apq8064_device_ssbi_pmic2;

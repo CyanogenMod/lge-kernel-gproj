@@ -1159,9 +1159,22 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 		mipi_dsi_enable_irq(DSI_CMD_TERM);
 		mipi_dsi_buf_init(tp);
 		mipi_dsi_cmd_dma_add(tp, cm);
+#if defined(CONFIG_MACH_LGE)
+		if (mipi_dsi_cmd_dma_tx(tp) == 0) 
+		{
+			printk(KERN_INFO "%s : mipi_dsi_cmd_dma_tx timeout!!! cm num = %d, cm payload = %s/n", __func__, i, cm->payload);
+			return -1;
+		}
+#else
 		mipi_dsi_cmd_dma_tx(tp);
+#endif
+
 		if (cm->wait)
+#ifdef CONFIG_MACH_LGE
+			mdelay(cm->wait);
+#else
 			msleep(cm->wait);
+#endif
 		cm++;
 	}
 
@@ -1419,6 +1432,9 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 
 	unsigned long flags;
 
+#ifdef CONFIG_MACH_LGE
+	long timeout;
+#endif
 #ifdef DSI_HOST_DEBUG
 	int i;
 	char *bp;
@@ -1454,7 +1470,18 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	wmb();
 	spin_unlock_irqrestore(&dsi_mdp_lock, flags);
 
+#ifdef CONFIG_MACH_LGE
+	timeout = wait_for_completion_timeout(&dsi_dma_comp, msecs_to_jiffies(VSYNC_PERIOD*20)); // 320ms
+	if (timeout == 0)
+	{
+		pr_err("%s: wait_for_completion_timeout .. \n", __func__);
+		dma_unmap_single(&dsi_dev, tp->dmap, tp->len, DMA_TO_DEVICE);
+		tp->dmap = 0;
+		return timeout;
+	}
+#else
 	wait_for_completion(&dsi_dma_comp);
+#endif
 
 	dma_unmap_single(&dsi_dev, tp->dmap, tp->len, DMA_TO_DEVICE);
 	tp->dmap = 0;

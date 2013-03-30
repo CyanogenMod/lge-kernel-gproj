@@ -108,7 +108,7 @@ int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 		for (i = 0; i < num_clk; i++) {
 			clk_ptr[i] = clk_get(dev, clk_info[i].clk_name);
 			if (IS_ERR(clk_ptr[i])) {
-				pr_err("%s get failed\n", clk_info[i].clk_name);
+				printk(KERN_EMERG "[CAM]%s get failed\n", clk_info[i].clk_name);
 				rc = PTR_ERR(clk_ptr[i]);
 				goto cam_clk_get_err;
 			}
@@ -116,21 +116,21 @@ int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 				rc = clk_set_rate(clk_ptr[i],
 							clk_info[i].clk_rate);
 				if (rc < 0) {
-					pr_err("%s set failed\n",
+					printk(KERN_EMERG "[CAM]%s set failed\n",
 						   clk_info[i].clk_name);
 					goto cam_clk_set_err;
 				}
 			}
 			rc = clk_prepare(clk_ptr[i]);
 			if (rc < 0) {
-				pr_err("%s prepare failed\n",
+				printk(KERN_EMERG "[CAM]%s prepare failed\n",
 					   clk_info[i].clk_name);
 				goto cam_clk_prepare_err;
 			}
 
 			rc = clk_enable(clk_ptr[i]);
 			if (rc < 0) {
-				pr_err("%s enable failed\n",
+				printk(KERN_EMERG "[CAM]%s enable failed\n",
 					   clk_info[i].clk_name);
 				goto cam_clk_enable_err;
 			}
@@ -196,7 +196,7 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 			reg_ptr[j] = regulator_get(dev,
 				curr_vreg->reg_name);
 			if (IS_ERR(reg_ptr[j])) {
-				pr_err("%s: %s get failed\n",
+				printk(KERN_EMERG "[CAMERA]%s: %s get failed\n",
 					 __func__,
 					 curr_vreg->reg_name);
 				reg_ptr[j] = NULL;
@@ -208,7 +208,7 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 					curr_vreg->min_voltage,
 					curr_vreg->max_voltage);
 				if (rc < 0) {
-					pr_err("%s: %s set voltage failed\n",
+					printk(KERN_EMERG "[CAMERA] %s: %s set voltage failed\n",
 						__func__,
 						curr_vreg->reg_name);
 					goto vreg_set_voltage_fail;
@@ -218,8 +218,8 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 						reg_ptr[j],
 						curr_vreg->op_mode);
 					if (rc < 0) {
-						pr_err(
-						"%s: %s set optimum mode failed\n",
+						printk(KERN_EMERG
+						"[CAMERA] %s: %s set optimum mode failed\n",
 						__func__,
 						curr_vreg->reg_name);
 						goto vreg_set_opt_mode_fail;

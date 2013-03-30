@@ -224,6 +224,15 @@ int pm8xxx_aux_clk_control(enum pm8xxx_aux_clk_id clk_id,
  * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
  */
 int pm8xxx_hsed_bias_control(enum pm8xxx_hsed_bias bias, bool enable);
+
+#ifndef QCT_CLK_KICK_START
+void pm8921_turn_on_19p2mhz_clk_ext(void);
+#endif
+
+/*LGE_CHANGE_S 2012-08-11 jungwoo.yun@lge.com */
+int pm8921_usb_pwr_enable(int enable);
+/*LGE_CHANGE_E 2012-08-11 jungwoo.yun@lge.com */
+
 #else
 
 static inline int pm8xxx_reset_pwr_off(int reset)

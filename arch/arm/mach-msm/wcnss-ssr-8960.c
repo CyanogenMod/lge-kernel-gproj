@@ -28,6 +28,11 @@
 #include "smd_private.h"
 #include "ramdump.h"
 
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+#include <mach/restart.h>
+#include <mach/board_lge.h>
+#endif
+
 #define MODULE_NAME			"wcnss_8960"
 #define MAX_BUF_SIZE			0x51
 
@@ -37,7 +42,7 @@ static struct delayed_work cancel_vote_work;
 static void *riva_ramdump_dev;
 static int riva_crash;
 static int ss_restart_inprogress;
-static int enable_riva_ssr;
+static int enable_riva_ssr = 1;
 static struct subsys_device *riva_8960_dev;
 
 static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
@@ -61,8 +66,13 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 		return;
 	}
 
-	if (!enable_riva_ssr)
+	if (!enable_riva_ssr) {
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+		lge_set_magic_for_subsystem("wcnss");
+		msm_set_restart_mode(0x6d632130);
+#endif	
 		panic(MODULE_NAME ": SMSM reset request received from Riva");
+	}
 
 	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_WCNSS0,
 			&smem_reset_size);
@@ -98,8 +108,13 @@ static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
-	if (!enable_riva_ssr)
+	if (!enable_riva_ssr) {
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+		lge_set_magic_for_subsystem("wcnss");
+		msm_set_restart_mode(0x6d632130);
+#endif
 		panic(MODULE_NAME ": Watchdog bite received from Riva");
+	}
 
 	ss_restart_inprogress = true;
 	subsystem_restart_dev(riva_8960_dev);
@@ -171,7 +186,8 @@ static struct ramdump_segment riva_segments[] = {{0x8f000000,
 static int riva_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	pr_debug("%s: enable[%d]\n", MODULE_NAME, enable);
-	if (enable)
+	//if (enable)
+	if(true)	// bluetooth.kang@lge.com  always enable riva ramdump
 		return do_ramdump(riva_ramdump_dev,
 				riva_segments,
 				ARRAY_SIZE(riva_segments));

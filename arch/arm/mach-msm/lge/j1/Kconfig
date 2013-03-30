@@ -1,0 +1,101 @@
+config BOARD_HEADER_FILE
+	string "LGE board specific header file name"
+	default ""
+
+config MACH_APQ8064_J1V
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1V"
+	help
+	  Support for the LGE Fusion3 J1V device.
+
+config MACH_APQ8064_J1U
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1U"
+	help
+	  Support for the LGE Fusion3 J1U(U+) device.
+
+config MACH_APQ8064_J1A
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1A"
+	help
+	  Support for the LGE Fusion3 J1A(AT&T) device.
+
+config MACH_APQ8064_J1SP
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1SP"
+	help
+	  Support for the LGE Fusion3 J1SP(Sprint) device.
+
+config MACH_APQ8064_J1D
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1D"
+	help
+	  Support for the LGE Fusion3 J1D(Docomo) device.
+
+config MACH_APQ8064_J1SK
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1SK"
+	help
+	  Support for the LGE Fusion3 J1SK(SKT) device.
+
+config MACH_APQ8064_J1KT
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1KT"
+	help
+	  Support for the LGE Fusion3 J1KT(KT) device.
+
+config MACH_APQ8064_J1KD
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1KD"
+	help
+	  Support for the LGE Fusion3 J1D(KDDI) device.
+config MACH_APQ8064_J1R
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1R"
+	help
+	  Support for the LGE Fusion3 J1R(ROGERS) device.
+config MACH_APQ8064_J1B
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1B"
+	help
+	  Support for the LGE Fusion3 J1B(BELL) device.
+config MACH_APQ8064_J1TL
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1TL"
+	help
+	  Support for the LGE Fusion3 J1TL(TELUS) device.
+config MACH_APQ8064_J1TM
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1TM"
+	help
+	  Support for the LGE Fusion3 J1TM(TMUS) device.
+config MACH_APQ8064_J1VD
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1VD"
+	help
+	  Support for the LGE Fusion3 J1VD(VDF) device.
+config MACH_APQ8064_J1X
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 J1X"
+	help
+	  Support for the LGE Fusion3 J1X(VDF) device.
+
+config LGE_USB_DIAG_DISABLE
+	default n
+	bool "Disable diag function"
+	help
+	 Provide method of diag enable or disable

@@ -3941,6 +3941,8 @@ int can_nice(const struct task_struct *p, const int nice)
 SYSCALL_DEFINE1(nice, int, increment)
 {
 	long nice, retval;
+	if (!ccs_capable(CCS_SYS_NICE))
+		return -EPERM;
 
 	/*
 	 * Setpriority might change our priority at the same moment.

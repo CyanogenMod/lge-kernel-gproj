@@ -341,10 +341,16 @@ static int msm_gpio_irq_set_type(struct irq_data *d, unsigned int flow_type)
 		msm_gpio_update_dual_edge_pos(d, gpio);
 
 	mb();
+	
 	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
 
-	if (msm_gpio_irq_extn.irq_set_type)
-		msm_gpio_irq_extn.irq_set_type(d, flow_type);
+	// [SoundBSP][SR:01020638][CR:421325] BOTH EDGE  설정 오류.
+	if ((flow_type & IRQ_TYPE_EDGE_BOTH) != IRQ_TYPE_EDGE_BOTH)
+	{
+		if (msm_gpio_irq_extn.irq_set_type)
+			msm_gpio_irq_extn.irq_set_type(d, flow_type);
+	}
+
 
 	return 0;
 }

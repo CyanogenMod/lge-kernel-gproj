@@ -147,7 +147,6 @@ static void mdp_set_vsync(unsigned long data)
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
 	vsync_mfd = mfd;
-	init_timer(&mfd->vsync_resync_timer);
 
 	if ((pdata) && (pdata->set_vsync_notifier == NULL))
 		return;
@@ -167,7 +166,8 @@ static void mdp_set_vsync(unsigned long data)
 	}
 
 	spin_lock(&vsync_timer_lock);
-	if (!timer_shutdown_flag) {
+    if (!timer_shutdown_flag) {
+        init_timer(&mfd->vsync_resync_timer);
 		mfd->vsync_resync_timer.function = mdp_set_vsync;
 		mfd->vsync_resync_timer.data = data;
 		mfd->vsync_resync_timer.expires =

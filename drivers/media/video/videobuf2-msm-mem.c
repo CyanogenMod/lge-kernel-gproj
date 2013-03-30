@@ -342,6 +342,12 @@ unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *vb,
 {
 	struct videobuf2_contig_pmem *mem;
 	mem = vb2_plane_cookie(vb, plane_no);
+//Start LGE_BSP_CAMERA : Fixed WBT - jonghwan.ko@lge.com
+		if(mem == NULL){
+			pr_err("%s:mem is NULL \n",__func__);
+			return 0;
+		}		
+//End  LGE_BSP_CAMERA : Fixed WBT - jonghwan.ko@lge.com	
 	BUG_ON(!mem);
 	MAGIC_CHECK(mem->magic, MAGIC_PMEM);
 	return mem->mapped_phyaddr;

@@ -84,9 +84,18 @@ struct pm8xxx_pwm_period {
  * start_idx - index in the LUT
  */
 struct pm8xxx_pwm_duty_cycles {
+#ifdef CONFIG_LGE_PM_PWM_LED
+	int *duty_pcts0;
+	int *duty_pcts1;
+	int num_duty_pcts0;
+	int num_duty_pcts1;
+	int duty_ms0;
+	int duty_ms1;
+#else
 	int *duty_pcts;
 	int num_duty_pcts;
 	int duty_ms;
+#endif
 	int start_idx;
 };
 

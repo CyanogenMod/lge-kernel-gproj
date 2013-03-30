@@ -112,6 +112,11 @@ EXPORT_SYMBOL(system_state);
  */
 #define MAX_INIT_ARGS CONFIG_INIT_ENV_ARG_LIMIT
 #define MAX_INIT_ENVS CONFIG_INIT_ENV_ARG_LIMIT
+#if defined(CONFIG_LGE_PM)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+static void smpl_count(void);
+#endif
+#endif
 
 extern void time_init(void);
 /* Default late time init is NULL. archs can override this later. */
@@ -385,6 +390,70 @@ static noinline void __init_refok rest_init(void)
 	/* Call into cpu_idle with preempt disabled */
 	cpu_idle();
 }
+#if defined(CONFIG_LGE_PM)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#define PWR_ON_EVENT_KEYPAD			0x1
+#define PWR_ON_EVENT_RTC			0x2
+#define PWR_ON_EVENT_CABLE			0x4
+#define PWR_ON_EVENT_SMPL			0x8
+#define PWR_ON_EVENT_WDOG			0x10
+#define PWR_ON_EVENT_USB_CHG		0x20
+#define PWR_ON_EVENT_WALL_CHG		0x40
+#define PWR_ON_EVENT_HARD_RESET		0x100
+
+extern struct file *fget(unsigned int fd);
+extern void fput(struct file *);
+extern uint16_t power_on_status_info_get(void);
+
+static void write_file(char *filename, char* data)
+{
+	int fd = -1;
+	loff_t pos = 0;
+	struct file* file;
+	mm_segment_t old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	fd = sys_open((const char __user *)filename, O_WRONLY | O_CREAT, 0644);
+	printk("[SMPL_CNT] ===> write() : fd is %d\n", fd);
+	if(fd >=0)
+	{
+		file = fget(fd);
+		if(file)
+		{
+			vfs_write(file, data, strlen(data), &pos);
+			fput(file);
+		}
+		sys_close(fd);
+	}
+	else
+	{
+		printk("[SMPL_CNT] === > write : sys_open error!!!!\n");
+	}
+	set_fs(old_fs);
+}
+
+
+static void smpl_count(void)
+{
+	char* file_name = "/smpl_boot";
+	uint16_t boot_cause = 0;
+
+	boot_cause = power_on_status_info_get();
+	printk("[BOOT_CAUSE] %d \n", boot_cause);
+
+	if(boot_cause==PWR_ON_EVENT_SMPL)
+	{
+		printk("[SMPL_CNT] ===> is smpl boot\n");
+		write_file(file_name, "1");
+	}
+	else
+	{
+		write_file(file_name, "0");
+		printk("[SMPL_CNT] ===> not smpl boot!!!!!\n");
+	}
+}
+#endif
+#endif
 
 /* Check for early params. */
 static int __init do_early_param(char *param, char *val)
@@ -889,6 +958,11 @@ static int __init kernel_init(void * unused)
 	 * we're essentially up and running. Get rid of the
 	 * initmem segments and start the user-mode stuff..
 	 */
+#if defined(CONFIG_LGE_PM)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+	smpl_count();
+#endif
+#endif
 
 	init_post();
 	return 0;

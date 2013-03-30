@@ -795,7 +795,10 @@ static void dma_cache_maint_page(struct page *page, unsigned long offset,
 	 * If highmem is not configured then the bulk of this loop gets
 	 * optimized out.
 	 */
+	unsigned long pfn;
 	size_t left = size;
+	pfn = page_to_pfn(page);
+
 	do {
 		size_t len = left;
 		void *vaddr;
@@ -803,7 +806,8 @@ static void dma_cache_maint_page(struct page *page, unsigned long offset,
 		if (PageHighMem(page)) {
 			if (len + offset > PAGE_SIZE) {
 				if (offset >= PAGE_SIZE) {
-					page += offset / PAGE_SIZE;
+					pfn += offset / PAGE_SIZE;
+					page = pfn_to_page(pfn);
 					offset %= PAGE_SIZE;
 				}
 				len = PAGE_SIZE - offset;
@@ -824,7 +828,8 @@ static void dma_cache_maint_page(struct page *page, unsigned long offset,
 			op(vaddr, len, dir);
 		}
 		offset = 0;
-		page++;
+		pfn++;
+		page = pfn_to_page(pfn);
 		left -= len;
 	} while (left);
 }

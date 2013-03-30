@@ -19,6 +19,7 @@
 
 #include "power_supply.h"
 
+#include <mach/board_lge.h>
 /*
  * This is because the name "current" breaks the device attr macro.
  * The "current" word resolves to "(get_current())" so instead of
@@ -30,6 +31,30 @@
  * Only modification that the name is not tried to be resolved
  * (as a macro let's say).
  */
+/* [START] sungsookim */
+#ifdef CONFIG_LGE_PM
+/* LGE_S kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+#define BMS_BATT_ATTR(_name)                                     \
+{                                                                   \
+	.attr = { .name = #_name, .mode = 0644 },                       \
+	.show = bms_batt_show_property,                              \
+	.store = bms_batt_store_property,                            \
+}
+/* LGE_E kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+#define PSEUDO_BATT_ATTR(_name)                                     \
+{                                                                   \
+	.attr = { .name = #_name, .mode = 0644 },                       \
+	.show = pseudo_batt_show_property,                              \
+	.store = pseudo_batt_store_property,                            \
+}
+#define BLOCK_CHARGING_ATTR(_name)                                  \
+{                                                                   \
+	.attr = { .name = #_name, .mode = 0644 },                       \
+	.show = block_charging_show_property,                           \
+	.store = block_charging_store_property,                         \
+}
+#endif
+/* [END] */
 
 #define POWER_SUPPLY_ATTR(_name)					\
 {									\
@@ -45,7 +70,10 @@ static ssize_t power_supply_show_property(struct device *dev,
 					  char *buf) {
 	static char *type_text[] = {
 		"Unknown", "Battery", "UPS", "Mains", "USB",
-		"USB_DCP", "USB_CDP", "USB_ACA"
+		"USB_DCP", "USB_CDP", "USB_ACA", "BMS",
+#ifdef CONFIG_LGE_WIRELESS_CHARGER
+		"WIRELESS"
+#endif
 	};
 	static char *status_text[] = {
 		"Unknown", "Charging", "Discharging", "Not charging", "Full"
@@ -101,9 +129,13 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", type_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_SCOPE)
 		return sprintf(buf, "%s\n", scope_text[value.intval]);
+#ifdef CONFIG_LGE_PM
+	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME && off <= POWER_SUPPLY_PROP_SERIAL_NUMBER)
+		return sprintf(buf, "%s\n", value.strval);
+#else
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
-
+#endif
 	return sprintf(buf, "%d\n", value.intval);
 }
 
@@ -130,6 +162,161 @@ static ssize_t power_supply_store_property(struct device *dev,
 	return count;
 }
 
+/* [START] sungsookim */
+#ifdef CONFIG_LGE_PM
+/* LGE_S kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+static ssize_t bms_batt_show_property(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+
+	ssize_t ret;
+	struct power_supply *psy = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_supply_attrs;
+	union power_supply_propval value;
+	static char *bms_mode[] = {
+		"NORMAL", "BMSLOG",
+	};
+
+	ret = psy->get_property(psy, off, &value);
+
+	if (ret < 0) {
+		if (ret != -ENODEV)
+			dev_err(dev, "driver failed to report `%s' property\n",
+					attr->attr.name);
+		return ret;
+	}
+
+	if (off == POWER_SUPPLY_PROP_BMS_BATT)
+		return sprintf(buf, "[%s] \nusage: echo [mode] > bms_log\n", bms_mode[value.intval]);
+
+	return 0;
+}
+extern int bms_batt_set(struct bms_batt_info_type*);
+static ssize_t bms_batt_store_property(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct bms_batt_info_type bms_log;
+	int ret = -EINVAL;
+
+	if(sscanf(buf, "%d", &bms_log.mode) != 1)
+	{
+			if(bms_log.mode == 1) //bmslog mode
+		{
+			printk(KERN_ERR "usage : echo [mode] > bms_log");
+			goto out;
+		}
+	}
+
+	bms_batt_set(&bms_log);
+	ret = count;
+
+out:
+	return ret;
+
+}
+/* LGE_E kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+
+static ssize_t pseudo_batt_show_property(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t ret;
+	struct power_supply *psy = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_supply_attrs;
+	union power_supply_propval value;
+
+	static char *pseudo_batt[] = {
+		"NORMAL", "PSEUDO",
+	};
+
+	ret = psy->get_property(psy, off, &value);
+
+	if (ret < 0) {
+		if (ret != -ENODEV)
+			dev_err(dev, "driver failed to report `%s' property\n",
+					attr->attr.name);
+		return ret;
+	}
+	if (off == POWER_SUPPLY_PROP_PSEUDO_BATT)
+		return sprintf(buf, "[%s] \nusage: echo [mode] [ID] [therm] [temp] [volt] [cap] [charging] > pseudo_batt\n", pseudo_batt[value.intval]);
+
+	return 0;
+}
+
+extern int pseudo_batt_set(struct pseudo_batt_info_type*);
+
+static ssize_t pseudo_batt_store_property(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret = -EINVAL;
+	struct pseudo_batt_info_type info;
+
+	if (sscanf(buf, "%d %d %d %d %d %d %d", &info.mode, &info.id, &info.therm,
+				&info.temp, &info.volt, &info.capacity, &info.charging) != 7)
+	{
+		if(info.mode == 1) //pseudo mode
+		{
+			printk(KERN_ERR "usage : echo [mode] [ID] [therm] [temp] [volt] [cap] [charging] > pseudo_batt");
+			goto out;
+		}
+	}
+	pseudo_batt_set(&info);
+	ret = count;
+out:
+	return ret;
+}
+
+extern void batt_block_charging_set(int);
+static ssize_t block_charging_show_property(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t ret;
+	struct power_supply *psy = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_supply_attrs;
+	union power_supply_propval value;
+
+	static char *block_charging_mode[] = {
+		"BLOCK CHARGING", "NORMAL",
+	};
+
+	ret = psy->get_property(psy, off, &value);
+
+	if (ret < 0) {
+		if (ret != -ENODEV)
+			dev_err(dev, "driver failed to report `%s' property\n",
+					attr->attr.name);
+		return ret;
+	}
+	if (off == POWER_SUPPLY_PROP_BLOCK_CHARGING)
+		return sprintf(buf, "[%s] \n", block_charging_mode[value.intval]);
+
+	return 0;
+}
+
+static ssize_t block_charging_store_property(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret = -EINVAL;
+	int block;
+
+	if(sscanf(buf, "%d", &block) != 1)
+	{
+		printk("%s:Too many argument\n",__func__);
+		goto out;
+	}
+	printk("%s:block charging=%d\n",__func__,block);
+	batt_block_charging_set(block);
+	ret = count;
+out:
+	return ret;
+}
+#endif
+/* [END] */
 /* Must be in the same order as POWER_SUPPLY_PROP_* */
 static struct device_attribute power_supply_attrs[] = {
 	/* Properties of type `int' */
@@ -144,7 +331,13 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(voltage_min),
 	POWER_SUPPLY_ATTR(voltage_max_design),
 	POWER_SUPPLY_ATTR(voltage_min_design),
+/* BEGIN: kidong0420.kim@lge.com 2011-10-17 display the battery voltage as mV unit */
+	#ifdef CONFIG_MACH_LGE
+	POWER_SUPPLY_ATTR(batt_vol),
+	#else/*QCT_ORG*/
 	POWER_SUPPLY_ATTR(voltage_now),
+	#endif/*CONFIG_MACH_LGE */
+/* END: kidong0420.kim@lge.com 2011-10-17 */
 	POWER_SUPPLY_ATTR(voltage_avg),
 	POWER_SUPPLY_ATTR(current_max),
 	POWER_SUPPLY_ATTR(current_now),
@@ -178,6 +371,32 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(manufacturer),
 	POWER_SUPPLY_ATTR(serial_number),
+#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
+	POWER_SUPPLY_ATTR(valid_batt_id),
+#endif
+/* [START] sungsookim */
+#ifdef CONFIG_LGE_PM
+	PSEUDO_BATT_ATTR(pseudo_batt),
+	BLOCK_CHARGING_ATTR(block_charging),
+	POWER_SUPPLY_ATTR(ext_pwr),
+/* LGE_S kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+	BMS_BATT_ATTR(bms_log),
+/* LGE_E kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+
+/*2012-07-11 Add battery present check in the testmode */
+	POWER_SUPPLY_ATTR(real_present),
+/*2012-07-11 Add battery present check in the testmode */
+#ifdef CONFIG_BATTERY_MAX17047
+/*doosan.baek@lge.com 20121108 Add battery condition */
+	POWER_SUPPLY_ATTR(battery_condition),
+	POWER_SUPPLY_ATTR(battery_age),
+#endif
+#endif
+/* [END] */
+#ifdef CONFIG_LGE_FTT_CHARGER
+	POWER_SUPPLY_ATTR(ftt_anntena_level),
+#endif
+
 };
 
 static struct attribute *
@@ -261,7 +480,7 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 		return ret;
 	}
 
-	dev_dbg(dev, "POWER_SUPPLY_NAME=%s\n", psy->name);
+	dev_info(dev, "POWER_SUPPLY_NAME=%s\n", psy->name);
 
 	ret = add_uevent_var(env, "POWER_SUPPLY_NAME=%s", psy->name);
 	if (ret)

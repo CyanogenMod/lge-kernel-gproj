@@ -407,5 +407,20 @@ config SH_IRDA
 	help
 	  Say Y here if your want to enable SuperH IrDA devices.
 
+config LGE_IRDA
+	bool "LGE IrDA driver"
+	default n
+
+config LGE_IRDA_DCM
+	bool "LGE IrDA driver for DCM"
+	default n
+	
+config LGE_IRDA_KDDI
+	bool "LGE IrDA driver for KDDI"
+	default n
+config LGE_IRDA_FACTORY
+	bool "for IrDA test in AAT"
+	default n
+
 endmenu
 

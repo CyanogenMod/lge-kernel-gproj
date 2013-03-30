@@ -690,7 +690,15 @@ void __cfg80211_disconnected(struct net_device *dev, const u8 *ie,
 		return;
 
 #ifndef CONFIG_CFG80211_ALLOW_RECONNECT
+//LGE_CHANGE_S, moon-wifi@lge.com by wo0ngs 2012-09-25, Except: WLAN_REASON_UNSPECIFIED
+#ifdef CONFIG_LGE_BCM433X_PATCH
+	//if (wdev->sme_state != CFG80211_SME_CONNECTED)
+	if ((wdev->sme_state != CFG80211_SME_CONNECTED) 
+		&&  (reason != WLAN_REASON_UNSPECIFIED))
+#else
 	if (wdev->sme_state != CFG80211_SME_CONNECTED)
+#endif
+//LGE_CHANGE_E, moon-wifi@lge.com by wo0ngs 2012-09-25, Except: WLAN_REASON_UNSPECIFIED
 		return;
 #endif
 

@@ -39,3 +39,30 @@ config DIAG_BRIDGE_CODE
 	help
 	 SMUX/HSIC Transport Layer for DIAG Router
 endmenu
+
+menu "USB Only Diag Disable"
+config LGE_USB_DIAG_DISABLE
+	default n
+	bool "Disable diag function"
+	help
+	 Provide method of diag enable or disable
+endmenu
+
+menu "USB Only MDM Diag Disable"
+
+config LGE_USB_DIAG_DISABLE_ONLY_MDM
+	default n
+	bool "Disable Only MDM Diag function"
+	help
+	 Provide method of MDM diag enable or disable
+endmenu
+
+menu "LGE DM APP Support"
+
+config LGE_DM_APP
+	bool "LGE DM APP Support"
+	default n
+	depends on MACH_LGE
+	help
+	 LGE DM APP Support
+endmenu

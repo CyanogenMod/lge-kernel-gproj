@@ -89,7 +89,16 @@ struct msm_actuator_ctrl_t {
 	uint16_t initial_code;
 	struct msm_camera_i2c_reg_tbl *i2c_reg_tbl;
 	uint16_t i2c_tbl_index;
-	uint32_t curr_hwparams;
+        uint32_t curr_hwparams;
+/* LGE_CHANGE_S, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
+	uint8_t AF_defocus_enable;
+	uint16_t AF_center_best_code;
+	uint16_t AF_balance_best_code;
+	uint16_t AF_defocus_offset;
+	uint16_t AF_LG_center_best_code;
+	uint16_t AF_LG_defocus_offset;
+	uint16_t af_status;
+/* LGE_CHANGE_E, AF offset enable, 2012-09-28, sungmin.woo@lge.com */
 };
 
 struct msm_actuator_ctrl_t *get_actrl(struct v4l2_subdev *sd);

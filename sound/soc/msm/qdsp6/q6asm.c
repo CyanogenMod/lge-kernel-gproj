@@ -325,6 +325,7 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 				 __func__,
 				PTR_ERR((void *)port->buf[0].mem_buffer));
 		else {
+
 			if (iounmap(
 				port->buf[0].mem_buffer) < 0)
 				pr_err("%s: unmap buffer failed\n", __func__);
@@ -799,6 +800,25 @@ static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv)
 	return 0;
 }
 
+static int32_t is_no_wait_cmd_rsp(uint32_t opcode, uint32_t *cmd_type)
+{
+	if (opcode == APR_BASIC_RSP_RESULT) {
+		if (cmd_type != NULL) {
+			switch (cmd_type[0]) {
+			case ASM_SESSION_CMD_RUN:
+			case ASM_SESSION_CMD_PAUSE:
+			case ASM_DATA_CMD_EOS:
+				return 1;
+			default:
+				break;
+			}
+		} else
+			pr_err("%s: null pointer!", __func__);
+	} else if (opcode == ASM_DATA_CMDRSP_EOS)
+		return 1;
+
+	return 0;
+}
 
 static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 {
@@ -819,14 +839,16 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			ac->session);
 		return -EINVAL;
 	}
-	if (atomic_read(&ac->nowait_cmd_cnt) > 0) {
+
+	payload = data->payload;
+	if ((atomic_read(&ac->nowait_cmd_cnt) > 0) &&
+		is_no_wait_cmd_rsp(data->opcode, payload)) {
 		pr_debug("%s: nowait_cmd_cnt %d\n",
 				__func__,
 				atomic_read(&ac->nowait_cmd_cnt));
 		atomic_dec(&ac->nowait_cmd_cnt);
 		wakeup_flag = 0;
 	}
-	payload = data->payload;
 
 	if (data->opcode == RESET_EVENTS) {
 		pr_debug("q6asm_callback: Reset event is received: %d %d apr[%p]\n",
@@ -1470,6 +1492,7 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 {
 	int rc = 0x00;
 	struct asm_stream_cmd_open_write open;
+	static int  if_first_open_write = 1;
 
 	if ((ac == NULL) || (ac->apr == NULL)) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -1477,6 +1500,11 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	}
 	pr_debug("%s: session[%d] wr_format[0x%x]", __func__, ac->session,
 		format);
+	//make sure Q6 is ready before sending the STREAM_CMD_OPEN_WRITE  
+	if(if_first_open_write == 1) {  
+	       msleep(30);  
+	       if_first_open_write = 0;  
+	}  
 
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
 
@@ -1549,6 +1577,7 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	if (!rc) {
 		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
 			rc);
+		panic("Q6asm pcm open timeout"); //temporarily panic code for debugging
 		goto fail_cmd;
 	}
 	if (atomic_read(&ac->cmd_response)) {
@@ -3863,15 +3892,30 @@ static int __init q6asm_init(void)
 	memset(session, 0, sizeof(session));
 #ifdef CONFIG_DEBUG_FS
 	out_buffer = kmalloc(OUT_BUFFER_SIZE, GFP_KERNEL);
+/*	permission is changed S_IWUGO => S_IWUSR | S_IWGRP for CTS
+	bob.cho@lge.com, 02/07/2012	3457	      * bob.cho@lge.com, 02/07/2012
+*/	
+#ifdef CONFIG_LGE_AUDIO
+	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
+				S_IFREG | S_IRUGO | S_IWUSR | S_IWGRP,\
+				NULL, NULL, &audio_output_latency_debug_fops);
+#else
 	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
 				S_IFREG | S_IRUGO | S_IWUGO,\
 				NULL, NULL, &audio_output_latency_debug_fops);
+#endif
 	if (IS_ERR(out_dentry))
 		pr_err("debugfs_create_file failed\n");
 	in_buffer = kmalloc(IN_BUFFER_SIZE, GFP_KERNEL);
+#ifdef CONFIG_LGE_AUDIO
+	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
+				S_IFREG | S_IRUGO | S_IWUSR | S_IWGRP,\
+				NULL, NULL, &audio_input_latency_debug_fops);
+#else
 	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
 				S_IFREG | S_IRUGO | S_IWUGO,\
 				NULL, NULL, &audio_input_latency_debug_fops);
+#endif
 	if (IS_ERR(in_dentry))
 		pr_err("debugfs_create_file failed\n");
 #endif

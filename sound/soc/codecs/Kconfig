@@ -448,3 +448,24 @@ config SND_SOC_TPA6130A2
 
 config SND_SOC_MSM_STUB
 	tristate
+
+config SND_SOC_TPA2028D
+	bool "Audio subsystem TPA2028D"
+	default n
+	help
+	  Texas Instruments 3W Mono Class-D Audio Amplifier
+
+# CONFIG_LGE_AUDIO
+config LGE_AUDIO
+	default y
+	bool "LGE Audio Configuration"
+	help
+		LGE AUDIO Configuration
+
+
+#// LGE_BSP_AUDIO, jeremy.pi@lge.com, Audience eS325 ALSA SoC Audio driver
+config SND_SOC_ES325_SLIM
+	bool "Audience es325 SLIMBus"
+	default n
+	help
+		Audience es325 Dual Mic Noise Reduction

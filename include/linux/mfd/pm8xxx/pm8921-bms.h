@@ -108,6 +108,12 @@ enum battery_type {
 	BATT_UNKNOWN = 0,
 	BATT_PALLADIUM,
 	BATT_DESAY,
+	BATT_LGE, /* LGE_UPDATE jungshik.park@lge.com 2012-04-18 battery type add */
+#ifdef CONFIG_LGE_PM
+	BATT_1900_LGE,
+	BATT_2100_LGE,
+	BATT_2200_LGE,
+#endif
 };
 
 /**
@@ -134,11 +140,32 @@ struct pm8921_bms_platform_data {
 	int				ignore_shutdown_soc;
 	int				adjust_soc_low_threshold;
 	int				chg_term_ua;
+#ifdef CONFIG_LGE_PM
+	/* MAKO patch */
+	int				eoc_check_soc;
+	int 			first_fixed_iavg_ma;
+#endif
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)
 extern struct pm8921_bms_battery_data  palladium_1500_data;
 extern struct pm8921_bms_battery_data  desay_5200_data;
+
+#ifdef CONFIG_LGE_PM
+extern struct pm8921_bms_battery_data  lge_1900_data;
+extern struct pm8921_bms_battery_data  lge_1840_data;
+extern struct pm8921_bms_battery_data  LGE_2100_PMH_data;
+extern struct pm8921_bms_battery_data  LGE_2200_PMH_data;
+#endif
+
+
+#if !defined(CONFIG_BATTERY_MAX17043) && !defined(CONFIG_BATTERY_MAX17047)
+#define BMS_SYSFS_RESET
+#endif
+//#define LGE_BMS_DEBUG
+
+
+/* LGE_PM_E Added temp offset 5 Celsius kwangjae1.lee@lge.com */
 /**
  * pm8921_bms_get_vsense_avg - return the voltage across the sense
  *				resitor in microvolts

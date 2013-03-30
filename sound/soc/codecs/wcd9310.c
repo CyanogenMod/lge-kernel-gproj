@@ -38,6 +38,7 @@
 #include <linux/suspend.h>
 #include "wcd9310.h"
 
+#include <linux/regulator/consumer.h> //[AUDIO_BSP], 20120730, sehwan.lee@lge.com PMIC L29 Control(because headset noise)
 static int cfilt_adjust_ms = 10;
 module_param(cfilt_adjust_ms, int, 0644);
 MODULE_PARM_DESC(cfilt_adjust_ms, "delay after adjusting cfilt voltage in ms");
@@ -416,6 +417,7 @@ static unsigned short tx_digital_gain_reg[] = {
 	TABLA_A_CDC_TX10_VOL_CTL_GAIN,
 };
 
+struct snd_soc_codec *snd_codec = NULL;
 static int tabla_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -947,6 +949,46 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 	SOC_SINGLE_TLV("HPHR Volume", TABLA_A_RX_HPH_R_GAIN, 0, 12, 1,
 		line_gain),
 
+/* LGE_CHANGED_START 2012.05.03, sehwan.lee@lge.com
+ * change the digital_gain's Min value -84 -> -60, because UCM off-line tunning Issue
+ */ 
+#if defined(CONFIG_LGE_AUDIO) /* LGE_CODE */
+	SOC_SINGLE_S8_TLV("RX1 Digital Volume", TABLA_A_CDC_RX1_VOL_CTL_B2_CTL,
+		-60, 40, digital_gain),
+	SOC_SINGLE_S8_TLV("RX2 Digital Volume", TABLA_A_CDC_RX2_VOL_CTL_B2_CTL,
+		-60, 40, digital_gain),
+	SOC_SINGLE_S8_TLV("RX3 Digital Volume", TABLA_A_CDC_RX3_VOL_CTL_B2_CTL,
+		-60, 40, digital_gain),
+	SOC_SINGLE_S8_TLV("RX4 Digital Volume", TABLA_A_CDC_RX4_VOL_CTL_B2_CTL,
+		-60, 40, digital_gain),
+	SOC_SINGLE_S8_TLV("RX5 Digital Volume", TABLA_A_CDC_RX5_VOL_CTL_B2_CTL,
+		-60, 40, digital_gain),
+	SOC_SINGLE_S8_TLV("RX6 Digital Volume", TABLA_A_CDC_RX6_VOL_CTL_B2_CTL,
+		-60, 40, digital_gain),
+	SOC_SINGLE_S8_TLV("RX7 Digital Volume", TABLA_A_CDC_RX7_VOL_CTL_B2_CTL,
+		-60, 40, digital_gain),
+
+	SOC_SINGLE_S8_TLV("DEC1 Volume", TABLA_A_CDC_TX1_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC2 Volume", TABLA_A_CDC_TX2_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC3 Volume", TABLA_A_CDC_TX3_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC4 Volume", TABLA_A_CDC_TX4_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC5 Volume", TABLA_A_CDC_TX5_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC6 Volume", TABLA_A_CDC_TX6_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC7 Volume", TABLA_A_CDC_TX7_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC8 Volume", TABLA_A_CDC_TX8_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC9 Volume", TABLA_A_CDC_TX9_VOL_CTL_GAIN, -60, 40,
+		digital_gain),
+	SOC_SINGLE_S8_TLV("DEC10 Volume", TABLA_A_CDC_TX10_VOL_CTL_GAIN, -60,
+		40, digital_gain),
+#else /* qualcomm original code */
 	SOC_SINGLE_S8_TLV("RX1 Digital Volume", TABLA_A_CDC_RX1_VOL_CTL_B2_CTL,
 		-84, 40, digital_gain),
 	SOC_SINGLE_S8_TLV("RX2 Digital Volume", TABLA_A_CDC_RX2_VOL_CTL_B2_CTL,
@@ -982,6 +1024,8 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 		digital_gain),
 	SOC_SINGLE_S8_TLV("DEC10 Volume", TABLA_A_CDC_TX10_VOL_CTL_GAIN, -84,
 		40, digital_gain),
+#endif
+/* LGE_CHANGED_END 2012.05.03, sehwan.lee@lge.com */
 	SOC_SINGLE_S8_TLV("IIR1 INP1 Volume", TABLA_A_CDC_IIR1_GAIN_B1_CTL, -84,
 		40, digital_gain),
 	SOC_SINGLE_S8_TLV("IIR1 INP2 Volume", TABLA_A_CDC_IIR1_GAIN_B2_CTL, -84,
@@ -3772,6 +3816,86 @@ static void tabla_codec_calibrate_hs_polling(struct snd_soc_codec *codec)
 		      n_cic[tabla_codec_mclk_index(tabla)]);
 }
 
+#ifdef CONFIG_LGE_AUX_NOISE
+/*
+ * 2012-07-20, bob.cho@lge.com
+ * this API control HPH PAs to remove aux noise
+ */
+ static int is_force_enable_pin = 0;
+ void tabla_codec_hph_pa_ctl(int state)
+{
+	static int headphone_inuse = 0;
+	static int usbcharge_state = 0;
+	struct snd_soc_codec *codec = NULL;
+	if (snd_codec == NULL) {
+		pr_err("%s, Failed to init tabla codec\n", __func__);
+		return;
+	}
+
+	codec = snd_codec;
+	pr_debug("%s, enable : %d\n", __func__ , state);
+
+	switch (state)
+	{
+		case TABLA_EVENT_CHARGER_CONNECT :
+			if (headphone_inuse && !is_force_enable_pin) {
+				mutex_lock(&codec->mutex);
+				snd_soc_dapm_force_enable_pin(&codec->dapm, "HPHL");
+				snd_soc_dapm_force_enable_pin(&codec->dapm, "HPHR");
+				snd_soc_dapm_force_enable_pin(&codec->dapm, "CP");
+				snd_soc_dapm_sync(&codec->dapm);
+				is_force_enable_pin = 1;
+				mutex_unlock(&codec->mutex);
+				pr_debug("%s, hph pa is force enable \n", __func__ );
+			}
+			usbcharge_state = 1;
+			break;
+		case TABLA_EVENT_CHARGER_DISCONNECT :
+			if (is_force_enable_pin) {
+				mutex_lock(&codec->mutex);
+				snd_soc_dapm_disable_pin(&codec->dapm, "HPHL");
+				snd_soc_dapm_disable_pin(&codec->dapm, "HPHR");
+				snd_soc_dapm_disable_pin(&codec->dapm, "CP");
+				snd_soc_dapm_sync(&codec->dapm);
+				is_force_enable_pin = 0;
+				mutex_unlock(&codec->mutex);
+				pr_debug("%s, hph pa is disable \n", __func__ );
+			}
+			usbcharge_state = 0;
+			break;
+		case TABLA_EVENT_HEADSET_INSERT :
+			if (usbcharge_state && !is_force_enable_pin) {
+				mutex_lock(&codec->mutex);
+				snd_soc_dapm_force_enable_pin(&codec->dapm, "HPHL");
+				snd_soc_dapm_force_enable_pin(&codec->dapm, "HPHR");
+				snd_soc_dapm_force_enable_pin(&codec->dapm, "CP");
+				snd_soc_dapm_sync(&codec->dapm);
+				is_force_enable_pin = 1;
+				mutex_unlock(&codec->mutex);
+				pr_debug("%s, hph pa is force enable \n", __func__ );
+			}
+			headphone_inuse = 1;
+			break;
+		case TABLA_EVENT_HEADSET_REMOVAL :
+			if (is_force_enable_pin) {
+				mutex_lock(&codec->mutex);
+				snd_soc_dapm_disable_pin(&codec->dapm, "HPHL");
+				snd_soc_dapm_disable_pin(&codec->dapm, "HPHR");
+				snd_soc_dapm_disable_pin(&codec->dapm, "CP");
+				snd_soc_dapm_sync(&codec->dapm);
+				is_force_enable_pin = 0;
+				mutex_unlock(&codec->mutex);
+				pr_debug("%s, hph pa is disable \n", __func__ );
+			}
+			headphone_inuse = 0;
+			break;
+	}
+}
+
+EXPORT_SYMBOL_GPL(tabla_codec_hph_pa_ctl);
+#endif /*CONFIG_LGE_AUX_NOISE*/
+
+
 static int tabla_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
@@ -3783,8 +3907,43 @@ static int tabla_startup(struct snd_pcm_substream *substream,
 	    (tabla_core->dev->parent != NULL))
 		pm_runtime_get_sync(tabla_core->dev->parent);
 
+#ifdef CONFIG_LGE_AUX_NOISE
+		/*
+		 * 2012-07-20, bob.cho@lge.com
+		 * when playback is start, revert force enable of HPH PAs.
+		 */
+		if(is_force_enable_pin && snd_codec) {
+			snd_soc_dapm_disable_pin(&snd_codec->dapm, "HPHL");
+			snd_soc_dapm_disable_pin(&snd_codec->dapm, "HPHR");
+			snd_soc_dapm_disable_pin(&snd_codec->dapm, "CP");
+			snd_soc_update_bits(snd_codec, TABLA_A_RX_HPH_CNP_EN, 0x80, 0x80);
+			snd_soc_update_bits(snd_codec, TABLA_A_CP_EN, 0x01 , 0x00);
+		}
+#endif /*CONFIG_LGE_AUX_NOISE*/
+
 	return 0;
 }
+
+#ifdef CONFIG_LGE_AUX_NOISE   //FIXME tabla_shutdown is pretty different to qualcomm original source
+
+static void tabla_shutdown(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+
+		/*
+		 * 2012-07-20, bob.cho@lge.com
+		 * when playback is end, start force enable of HPH PAs.
+		 */
+		if(is_force_enable_pin && snd_codec) {
+			snd_soc_update_bits(snd_codec, TABLA_A_RX_HPH_CNP_EN, 0xB0, 0xB0);
+			snd_soc_update_bits(snd_codec, TABLA_A_CP_EN, 0x01 , 0x01);
+			snd_soc_dapm_force_enable_pin(&snd_codec->dapm, "HPHL");
+			snd_soc_dapm_force_enable_pin(&snd_codec->dapm, "HPHR");
+			snd_soc_dapm_force_enable_pin(&snd_codec->dapm, "CP");
+		}
+	
+}
+#endif /*CONFIG_LGE_AUX_NOISE*/
 
 static void tabla_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -4529,6 +4688,7 @@ static int tabla_codec_enable_chmask(struct tabla_priv *tabla_p,
 			pr_err("%s: Slim close tx/rx wait timeout\n",
 				__func__);
 			ret = -EINVAL;
+			break;
 		} else
 			ret = 0;
 		break;
@@ -7987,6 +8147,124 @@ static void tabla_update_reg_address(struct tabla_priv *priv)
 	}
 }
 
+#ifdef CONFIG_SWITCH_MAX1462X
+
+/* LGE_CHANGED_START 2012.10.25, gyuhwa.park@lge.com
+ * PMIC L10 Control
+ */ 
+static bool max1462x_mic_bias = false;
+
+void set_headset_mic_bias_l10(int on)
+{
+	int rc = -EINVAL;
+	static struct regulator *vreg_l10;
+
+	if(!max1462x_mic_bias) {
+		vreg_l10 = regulator_get(NULL, "8921_l10");   //HEADSET_MIC_BIAS, VREG_L10
+		if (IS_ERR(vreg_l10)) {
+			pr_err("%s: regulator get of vreg_l10 failed (%ld)\n", __func__, PTR_ERR(vreg_l10)); 
+		}
+
+		rc = regulator_set_voltage(vreg_l10, 2800000, 2800000);
+		if (rc) {
+			pr_err("%d: regulator set of vreg_l10 failed \n", rc); 
+		}
+
+		max1462x_mic_bias = true;
+	}
+
+	if(on)
+	{
+		pr_err("MIC_BIAS Enabled");
+		regulator_enable(vreg_l10);
+	}
+	else
+	{
+		pr_err("MIC_BIAS Disabled");
+		regulator_disable(vreg_l10);
+	}
+ 
+}
+
+/* LGE_CHANGED_END 2012.10.25, gyuhwa.park@lge.com */
+
+#endif /* CONFIG_SWITCH_MAX1462X */
+
+#ifdef CONFIG_SWITCH_FSA8008
+/*
+* 2012-02-06, mint.choi@lge.com
+* Enable/disable fsa8008 mic bias when inserting and removing
+* this API called by fsa8008 driver
+*/
+
+void tabla_codec_micbias2_ctl(int enable)
+{
+	struct snd_soc_codec *codec = NULL;
+
+	if (snd_codec == NULL) {
+		pr_err("%s, Failed to init tabla codec\n", __func__);
+		return;
+	}
+
+	codec = snd_codec;
+	pr_info("%s, enable : %d\n", __func__ , enable);
+
+	if(enable){
+        snd_soc_dapm_force_enable_pin(&codec->dapm, "MIC BIAS2 External");
+        snd_soc_dapm_sync(&codec->dapm);
+	} else {
+		snd_soc_dapm_disable_pin(&codec->dapm, "MIC BIAS2 External");
+        snd_soc_dapm_sync(&codec->dapm);
+	}
+}
+
+/* LGE_CHANGED_START 2012.07.30, sehwan.lee@lge.com
+ * PMIC L29 Control(because headset noise)
+ */ 
+static bool fsa8008_mic_bias = false;
+
+void set_headset_mic_bias_l29(int on)
+{
+	int rc = -EINVAL;
+	static struct regulator *vreg_l29;
+
+	if(!fsa8008_mic_bias) {
+		vreg_l29 = regulator_get(NULL, "8921_l29");   //HEADSET_MIC_BIAS, VREG_L29: 2.0
+		if (IS_ERR(vreg_l29)) {
+			pr_err("%s: regulator get of vreg_l29 failed (%ld)\n", __func__, PTR_ERR(vreg_l29)); 
+		}
+
+//[LGE] seungkyu.joo, 2012-12-18 , HW Request for enabling apple headset mic
+#if defined(CONFIG_MACH_APQ8064_J1SK)|| defined(CONFIG_MACH_APQ8064_J1KT)|| defined(CONFIG_MACH_APQ8064_J1U)
+		rc = regulator_set_voltage(vreg_l29, 2700000, 2700000);
+#else
+		rc = regulator_set_voltage(vreg_l29, 2000000, 2000000);
+#endif
+		
+		if (rc) {
+			pr_err("%d: regulator set of vreg_l29 failed \n", rc); 
+		}
+
+		fsa8008_mic_bias = true;
+	}
+
+	if(on)
+	{
+		pr_err("MIC_BIAS Enabled");
+		regulator_enable(vreg_l29);
+	}
+	else
+	{
+		pr_err("MIC_BIAS Disabled");
+		regulator_disable(vreg_l29);
+	}
+ 
+}
+/* LGE_CHANGED_END 2012.07.30, sehwan.lee@lge.com */
+
+EXPORT_SYMBOL_GPL(tabla_codec_micbias2_ctl);
+#endif /* CONFIG_SWITCH_FSA8008 */
+
 #ifdef CONFIG_DEBUG_FS
 static int codec_debug_open(struct inode *inode, struct file *file)
 {
@@ -8326,6 +8604,7 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 					NULL, tabla, &codec_mbhc_debug_ops);
 	}
 #endif
+		snd_codec = codec;
 	codec->ignore_pmdown_time = 1;
 	return ret;
 

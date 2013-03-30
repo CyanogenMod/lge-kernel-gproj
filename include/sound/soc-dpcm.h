@@ -68,6 +68,8 @@ static inline int snd_soc_dpcm_fe_can_update(struct snd_soc_pcm_runtime *fe,
 static inline int snd_soc_dpcm_be_can_update(struct snd_soc_pcm_runtime *fe,
 		struct snd_soc_pcm_runtime *be, int stream)
 {
+	pr_debug("%s fe->dpcm[stream].runtime_update %d be->dpcm[stream].runtime_update %d \n",__func__,
+		   fe->dpcm[stream].runtime_update,be->dpcm[stream].runtime_update);
 	if ((fe->dpcm[stream].runtime_update == SND_SOC_DPCM_UPDATE_FE) ||
 	    ((fe->dpcm[stream].runtime_update == SND_SOC_DPCM_UPDATE_BE) &&
 		  be->dpcm[stream].runtime_update))

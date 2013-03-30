@@ -20,6 +20,9 @@
 #include <linux/uaccess.h>
 #include <linux/ratelimit.h>
 #include <mach/usb_bridge.h>
+#ifdef CONFIG_USB_LGE_DDM_BRIDGE
+#include <mach/ddm_bridge.h>
+#endif
 
 #define MAX_RX_URBS			100
 #define RMNET_RX_BUFSIZE		2048
@@ -656,6 +659,13 @@ static int data_bridge_probe(struct usb_interface *iface,
 	dev->bulk_out = usb_sndbulkpipe(dev->udev,
 		bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 
+#ifdef LG_FW_HSIC_EMS_DEBUG/* secheol.pyo - endpoint logging */
+	printk("[%s] data_bridge , Bulk in_Addr = %d, Bulk out_Addr = %d, bulk_in_endpoint = %d , bulk_out_endpoint = %d \n", __func__,
+		bulk_in->desc.bEndpointAddress,
+		bulk_out->desc.bEndpointAddress,
+		bulk_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK,
+		bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK); 
+#endif /* secheol.pyo - endpoint logging */
 	usb_set_intfdata(iface, dev);
 
 	INIT_WORK(&dev->kevent, defer_kevent);
@@ -1010,12 +1020,31 @@ static void bridge_disconnect(struct usb_interface *intf)
 
 	usb_put_dev(dev->udev);
 	kfree(dev);
+
+#if 1 // LGE_CHANGE_S Workaround for power off kernel crash
+    if(ch_id==0)
+    {
+        int id;
+        for (id = 0; id < MAX_BRIDGE_DEVICES; id++) {
+            if (__dev[id] != NULL) break;
+        }
+
+        if (id == MAX_BRIDGE_DEVICES) {
+            for (id = 0; id < MAX_BRIDGE_DEVICES; id++)
+                ctrl_bridge_disconnect(id);
+        }
+    }
+#endif//LGE_CHANGE_E Workaround for power off kernel crash
 }
 
 /*bit position represents interface number*/
 #define PID9001_IFACE_MASK	0xC
 #define PID9034_IFACE_MASK	0xC
+#ifdef CONFIG_USB_LGE_DDM_BRIDGE
+#define PID9048_IFACE_MASK	0x30
+#else
 #define PID9048_IFACE_MASK	0x18
+#endif
 #define PID904C_IFACE_MASK	0x28
 
 static const struct usb_device_id bridge_ids[] = {

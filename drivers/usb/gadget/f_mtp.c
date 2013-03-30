@@ -246,6 +246,40 @@ struct mtp_ext_config_desc_function {
 	__u8	reserved[6];
 };
 
+#ifdef NOT_CONFIG_USB_G_LGE_ANDROID
+/* LGE_CHANGE
+ * MS Ext Desciptor for MTP and adb (to use in testing driver).
+ * NOTE: this remains for reference code about MTP setting with ADB enabled.
+ * Therefore we do not use this officially(so NOT_ prefix is used).
+ * 2011-02-09, hyunhui.park@lge.com
+ */
+
+/* MTP Extended Configuration Descriptor */
+struct {
+	struct mtp_ext_config_desc_header	header;
+	struct mtp_ext_config_desc_function    function;
+	struct mtp_ext_config_desc_function    adb_function;
+} mtp_ext_config_desc = {
+	.header = {
+		.dwLength = __constant_cpu_to_le32(sizeof(mtp_ext_config_desc)),
+		.bcdVersion = __constant_cpu_to_le16(0x0100),
+		.wIndex = __constant_cpu_to_le16(4),
+		/* It has two functions (mtp, adb) */
+		.bCount = __constant_cpu_to_le16(2),
+	},
+	.function = {
+		.bFirstInterfaceNumber = 0,
+		.bInterfaceCount = 1,
+		.compatibleID = { 'M', 'T', 'P' },
+	},
+	/* adb */
+	.adb_function = {
+		.bFirstInterfaceNumber = 1,
+		.bInterfaceCount = 1,
+	},
+};
+
+#else /* This is Google Original */
 /* MTP Extended Configuration Descriptor */
 struct {
 	struct mtp_ext_config_desc_header	header;
@@ -263,6 +297,7 @@ struct {
 		.compatibleID = { 'M', 'T', 'P' },
 	},
 };
+#endif
 
 struct mtp_device_status {
 	__le16	wLength;
@@ -390,32 +425,46 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 	struct usb_ep *ep;
 	int i;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "create_bulk_endpoints dev: %p\n", dev);
+#endif
 
 	ep = usb_ep_autoconfig(cdev->gadget, in_desc);
 	if (!ep) {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 		DBG(cdev, "usb_ep_autoconfig for ep_in failed\n");
+#endif
 		return -ENODEV;
 	}
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "usb_ep_autoconfig for ep_in got %s\n", ep->name);
+#endif
 	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_in = ep;
 
 	ep = usb_ep_autoconfig(cdev->gadget, out_desc);
 	if (!ep) {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 		DBG(cdev, "usb_ep_autoconfig for ep_out failed\n");
+#endif
 		return -ENODEV;
 	}
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "usb_ep_autoconfig for mtp ep_out got %s\n", ep->name);
+#endif
 	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_out = ep;
 
 	ep = usb_ep_autoconfig(cdev->gadget, intr_desc);
 	if (!ep) {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 		DBG(cdev, "usb_ep_autoconfig for ep_intr failed\n");
+#endif
 		return -ENODEV;
 	}
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "usb_ep_autoconfig for mtp ep_intr got %s\n", ep->name);
+#endif
 	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_intr = ep;
 
@@ -453,18 +502,24 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	size_t count, loff_t *pos)
 {
 	struct mtp_dev *dev = fp->private_data;
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	struct usb_composite_dev *cdev = dev->cdev;
+#endif
 	struct usb_request *req;
 	int r = count, xfer;
 	int ret = 0;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "mtp_read(%d)\n", count);
+#endif
 
 	if (count > MTP_BULK_BUFFER_SIZE)
 		return -EINVAL;
 
 	/* we will block until we're online */
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "mtp_read: waiting for online state\n");
+#endif
 	ret = wait_event_interruptible(dev->read_wq,
 		dev->state != STATE_OFFLINE);
 	if (ret < 0) {
@@ -491,7 +546,9 @@ requeue_req:
 		r = -EIO;
 		goto done;
 	} else {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 		DBG(cdev, "rx %p queue\n", req);
+#endif
 	}
 
 	/* wait for a request to complete */
@@ -516,7 +573,9 @@ requeue_req:
 		if (req->actual == 0)
 			goto requeue_req;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 		DBG(cdev, "rx %p %d\n", req, req->actual);
+#endif
 		xfer = (req->actual < count) ? req->actual : count;
 		r = xfer;
 		if (copy_to_user(buf, req->buf, xfer))
@@ -532,7 +591,9 @@ done:
 		dev->state = STATE_READY;
 	spin_unlock_irq(&dev->lock);
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "mtp_read returning %d\n", r);
+#endif
 	return r;
 }
 
@@ -540,13 +601,17 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 	size_t count, loff_t *pos)
 {
 	struct mtp_dev *dev = fp->private_data;
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	struct usb_composite_dev *cdev = dev->cdev;
+#endif
 	struct usb_request *req = 0;
 	int r = count, xfer;
 	int sendZLP = 0;
 	int ret;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "mtp_write(%d)\n", count);
+#endif
 
 	spin_lock_irq(&dev->lock);
 	if (dev->state == STATE_CANCELED) {
@@ -574,7 +639,9 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 			sendZLP = 0;
 
 		if (dev->state != STATE_BUSY) {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 			DBG(cdev, "mtp_write dev->error\n");
+#endif
 			r = -EIO;
 			break;
 		}
@@ -601,7 +668,9 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 		req->length = xfer;
 		ret = usb_ep_queue(dev->ep_in, req, GFP_KERNEL);
 		if (ret < 0) {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 			DBG(cdev, "mtp_write: xfer error %d\n", ret);
+#endif
 			r = -EIO;
 			break;
 		}
@@ -623,7 +692,9 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 		dev->state = STATE_READY;
 	spin_unlock_irq(&dev->lock);
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "mtp_write returning %d\n", r);
+#endif
 	return r;
 }
 
@@ -632,7 +703,9 @@ static void send_file_work(struct work_struct *data)
 {
 	struct mtp_dev *dev = container_of(data, struct mtp_dev,
 						send_file_work);
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	struct usb_composite_dev *cdev = dev->cdev;
+#endif
 	struct usb_request *req = 0;
 	struct mtp_data_header *header;
 	struct file *filp;
@@ -648,7 +721,9 @@ static void send_file_work(struct work_struct *data)
 	offset = dev->xfer_file_offset;
 	count = dev->xfer_file_length;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "send_file_work(%lld %lld)\n", offset, count);
+#endif
 
 	if (dev->xfer_send_header) {
 		hdr_size = sizeof(struct mtp_data_header);
@@ -709,7 +784,9 @@ static void send_file_work(struct work_struct *data)
 		req->length = xfer;
 		ret = usb_ep_queue(dev->ep_in, req, GFP_KERNEL);
 		if (ret < 0) {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 			DBG(cdev, "send_file_work: xfer error %d\n", ret);
+#endif
 			if (dev->state != STATE_OFFLINE)
 				dev->state = STATE_ERROR;
 			r = -EIO;
@@ -725,7 +802,9 @@ static void send_file_work(struct work_struct *data)
 	if (req)
 		mtp_req_put(dev, &dev->tx_idle, req);
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "send_file_work returning %d\n", r);
+#endif
 	/* write the result */
 	dev->xfer_result = r;
 	smp_wmb();
@@ -736,7 +815,9 @@ static void receive_file_work(struct work_struct *data)
 {
 	struct mtp_dev *dev = container_of(data, struct mtp_dev,
 						receive_file_work);
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	struct usb_composite_dev *cdev = dev->cdev;
+#endif
 	struct usb_request *read_req = NULL, *write_req = NULL;
 	struct file *filp;
 	loff_t offset;
@@ -750,7 +831,9 @@ static void receive_file_work(struct work_struct *data)
 	offset = dev->xfer_file_offset;
 	count = dev->xfer_file_length;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "receive_file_work(%lld)\n", count);
+#endif
 
 	while (count > 0 || write_req) {
 		if (count > 0) {
@@ -771,10 +854,14 @@ static void receive_file_work(struct work_struct *data)
 		}
 
 		if (write_req) {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 			DBG(cdev, "rx %p %d\n", write_req, write_req->actual);
+#endif
 			ret = vfs_write(filp, write_req->buf, write_req->actual,
 				&offset);
+#ifndef CONFIG_USB_G_LGE_ANDROID
 			DBG(cdev, "vfs_write %d\n", ret);
+#endif
 			if (ret != write_req->actual) {
 				r = -EIO;
 				if (dev->state != STATE_OFFLINE)
@@ -805,7 +892,9 @@ static void receive_file_work(struct work_struct *data)
 				 * short packet is used to signal EOF for
 				 * sizes > 4 gig
 				 */
+#ifndef CONFIG_USB_G_LGE_ANDROID
 				DBG(cdev, "got short packet\n");
+#endif
 				count = 0;
 			}
 
@@ -814,7 +903,9 @@ static void receive_file_work(struct work_struct *data)
 		}
 	}
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "receive_file_work returning %d\n", r);
+#endif
 	/* write the result */
 	dev->xfer_result = r;
 	smp_wmb();
@@ -826,7 +917,9 @@ static int mtp_send_event(struct mtp_dev *dev, struct mtp_event *event)
 	int ret;
 	int length = event->length;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(dev->cdev, "mtp_send_event(%d)\n", event->length);
+#endif
 
 	if (length < 0 || length > INTR_BUFFER_SIZE)
 		return -EINVAL;
@@ -950,7 +1043,9 @@ fail:
 	spin_unlock_irq(&dev->lock);
 out:
 	mtp_unlock(&dev->ioctl_excl);
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(dev->cdev, "ioctl returning %d\n", ret);
+#endif
 	return ret;
 }
 
@@ -1002,10 +1097,12 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 	u16	w_length = le16_to_cpu(ctrl->wLength);
 	unsigned long	flags;
 
+#ifdef CONFIG_USB_G_LGE_ANDROID
 	VDBG(cdev, "mtp_ctrlrequest "
 			"%02x.%02x v%04x i%04x l%u\n",
 			ctrl->bRequestType, ctrl->bRequest,
 			w_value, w_index, w_length);
+#endif
 
 	/* Handle MTP OS string */
 	if (ctrl->bRequestType ==
@@ -1018,8 +1115,10 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 		memcpy(cdev->req->buf, mtp_os_string, value);
 	} else if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR) {
 		/* Handle MTP OS descriptor */
+#ifndef CONFIG_USB_G_LGE_ANDROID
 		DBG(cdev, "vendor request: %d index: %d value: %d length: %d\n",
 			ctrl->bRequest, w_index, w_value, w_length);
+#endif
 
 		if (ctrl->bRequest == 1
 				&& (ctrl->bRequestType & USB_DIR_IN)
@@ -1029,12 +1128,22 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 			memcpy(cdev->req->buf, &mtp_ext_config_desc, value);
 		}
 	} else if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_CLASS) {
+#ifndef CONFIG_USB_G_LGE_ANDROID
 		DBG(cdev, "class request: %d index: %d value: %d length: %d\n",
 			ctrl->bRequest, w_index, w_value, w_length);
+#endif
 
+#ifdef CONFIG_USB_G_LGE_ANDROID
+		if (ctrl->bRequest == MTP_REQ_CANCEL && w_index == mtp_interface_desc.bInterfaceNumber
+				&& w_value == 0) {
+#else
 		if (ctrl->bRequest == MTP_REQ_CANCEL && w_index == 0
 				&& w_value == 0) {
+#endif
+
+#ifndef CONFIG_USB_G_LGE_ANDROID
 			DBG(cdev, "MTP_REQ_CANCEL\n");
+#endif
 
 			spin_lock_irqsave(&dev->lock, flags);
 			if (dev->state == STATE_BUSY) {
@@ -1049,13 +1158,20 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 			 * the contents.
 			 */
 			value = w_length;
+#ifdef CONFIG_USB_G_LGE_ANDROID
+		} else if (ctrl->bRequest == MTP_REQ_GET_DEVICE_STATUS
+				&& w_index == mtp_interface_desc.bInterfaceNumber && w_value == 0) {
+#else
 		} else if (ctrl->bRequest == MTP_REQ_GET_DEVICE_STATUS
 				&& w_index == 0 && w_value == 0) {
+#endif
 			struct mtp_device_status *status = cdev->req->buf;
 			status->wLength =
 				__constant_cpu_to_le16(sizeof(*status));
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 			DBG(cdev, "MTP_REQ_GET_DEVICE_STATUS\n");
+#endif
 			spin_lock_irqsave(&dev->lock, flags);
 			/* device status is "busy" until we report
 			 * the cancelation to userspace
@@ -1092,13 +1208,18 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	int			ret;
 
 	dev->cdev = cdev;
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "mtp_function_bind dev: %p\n", dev);
+#endif
 
 	/* allocate interface ID(s) */
 	id = usb_interface_id(c, f);
 	if (id < 0)
 		return id;
 	mtp_interface_desc.bInterfaceNumber = id;
+#ifdef CONFIG_USB_G_LGE_ANDROID
+    mtp_ext_config_desc.function.bFirstInterfaceNumber = id;
+#endif
 
 	/* allocate endpoints */
 	ret = mtp_create_bulk_endpoints(dev, &mtp_fullspeed_in_desc,
@@ -1114,9 +1235,11 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 			mtp_fullspeed_out_desc.bEndpointAddress;
 	}
 
+#ifdef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "%s speed %s: IN/%s, OUT/%s\n",
 			gadget_is_dualspeed(c->cdev->gadget) ? "dual" : "full",
 			f->name, dev->ep_in->name, dev->ep_out->name);
+#endif
 	return 0;
 }
 
@@ -1143,7 +1266,9 @@ static int mtp_function_set_alt(struct usb_function *f,
 	struct usb_composite_dev *cdev = f->config->cdev;
 	int ret;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "mtp_function_set_alt intf: %d alt: %d\n", intf, alt);
+#endif
 
 	ret = config_ep_by_speed(cdev->gadget, f, dev->ep_in);
 	if (ret) {
@@ -1191,9 +1316,13 @@ static int mtp_function_set_alt(struct usb_function *f,
 static void mtp_function_disable(struct usb_function *f)
 {
 	struct mtp_dev	*dev = func_to_mtp(f);
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	struct usb_composite_dev	*cdev = dev->cdev;
+#endif
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	DBG(cdev, "mtp_function_disable\n");
+#endif
 	dev->state = STATE_OFFLINE;
 	usb_ep_disable(dev->ep_in);
 	usb_ep_disable(dev->ep_out);
@@ -1202,7 +1331,9 @@ static void mtp_function_disable(struct usb_function *f)
 	/* readers may be blocked waiting for us to go online */
 	wake_up(&dev->read_wq);
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	VDBG(cdev, "%s disabled\n", dev->function.name);
+#endif
 }
 
 static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)

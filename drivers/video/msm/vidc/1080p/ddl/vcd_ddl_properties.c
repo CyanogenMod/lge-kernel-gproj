@@ -1758,7 +1758,7 @@ static void ddl_set_default_enc_rc_params(
 	encoder->rc_level.frame_level_rc = true;
 	encoder->qp_range.min_qp = 0x1;
 	if (codec == VCD_CODEC_H264) {
-		encoder->qp_range.min_qp = 0x1;
+		encoder->qp_range.min_qp = 0x3;
 		encoder->qp_range.max_qp = 0x33;
 		encoder->session_qp.i_frame_qp = 0x14;
 		encoder->session_qp.p_frame_qp = 0x14;
@@ -1843,7 +1843,7 @@ void ddl_set_default_encoder_buffer_req(struct ddl_encoder_data *encoder)
 	encoder->output_buf_req.max_count    = DDL_MAX_BUFFER_COUNT;
 	encoder->output_buf_req.align	= DDL_LINEAR_BUFFER_ALIGN_BYTES;
 	if (y_cb_cr_size >= VCD_DDL_720P_YUV_BUF_SIZE)
-		y_cb_cr_size = y_cb_cr_size>>1;
+	    y_cb_cr_size = (y_cb_cr_size * 3) >> 2;
 	encoder->output_buf_req.sz =
 		DDL_ALIGN(y_cb_cr_size, DDL_KILO_BYTE(4));
 	ddl_set_default_encoder_metadata_buffer_size(encoder);

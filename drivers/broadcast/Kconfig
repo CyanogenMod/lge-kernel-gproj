@@ -1,0 +1,23 @@
+# LGE Broadcast Device Driver Support
+
+menu "LGE Broadcast Device Support"
+
+
+config LGE_BROADCAST_ONESEG
+	bool "OneSeg Broadcast service"
+	depends on MACH_APQ8064_J1KD || MACH_APQ8064_J1D || MACH_APQ8064_GVDCM || MACH_APQ8064_GVKDDI
+	default y
+	help
+	  Select this if you want to use Japanese 1Seg mobile broadcast service
+
+
+config LGE_BROADCAST_TDMB
+	bool "LGE broadcast TDMB device Driver"
+	depends on MACH_APQ8064_J1U || MACH_APQ8064_J1KT || MACH_APQ8064_J1SK || MACH_APQ8064_GKU || MACH_APQ8064_GKKT || MACH_APQ8064_GKSK
+	default y
+	help
+	  Select this if you want to use TDMB broadcast service
+	  
+source "drivers/broadcast/oneseg/Kconfig"
+source "drivers/broadcast/tdmb/Kconfig"
+endmenu

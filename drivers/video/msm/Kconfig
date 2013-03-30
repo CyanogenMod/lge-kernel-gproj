@@ -179,6 +179,19 @@ config FB_MSM_MIPI_DSI_TOSHIBA
 	select FB_MSM_MIPI_DSI
 	default n
 
+config FB_MSM_MIPI_DSI_LGIT
+	bool
+	select FB_MSM_MIPI_DSI
+	default n
+config FB_MSM_MIPI_DSI_LGIT_FHD
+	bool
+	select FB_MSM_MIPI_DSI
+	default n
+config FB_MSM_MIPI_DSI_HITACHI
+	bool
+	select FB_MSM_MIPI_DSI
+	default n
+
 config FB_MSM_MIPI_DSI_RENESAS
 	bool
 	select FB_MSM_MIPI_DSI
@@ -300,6 +313,38 @@ config FB_MSM_LCDC_NT35582_WVGA
 config FB_MSM_LCDC_WXGA
 	bool
 	select FB_MSM_LCDC_PANEL
+	default n
+
+config FB_MSM_MIPI_LGIT_VIDEO_HD_PT
+	bool
+	select FB_MSM_MIPI_DSI_LGIT
+	default n
+
+config FB_MSM_MIPI_LGIT_CMD_WVGA_PT
+	bool
+	select FB_MSM_MIPI_DSI_LGIT
+	default n
+
+config FB_MSM_MIPI_LGIT_VIDEO_WVGA_PT
+	bool
+	select FB_MSM_MIPI_DSI_LGIT
+	default n
+
+config FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+	bool
+	select FB_MSM_MIPI_DSI_LGIT
+	default n
+config FB_MSM_MIPI_LGIT_VIDEO_FHD_PT
+	bool
+	select FB_MSM_MIPI_DSI_LGIT_FHD
+	default n
+config FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT
+	bool
+	select FB_MSM_MIPI_DSI_LGIT_FHD
+	default n
+config FB_MSM_MIPI_HITACHI_VIDEO_HD_PT
+	bool
+	select FB_MSM_MIPI_DSI_HITACHI
 	default n
 
 config FB_MSM_LVDS_CHIMEI_WXGA
@@ -650,6 +695,19 @@ config FB_MSM_MDDI_SHARP_QVGA_128x128
 	---help---
 	  Support for MDDI Sharp QVGA (240x320) and 128x128 dual panel
 
+config FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT_PANEL
+	bool "MIPI LG Display WXGA PT Panel"
+	select FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+config FB_MSM_MIPI_LGIT_VIDEO_FHD_PT_PANEL
+	bool "MIPI LG Display FHD PT Panel"
+	select FB_MSM_MIPI_LGIT_VIDEO_FHD_PT
+config FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT_PANEL
+	bool "MIPI LG Display FHD Inverse PT Panel"
+	select FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT
+config FB_MSM_MIPI_HITACHI_VIDEO_HD_PT_PANEL
+	bool "MIPI LG Display WXGA PT Panel"
+	select FB_MSM_MIPI_HITACHI_VIDEO_HD_PT
+
 config FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT_PANEL
 	bool "MIPI Toshiba WVGA PT Panel"
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
@@ -796,7 +854,7 @@ config FB_MSM_HDMI_ADV7520_PANEL
 config FB_MSM_HDMI_ADV7520_PANEL_HDCP_SUPPORT
         depends on FB_MSM_HDMI_ADV7520_PANEL
         bool "Use HDCP mode"
-        default y
+        default n
         ---help---
           Support for HDCP mode for ADV7520 HDMI 720p Panel
           Choose to enable HDCP
@@ -952,3 +1010,9 @@ if FB_MSM_MDSS
 	source "drivers/video/msm/mdss/Kconfig"
 endif
 endif
+
+config LGE_HDMI_NO_SWITCH_STATE_SET
+    bool "STATE SET"
+    default n
+    ---help---
+       not set HDMI switch state node

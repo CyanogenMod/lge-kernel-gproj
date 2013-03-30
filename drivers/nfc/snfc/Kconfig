@@ -1,0 +1,14 @@
+##########################################################
+#
+#	Kconfig - NFC Driver (FOR CXD2235AGG)
+#
+##########################################################
+
+config UART_CXD2235AGG
+	tristate "CXD2235AGG NFC driver"
+	#depends on UART
+	#depends on I2C
+	default n
+	---help---
+	  Say yes if you like to use CXD2235AGG through UART.
+

@@ -21,7 +21,7 @@
 #include "msm_csiphy.h"
 #include "msm.h"
 #include "msm_csiphy_hwreg.h"
-#define DBG_CSIPHY 0
+#define DBG_CSIPHY 1
 
 #define V4L2_IDENT_CSIPHY                        50003
 #define CSIPHY_VERSION_V3                        0x10
@@ -50,7 +50,7 @@ int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		return rc;
 	}
 
-	CDBG("%s csiphy_params, mask = %x, cnt = %d, settle cnt = %x\n",
+	pr_err("%s csiphy_params, mask = %x, cnt = %d, settle cnt = %x\n",
 		__func__,
 		csiphy_params->lane_mask,
 		csiphy_params->lane_cnt,

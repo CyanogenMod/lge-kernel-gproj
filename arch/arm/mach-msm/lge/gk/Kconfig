@@ -1,0 +1,38 @@
+config BOARD_HEADER_FILE
+	string "LGE board specific header file name"
+	default ""
+
+config MACH_APQ8064_GKU
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ064 GKU"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKSK
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKSK"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKKT
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKKT"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GK_KR
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GK SKT KT LGU"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKATT
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKATT"
+	help
+	  Support for the LGE GK device.

@@ -29,6 +29,7 @@
  */
 #define GSERIAL_NO_PORTS 3
 
+
 struct f_gser {
 	struct gserial			port;
 	u8				data_id;
@@ -93,7 +94,11 @@ static inline struct f_gser *port_to_gser(struct gserial *p)
 	return container_of(p, struct f_gser, port);
 }
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
+#ifdef CONFIG_USB_G_LGE_ANDROID
+#define GS_NOTIFY_MAXPACKET     16
+#else
 #define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
+#endif /* CONFIG_USB_G_LGE_ANDROID */
 #endif
 /*-------------------------------------------------------------------------*/
 

@@ -233,5 +233,7 @@ config DEFAULT_SECURITY
 	default "yama" if DEFAULT_SECURITY_YAMA
 	default "" if DEFAULT_SECURITY_DAC
 
+source security/ccsecurity/Kconfig
+
 endmenu
 

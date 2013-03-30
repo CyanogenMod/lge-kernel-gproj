@@ -41,6 +41,11 @@
 #include "devices.h"
 #include "clock.h"
 #include "mdm_private.h"
+
+#ifdef CONFIG_LGE_PM_LOW_BATT_CHG
+#include <mach/board_lge.h>
+#endif
+
 #define MDM_PBLRDY_CNT		20
 
 static int mdm_debug_mask;
@@ -120,7 +125,14 @@ static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
 		}
 		msleep(100);
 	}
-	if (i == 0) {
+
+#ifdef CONFIG_LGE_PM_LOW_BATT_CHG
+	/* temp fix : mdm power off failure when chargerlogo exit. force down mdm ps-hold */
+	if( i == 0 || lge_get_charger_logo_state() )
+#else
+	if (i == 0)
+#endif
+	{
 		pr_err("%s: MDM2AP_STATUS never went low. Doing a hard reset\n",
 			   __func__);
 		gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,

@@ -44,6 +44,9 @@
 #endif
 #include "mipi_dsi.h"
 
+#if defined (CONFIG_LGE_QC_LCDC_LUT)
+#include "lge_qlut.h"
+#endif
 uint32 mdp4_extn_disp;
 
 static struct clk *mdp_clk;
@@ -482,6 +485,17 @@ error:
 
 DEFINE_MUTEX(mdp_lut_push_sem);
 static int mdp_lut_i;
+
+#ifdef CONFIG_LGE_QC_LCDC_LUT
+extern int g_qlut_change_by_kernel;
+extern uint32 p_lg_qc_lcdc_lut[];
+#ifdef CONFIG_LGE_KCAL_QLUT
+extern int g_kcal_r;
+extern int g_kcal_g;
+extern int g_kcal_b;
+#endif /* CONFIG_LGE_KCAL_QLUT */
+#endif /* CONFIG_LGE_QC_LCDC_LUT */
+
 static int mdp_lut_hw_update(struct fb_cmap *cmap)
 {
 	int i;
@@ -493,10 +507,33 @@ static int mdp_lut_hw_update(struct fb_cmap *cmap)
 	c[2] = cmap->red;
 
 	for (i = 0; i < cmap->len; i++) {
+#ifdef CONFIG_LGE_QC_LCDC_LUT
+		if (g_qlut_change_by_kernel) {
+			r = ((p_lg_qc_lcdc_lut[i] & R_MASK) >> R_SHIFT);
+			g = ((p_lg_qc_lcdc_lut[i] & G_MASK) >> G_SHIFT);
+			b = ((p_lg_qc_lcdc_lut[i] & B_MASK) >> B_SHIFT);
+#ifdef CONFIG_LGE_KCAL_QLUT
+			r = scaled_by_kcal(r, g_kcal_r);
+			g = scaled_by_kcal(g, g_kcal_g);
+			b = scaled_by_kcal(b, g_kcal_b);
+#endif
+		} else
+#endif
 		if (copy_from_user(&r, cmap->red++, sizeof(r)) ||
 		    copy_from_user(&g, cmap->green++, sizeof(g)) ||
 		    copy_from_user(&b, cmap->blue++, sizeof(b)))
 			return -EFAULT;
+
+
+#ifdef CMAP_RESTORE  //invert color
+		if (cmap_lut_changed)
+		{
+			r = ~(r & 0xff);
+			g = ~(g & 0xff);
+			b = ~(b & 0xff);
+		}
+#endif
+
 
 #ifdef CONFIG_FB_MSM_MDP40
 		MDP_OUTP(MDP_BASE + 0x94800 +
@@ -552,8 +589,14 @@ static int mdp_lut_update_lcdc(struct fb_info *info, struct fb_cmap *cmap)
 		return ret;
 	}
 
+       /*
+        * 2012.11.09, hyuk.myeong@lge.com
+        * this code doesn't work everytime
+	 * out = inpdw(MDP_BASE + 0x90070);
+        */
 	/*mask off non LUT select bits*/
-	out = inpdw(MDP_BASE + 0x90070);
+	out = inpdw(MDP_BASE + 0x90070) & ~((0x1 << 10) | 0x7);
+
 	MDP_OUTP(MDP_BASE + 0x90070, (mdp_lut_i << 10) | 0x7 | out);
 	mdp_clk_ctrl(0);
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
@@ -886,7 +929,7 @@ static int mdp_histogram_disable(struct mdp_hist_mgmt *mgmt)
 	outp32(MDP_INTR_CLEAR, mgmt->intr);
 	mdp_intr_mask &= ~mgmt->intr;
 	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
-	mdp_disable_irq(mgmt->irq_term);
+	mdp_disable_irq_nosync(mgmt->irq_term);
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
 	if (mdp_rev >= MDP_REV_42)
@@ -1469,7 +1512,7 @@ void mdp_enable_irq(uint32 term)
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
 	if (mdp_irq_mask & term) {
-		printk(KERN_ERR "%s: MDP IRQ term-0x%x is already set, mask=%x irq=%d\n",
+		printk(KERN_ERR "[LCD][DEBUG] %s: MDP IRQ term-0x%x is already set, mask=%x irq=%d\n",
 				__func__, term, mdp_irq_mask, mdp_irq_enabled);
 	} else {
 		mdp_irq_mask |= term;
@@ -1490,7 +1533,7 @@ void mdp_disable_irq(uint32 term)
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
 	if (!(mdp_irq_mask & term)) {
-		printk(KERN_ERR "%s: MDP IRQ term-0x%x is NOT set, mask=%x irq=%d\n",
+		printk(KERN_ERR "[LCD][DEBUG] %s: MDP IRQ term-0x%x is NOT set, mask=%x irq=%d\n",
 				__func__, term, mdp_irq_mask, mdp_irq_enabled);
 	} else {
 		mdp_irq_mask &= ~term;
@@ -1506,7 +1549,7 @@ void mdp_disable_irq_nosync(uint32 term)
 {
 	spin_lock(&mdp_lock);
 	if (!(mdp_irq_mask & term)) {
-		printk(KERN_ERR "%s: MDP IRQ term-0x%x is NOT set, mask=%x irq=%d\n",
+		printk(KERN_ERR "[LCD][DEBUG] %s: MDP IRQ term-0x%x is NOT set, mask=%x irq=%d\n",
 				__func__, term, mdp_irq_mask, mdp_irq_enabled);
 	} else {
 		mdp_irq_mask &= ~term;
@@ -2329,7 +2372,7 @@ int mdp_bus_scale_update_request(uint32_t index)
 {
 	if (!mdp_pdata && (!mdp_pdata->mdp_bus_scale_table
 	     || index > (mdp_pdata->mdp_bus_scale_table->num_usecases - 1))) {
-		printk(KERN_ERR "%s invalid table or index\n", __func__);
+		printk(KERN_ERR "[LCD][DEBUG] %s invalid table or index\n", __func__);
 		return -EINVAL;
 	}
 	if (mdp_bus_scale_handle < 1) {
@@ -2382,7 +2425,7 @@ static int mdp_irq_clk_setup(struct platform_device *pdev,
 	ret = request_irq(mdp_irq, mdp_isr, IRQF_DISABLED, "MDP", 0);
 #endif
 	if (ret) {
-		printk(KERN_ERR "mdp request_irq() failed!\n");
+		printk(KERN_ERR "[LCD][DEBUG] mdp request_irq() failed!\n");
 		return ret;
 	}
 	disable_irq(mdp_irq);
@@ -2426,7 +2469,7 @@ static int mdp_irq_clk_setup(struct platform_device *pdev,
 	mdp_clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(mdp_clk)) {
 		ret = PTR_ERR(mdp_clk);
-		printk(KERN_ERR "can't get mdp_clk error:%d!\n", ret);
+		printk(KERN_ERR "[LCD][DEBUG] can't get mdp_clk error:%d!\n", ret);
 		free_irq(mdp_irq, 0);
 		return ret;
 	}
@@ -2580,6 +2623,7 @@ static int mdp_probe(struct platform_device *pdev)
 	/* link to the latest pdev */
 	mfd->pdev = msm_fb_dev;
 	mfd->mdp_rev = mdp_rev;
+	mfd->vsync_init = NULL;
 
 	mfd->ov0_wb_buf = MDP_ALLOC(sizeof(struct mdp_buf_type));
 	mfd->ov1_wb_buf = MDP_ALLOC(sizeof(struct mdp_buf_type));
@@ -2605,12 +2649,13 @@ static int mdp_probe(struct platform_device *pdev)
 	if (platform_device_add_data
 	    (msm_fb_dev, pdev->dev.platform_data,
 	     sizeof(struct msm_fb_panel_data))) {
-		printk(KERN_ERR "mdp_probe: platform_device_add_data failed!\n");
+		printk(KERN_ERR "[LCD][DEBUG] mdp_probe: platform_device_add_data failed!\n");
 		rc = -ENOMEM;
 		goto mdp_probe_err;
 	}
 
 	if (mdp_pdata) {
+#if 0 //FIXME block to build error
 		if (mdp_pdata->cont_splash_enabled &&
 				 mfd->panel_info.pdest == DISPLAY_1) {
 			char *cp;
@@ -2652,6 +2697,7 @@ static int mdp_probe(struct platform_device *pdev)
 			MDP_OUTP(MDP_BASE + 0x90008,
 					mfd->copy_splash_phys);
 		}
+#endif
 
 		mfd->cont_splash_done = (1 - mdp_pdata->cont_splash_enabled);
 	}
@@ -2740,7 +2786,8 @@ static int mdp_probe(struct platform_device *pdev)
 	case MIPI_VIDEO_PANEL:
 #ifndef CONFIG_FB_MSM_MDP303
 		mipi = &mfd->panel_info.mipi;
-		mdp4_dsi_vsync_init(0);
+		mfd->vsync_init = mdp4_dsi_vsync_init;
+		mfd->vsync_show = mdp4_dsi_video_show_event;
 		mfd->hw_refresh = TRUE;
 		mfd->dma_fnc = mdp4_dsi_video_overlay;
 		mfd->lut_update = mdp_lut_update_lcdc;
@@ -2768,7 +2815,7 @@ static int mdp_probe(struct platform_device *pdev)
 		if (mfd->panel_info.pdest == DISPLAY_1)
 			mfd->dma = &dma2_data;
 		else {
-			printk(KERN_ERR "Invalid Selection of destination panel\n");
+			printk(KERN_ERR "[LCD][DEBUG] Invalid Selection of destination panel\n");
 			rc = -ENODEV;
 			mdp_clk_ctrl(0);
 			goto mdp_probe_err;
@@ -2785,7 +2832,8 @@ static int mdp_probe(struct platform_device *pdev)
 #ifndef CONFIG_FB_MSM_MDP303
 		mfd->dma_fnc = mdp4_dsi_cmd_overlay;
 		mipi = &mfd->panel_info.mipi;
-		mdp4_dsi_rdptr_init(0);
+		mfd->vsync_init = mdp4_dsi_rdptr_init;
+		mfd->vsync_show = mdp4_dsi_cmd_show_event;
 		if (mfd->panel_info.pdest == DISPLAY_1) {
 			if_no = PRIMARY_INTF_SEL;
 			mfd->dma = &dma2_data;
@@ -2808,7 +2856,7 @@ static int mdp_probe(struct platform_device *pdev)
 		if (mfd->panel_info.pdest == DISPLAY_1)
 			mfd->dma = &dma2_data;
 		else {
-			printk(KERN_ERR "Invalid Selection of destination panel\n");
+			printk(KERN_ERR "[LCD][DEBUG] Invalid Selection of destination panel\n");
 			rc = -ENODEV;
 			mdp_clk_ctrl(0);
 			goto mdp_probe_err;
@@ -2822,7 +2870,8 @@ static int mdp_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_FB_MSM_DTV
 	case DTV_PANEL:
-		mdp4_dtv_vsync_init(0);
+		mfd->vsync_init = mdp4_dtv_vsync_init;
+		mfd->vsync_show = mdp4_dtv_show_event;
 		pdata->on = mdp4_dtv_on;
 		pdata->off = mdp4_dtv_off;
 		mfd->hw_refresh = TRUE;
@@ -2861,7 +2910,8 @@ static int mdp_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_FB_MSM_MDP40
-		mdp4_lcdc_vsync_init(0);
+		mfd->vsync_init = mdp4_lcdc_vsync_init;
+		mfd->vsync_show = mdp4_lcdc_show_event;
 		if (mfd->panel.type == HDMI_PANEL) {
 			mfd->dma = &dma_e_data;
 			mdp4_display_intf_sel(EXTERNAL_INTF_SEL, LCDC_RGB_INTF);
@@ -2912,6 +2962,7 @@ static int mdp_probe(struct platform_device *pdev)
 				mdp_clk_ctrl(0);
 				return -ENODEV;
 			}
+			mdp4_wfd_init(0);
 			pdata->on = mdp4_overlay_writeback_on;
 			pdata->off = mdp4_overlay_writeback_off;
 			mfd->dma_fnc = mdp4_writeback_overlay;
@@ -2921,7 +2972,7 @@ static int mdp_probe(struct platform_device *pdev)
 		break;
 #endif
 	default:
-		printk(KERN_ERR "mdp_probe: unknown device type!\n");
+		printk(KERN_ERR "[LCD][DEBUG] mdp_probe: unknown device type!\n");
 		rc = -ENODEV;
 		mdp_clk_ctrl(0);
 		goto mdp_probe_err;
@@ -2947,7 +2998,7 @@ static int mdp_probe(struct platform_device *pdev)
 			msm_bus_scale_register_client(
 					mdp_pdata->mdp_bus_scale_table);
 		if (!mdp_bus_scale_handle) {
-			printk(KERN_ERR "%s not able to get bus scale\n",
+			printk(KERN_ERR "[LCD][DEBUG] %s not able to get bus scale\n",
 				__func__);
 			return -ENOMEM;
 		}
@@ -2972,6 +3023,29 @@ static int mdp_probe(struct platform_device *pdev)
 
 	pdev_list[pdev_list_cnt++] = pdev;
 	mdp4_extn_disp = 0;
+
+	if (mfd->vsync_init != NULL) {
+		mfd->vsync_init(0);
+
+		if (!mfd->vsync_sysfs_created) {
+			mfd->dev_attr.attr.name = "vsync_event";
+			mfd->dev_attr.attr.mode = S_IRUGO;
+			mfd->dev_attr.show = mfd->vsync_show;
+			sysfs_attr_init(&mfd->dev_attr.attr);
+
+			rc = sysfs_create_file(&mfd->fbi->dev->kobj,
+							&mfd->dev_attr.attr);
+			if (rc) {
+				pr_err("%s: sysfs creation failed, ret=%d\n",
+					__func__, rc);
+				return rc;
+			}
+
+			kobject_uevent(&mfd->fbi->dev->kobj, KOBJ_ADD);
+			pr_debug("%s: kobject_uevent(KOBJ_ADD)\n", __func__);
+			mfd->vsync_sysfs_created = 1;
+		}
+	}
 	return 0;
 
       mdp_probe_err:
@@ -3028,17 +3102,6 @@ void mdp_footswitch_ctrl(boolean on)
 	mutex_unlock(&mdp_suspend_mutex);
 }
 
-void mdp_free_splash_buffer(struct msm_fb_data_type *mfd)
-{
-	if (mfd->copy_splash_buf) {
-		dma_free_coherent(NULL,	mdp_pdata->splash_screen_size,
-			mfd->copy_splash_buf,
-			(dma_addr_t) mfd->copy_splash_phys);
-
-		mfd->copy_splash_buf = NULL;
-	}
-}
-
 #ifdef CONFIG_PM
 static void mdp_suspend_sub(void)
 {
@@ -3067,7 +3130,7 @@ static int mdp_suspend(struct platform_device *pdev, pm_message_t state)
 	if (pdev->id == 0) {
 		mdp_suspend_sub();
 		if (mdp_current_clk_on) {
-			printk(KERN_WARNING"MDP suspend failed\n");
+			printk(KERN_WARNING "[LCD][DEBUG] MDP suspend failed\n");
 			return -EBUSY;
 		}
 	}
@@ -3135,7 +3198,7 @@ static int __init mdp_driver_init(void)
 
 	ret = mdp_register_driver();
 	if (ret) {
-		printk(KERN_ERR "mdp_register_driver() failed!\n");
+		printk(KERN_ERR "[LCD][DEBUG] mdp_register_driver() failed!\n");
 		return ret;
 	}
 

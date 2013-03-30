@@ -25,6 +25,7 @@
 #include <linux/mfd/pm8xxx/pwm.h>
 #include <linux/leds-pm8xxx.h>
 
+
 #define SSBI_REG_ADDR_DRV_KEYPAD	0x48
 #define PM8XXX_DRV_KEYPAD_BL_MASK	0xf0
 #define PM8XXX_DRV_KEYPAD_BL_SHIFT	0x04
@@ -180,10 +181,20 @@ struct pm8xxx_led_data {
 	int			max_current;
 };
 
+/* Debug mask value
+ * usage: echo [debug_mask] > /sys/module/leds_pm8xxx/parameters/debug_mask
+ */
+u32 keyled_debug_mask = DEBUG_LED_NONE;
+module_param_named(debug_mask, keyled_debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
+
+
 static void led_kp_set(struct pm8xxx_led_data *led, enum led_brightness value)
 {
 	int rc;
 	u8 level;
+
+	if (likely(keyled_debug_mask & DEBUG_LED_TRACE))
+		printk("[leds-pm8xxx] led_kp_set \n");
 
 	level = (value << PM8XXX_DRV_KEYPAD_BL_SHIFT) &
 				 PM8XXX_DRV_KEYPAD_BL_MASK;
@@ -203,9 +214,11 @@ static void led_lc_set(struct pm8xxx_led_data *led, enum led_brightness value)
 	int rc, offset;
 	u8 level;
 
+	if (likely(keyled_debug_mask & DEBUG_LED_TRACE))
+		printk("[leds-pm8xxx] led_lc_set \n");
+
 	level = (value << PM8XXX_DRV_LED_CTRL_SHIFT) &
 				PM8XXX_DRV_LED_CTRL_MASK;
-
 	offset = PM8XXX_LED_OFFSET(led->id);
 
 	led->reg &= ~PM8XXX_DRV_LED_CTRL_MASK;
@@ -213,6 +226,11 @@ static void led_lc_set(struct pm8xxx_led_data *led, enum led_brightness value)
 
 	rc = pm8xxx_writeb(led->dev->parent, SSBI_REG_ADDR_LED_CTRL(offset),
 								led->reg);
+
+	if (likely(keyled_debug_mask & DEBUG_LED_REG))
+		printk("[leds-pm8xxx] led_lc_set (0x%x : %d), level : %d\n", 
+								SSBI_REG_ADDR_LED_CTRL(offset), led->reg, level);
+
 	if (rc)
 		dev_err(led->cdev.dev, "can't set (%d) led value rc=%d\n",
 				led->id, rc);
@@ -344,7 +362,8 @@ led_rgb_write(struct pm8xxx_led_data *led, u16 addr, enum led_brightness value)
 {
 	int rc;
 	u8 val, mask;
-
+	if (likely(keyled_debug_mask & DEBUG_LED_TRACE))
+		printk("[leds-pm8xxx] led_rgb_write\n");
 	if (led->id != PM8XXX_ID_RGB_LED_BLUE &&
 		led->id != PM8XXX_ID_RGB_LED_RED &&
 		led->id != PM8XXX_ID_RGB_LED_GREEN)
@@ -398,7 +417,8 @@ static int pm8xxx_led_pwm_work(struct pm8xxx_led_data *led)
 {
 	int duty_us;
 	int rc = 0;
-
+	if (likely(keyled_debug_mask & DEBUG_LED_TRACE))
+		printk("[leds-pm8xxx] pm8xxx_led_pwm_work\n");
 	if (led->pwm_duty_cycles == NULL) {
 		duty_us = (led->pwm_period_us * led->cdev.brightness) /
 								LED_FULL;
@@ -431,7 +451,8 @@ static void __pm8xxx_led_work(struct pm8xxx_led_data *led,
 	int rc;
 
 	mutex_lock(&led->lock);
-
+	if (likely(keyled_debug_mask & DEBUG_LED_TRACE))
+		printk("[leds-pm8xxx] __pm8xxx_led_work\n");
 	switch (led->id) {
 	case PM8XXX_ID_LED_KB_LIGHT:
 		led_kp_set(led, level);
@@ -469,7 +490,8 @@ static void pm8xxx_led_work(struct work_struct *work)
 
 	struct pm8xxx_led_data *led = container_of(work,
 					 struct pm8xxx_led_data, work);
-
+	if (likely(keyled_debug_mask & DEBUG_LED_TRACE))
+		printk("[leds-pm8xxx] pm8xxx_led_work (id : %d )\n",led->id);
 	if (led->pwm_dev == NULL) {
 		__pm8xxx_led_work(led, led->cdev.brightness);
 	} else {
@@ -484,8 +506,38 @@ static void pm8xxx_led_set(struct led_classdev *led_cdev,
 	enum led_brightness value)
 {
 	struct	pm8xxx_led_data *led;
+#ifdef CONFIG_LGE_PM_PWM_LED
+	int idx_len0;
+	int idx_len1;
+#endif
 
 	led = container_of(led_cdev, struct pm8xxx_led_data, cdev);
+
+	if (likely(keyled_debug_mask & DEBUG_LED_TRACE))
+		printk("[leds-pm8xxx] pm8xxx_led_set : %d \n",value);
+
+#ifdef CONFIG_LGE_PM_PWM_LED
+	if (led->id == PM8XXX_ID_LED_2 || led->id == PM8XXX_ID_LED_0) {
+		idx_len0 = led->pwm_duty_cycles->num_duty_pcts0;
+		idx_len1 = led->pwm_duty_cycles->num_duty_pcts1;
+
+		if(value == 0xFE) { //notification
+			pm8xxx_pwm_lut_config(led->pwm_dev, led->pwm_period_us,
+				led->pwm_duty_cycles->duty_pcts1,
+				led->pwm_duty_cycles->duty_ms1,
+				0, idx_len1, 0, 0,
+				PM8XXX_LED_PWM_FLAGS);
+				value = led->cdev.max_brightness;
+		}
+		else { //charging
+			pm8xxx_pwm_lut_config(led->pwm_dev, led->pwm_period_us,
+				led->pwm_duty_cycles->duty_pcts0,
+				led->pwm_duty_cycles->duty_ms0,
+				0, idx_len0, 0, 0,
+				PM8XXX_LED_PWM_FLAGS);
+		}
+	}
+#endif
 
 	if (value < LED_OFF || value > led->cdev.max_brightness) {
 		dev_err(led->cdev.dev, "Invalid brightness value exceeds");
@@ -780,7 +832,11 @@ static int __devinit get_init_value(struct pm8xxx_led_data *led, u8 *val)
 
 static int pm8xxx_led_pwm_configure(struct pm8xxx_led_data *led)
 {
+#ifdef CONFIG_LGE_PM_PWM_LED
+	int start_idx, idx_len0, idx_len1, duty_us, rc;
+#else
 	int start_idx, idx_len, duty_us, rc;
+#endif
 
 	led->pwm_dev = pwm_request(led->pwm_channel,
 					led->cdev.name);
@@ -795,8 +851,36 @@ static int pm8xxx_led_pwm_configure(struct pm8xxx_led_data *led)
 
 	if (led->pwm_duty_cycles != NULL) {
 		start_idx = led->pwm_duty_cycles->start_idx;
+#ifdef CONFIG_LGE_PM_PWM_LED
+		idx_len0 = led->pwm_duty_cycles->num_duty_pcts0;
+		idx_len1 = led->pwm_duty_cycles->num_duty_pcts1;
+#else
 		idx_len = led->pwm_duty_cycles->num_duty_pcts;
+#endif
 
+#ifdef CONFIG_LGE_PM_PWM_LED
+		if (idx_len0 >= PM_PWM_LUT_SIZE && start_idx) {
+			printk("Wrong LUT size or index\n");
+			return -EINVAL;
+		}
+		if ((start_idx + idx_len0) > PM_PWM_LUT_SIZE) {
+			printk("Exceed LUT limit\n");
+			return -EINVAL;
+		}
+		if (idx_len1 >= PM_PWM_LUT_SIZE && start_idx) {
+			printk("Wrong LUT size or index\n");
+			return -EINVAL;
+		}
+		if ((start_idx + idx_len1) > PM_PWM_LUT_SIZE) {
+			printk("Exceed LUT limit\n");
+			return -EINVAL;
+		}
+		rc = pm8xxx_pwm_lut_config(led->pwm_dev, led->pwm_period_us,
+				led->pwm_duty_cycles->duty_pcts0,
+				led->pwm_duty_cycles->duty_ms0,
+				start_idx, idx_len0, 0, 0,
+				PM8XXX_LED_PWM_FLAGS);
+#else
 		if (idx_len >= PM_PWM_LUT_SIZE && start_idx) {
 			pr_err("Wrong LUT size or index\n");
 			return -EINVAL;
@@ -811,6 +895,7 @@ static int pm8xxx_led_pwm_configure(struct pm8xxx_led_data *led)
 				led->pwm_duty_cycles->duty_ms,
 				start_idx, idx_len, 0, 0,
 				PM8XXX_LED_PWM_FLAGS);
+#endif
 	} else {
 		duty_us = led->pwm_period_us;
 		rc = pwm_config(led->pwm_dev, duty_us, led->pwm_period_us);
@@ -830,6 +915,8 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 	enum pm8xxx_version version;
 	bool found = false;
 	int rc, i, j;
+
+	printk("[leds_pm8xxx] pm8xxx_led_probe start\n");
 
 	if (pdata == NULL) {
 		dev_err(&pdev->dev, "platform data not supplied\n");
@@ -946,6 +1033,7 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, led);
+	printk("[leds_pm8xxx] pm8xxx_led_probe end\n");
 
 	return 0;
 

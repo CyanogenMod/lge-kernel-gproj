@@ -231,10 +231,12 @@ static int msm_voip_dtx_mode_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+//[AUDIO_BSP]_START, 20120213, mint.choi@lge.com, modified voip volume level for domestic models
+#if defined(CONFIG_MACH_APQ8064_J1SK) || defined(CONFIG_MACH_APQ8064_J1KT) || defined(CONFIG_MACH_APQ8064_J1U) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKU)
 static struct snd_kcontrol_new msm_voip_controls[] = {
 	SOC_SINGLE_EXT("Voip Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_voip_mute_get, msm_voip_mute_put),
-	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, 5, 0,
+	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, 9, 0,
 				msm_voip_volume_get, msm_voip_volume_put),
 	SOC_SINGLE_MULTI_EXT("Voip Mode Rate Config", SND_SOC_NOPM, 0, 23850,
 				0, 2, msm_voip_mode_rate_config_get,
@@ -242,6 +244,21 @@ static struct snd_kcontrol_new msm_voip_controls[] = {
 	SOC_SINGLE_EXT("Voip Dtx Mode", SND_SOC_NOPM, 0, 1, 0,
 				msm_voip_dtx_mode_get, msm_voip_dtx_mode_put),
 };
+//[AUDIO_BSP]_START, 20120307, junday.lee, modified voip volume level(6->7)
+#else
+static struct snd_kcontrol_new msm_voip_controls[] = {
+	SOC_SINGLE_EXT("Voip Tx Mute", SND_SOC_NOPM, 0, 1, 0,
+				msm_voip_mute_get, msm_voip_mute_put),
+	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, 6, 0,
+				msm_voip_volume_get, msm_voip_volume_put),
+	SOC_SINGLE_MULTI_EXT("Voip Mode Rate Config", SND_SOC_NOPM, 0, 23850,
+				0, 2, msm_voip_mode_rate_config_get,
+				msm_voip_mode_rate_config_put),
+	SOC_SINGLE_EXT("Voip Dtx Mode", SND_SOC_NOPM, 0, 1, 0,
+				msm_voip_dtx_mode_get, msm_voip_dtx_mode_put),
+};
+//[AUDIO_BSP]_END, 20120307, junday.lee
+#endif
 
 static int msm_pcm_voip_probe(struct snd_soc_platform *platform)
 {

@@ -128,5 +128,8 @@ struct media_links_enum {
 #define MEDIA_IOC_ENUM_ENTITIES		_IOWR('|', 0x01, struct media_entity_desc)
 #define MEDIA_IOC_ENUM_LINKS		_IOWR('|', 0x02, struct media_links_enum)
 #define MEDIA_IOC_SETUP_LINK		_IOWR('|', 0x03, struct media_link_desc)
+    /* LGE_CHANGE_S, soojung.lim@lge.com, 2012-10-31, Wise screen / Because of the display engine  */
+#define MEDIA_IOC_SUB_CAM_ID		_IOWR('|', 0x04, int)
+    /* LGE_CHANGE_E, soojung.lim@lge.com, 2012-10-31, Wise screen / Because of the display engine  */
 
 #endif /* __LINUX_MEDIA_H */

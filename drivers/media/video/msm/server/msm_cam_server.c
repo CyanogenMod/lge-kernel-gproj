@@ -76,8 +76,13 @@ void msm_drain_eventq(struct msm_device_queue *queue)
 		isp_event =
 			(struct msm_isp_event_ctrl *)
 			qcmd->command;
+		// Start LGE_BSP_CAMERA::seongjo.kim@lge.com Add type check to prevent kernel crash(SR#962146)
+		if( isp_event->resptype == MSM_CAM_RESP_V4L2 )
+		{
 		if (isp_event->isp_data.ctrl.value != NULL)
 			kfree(isp_event->isp_data.ctrl.value);
+		}
+		// End LGE_BSP_CAMERA::seongjo.kim@lge.com Add type check to prevent kernel crash(SR#962146)
 		kfree(qcmd->command);
 		free_qcmd(qcmd);
 	}
@@ -152,6 +157,14 @@ int msm_cam_server_config_interface_map(u32 extendedmode,
 						mctl_handle = 0;
 				}
 			}
+			// Start jungpyo.hong@lge.com Fix issue that is related to launch sequence(SR#992695)
+			if (!is_bayer_sensor && interface == PIX_0) {
+				if (g_server_dev.interface_map_table[i].mctl_handle &&
+					 g_server_dev.interface_map_table[i].is_bayer_sensor) {
+					break;
+				}
+			}
+			// End jungpyo.hong@lge.com Fix issue that is related to launch sequence(SR#992695)
 			old_handle =
 				g_server_dev.interface_map_table[i].mctl_handle;
 			if (old_handle == 0) {
@@ -337,6 +350,52 @@ command_alloc_fail:
 	return -EINVAL;
 }
 
+// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
+void msm_cam_stop_hardware(struct msm_cam_v4l2_device *pcam)
+{
+	struct msm_cam_media_controller *pmctl;
+//	int rc = 0;
+	printk("%s: E\n", __func__);
+	pr_err("%s: stopping hardware upon error\n", __func__);
+	if (pcam == NULL)
+	{
+		printk("[pcam == NULL] return\n");
+	    return;
+	}
+	else
+	{
+		printk("[pcam != NULL] Do not return\n");
+	}
+
+/* LGE_CHANGE_S, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+	//mutex_lock(&pcam->vid_lock);
+/* LGE_CHANGE_E, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
+	if(pmctl != NULL){ /* LGE_CHANGE, patch for preventing Kernel Crash from NULL value from WBT test, 2012.11.28, youngwook.song@lge.com */
+		if (pmctl && pmctl->mctl_release) {
+			pr_err("%s: stopping hardware upon error\n", __func__);
+	//Start LGE_BSP_CAMERA : QCT patch about kernel panic - jonghwan.ko@lge.com
+			/*do not send any commands to hardware after reaching this point*/
+			pr_err("%s: set mctl_cmd NULL\n", __func__);
+			pmctl->mctl_cmd = NULL;
+	//End  LGE_BSP_CAMERA : QCT patch about kernel panic - jonghwan.ko@lge.com
+			if(pmctl->mctl_release)
+				pmctl->mctl_release(pmctl);
+			pmctl->mctl_release = NULL;
+	/* LGE_CHANGE_S, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+		} else {
+			pr_err("%s: pmctl %p, pmctl->mctl_release %p\n", __func__, pmctl, pmctl->mctl_release);
+		}
+	} else
+		pr_err("%s: pmctl is NULL",__func__);
+
+	//mutex_unlock(&pcam->vid_lock);
+/* LGE_CHANGE_E, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+	printk("%s: X\n", __func__);
+}
+// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
+
+
 /* send control command to config and wait for results*/
 static int msm_server_control(struct msm_cam_server_dev *server_dev,
 				uint32_t id, struct msm_ctrl_cmd *out)
@@ -349,6 +408,10 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	struct msm_ctrl_cmd *ctrlcmd;
 	struct msm_device_queue *queue =
 		&server_dev->server_queue[out->queue_idx].ctrl_q;
+
+	// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
+	struct msm_cam_v4l2_device *pcam = server_dev->pcam_active[0];
+	// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
 
 	struct v4l2_event v4l2_evt;
 	struct msm_isp_event_ctrl *isp_event;
@@ -431,7 +494,41 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 		if (rc < 0) {
 			if (++server_dev->server_evt_id == 0)
 				server_dev->server_evt_id++;
-			pr_err("%s: wait_event error %d\n", __func__, rc);
+			//pr_err("%s: wait_event error %d\n", __func__, rc);
+
+			pr_err("%s: wait_event error %d for command%d\n", __func__, rc,
+				   out->type);
+			if (out->type == MSM_V4L2_SET_CTRL_CMD) {
+				pr_err("Set native ctrl type is %d\n",
+					   ((struct msm_ctrl_cmd *)out->value)->type);
+			} else if (out->type == MSM_V4L2_SET_CTRL) {
+				pr_err("Set ctrl type is 0x%x\n",
+					   ((struct v4l2_control *)out->value)->id);
+			}
+			// Add Log for Debug takePicturePrepareHardware
+			if (rc == -ETIMEDOUT)
+			{
+				pr_err("%s: cmdtype: %d, timeout_ms: %d, stream_type: %d\n", __func__, out->type, out->timeout_ms, out->stream_type);
+				dump_stack(); // OR BUG_ON(1);
+			}
+			// Add Log for Debug takePicturePrepareHardware
+			// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
+			//msm_cam_stop_hardware(pcam);
+			if (pcam) {
+//				mutex_lock(&pcam->vid_lock);
+				pr_err("%s: %d: Calling msm_cam_stop_hardware.\n", __func__, __LINE__); 
+/* LGE_CHANGE_S, To block kernel crash on GK/GV camera, 2012.12.16, elin.lee@lge.com */    
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+#else
+				msm_cam_stop_hardware(pcam);
+#endif
+/* LGE_CHANGE_E, To block kernel crash on GK/GV camera, 2012.12.16, elin.lee@lge.com */    
+
+//				mutex_unlock(&pcam->vid_lock);
+			}else{
+				pr_err("%s: %d: pcam instanstance was NULL.\n", __func__, __LINE__); 
+			}
+			// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
 			return rc;
 		}
 	}
@@ -558,6 +655,9 @@ int msm_send_open_server(struct msm_cam_v4l2_device *pcam)
 	int rc = 0;
 	struct msm_ctrl_cmd ctrlcmd;
 	int idx = pcam->server_queue_idx;
+//LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
+	printk("%s: E\n", __func__);
+//LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com
 	D("%s qid %d\n", __func__, pcam->server_queue_idx);
 	ctrlcmd.type	   = MSM_V4L2_OPEN;
 	ctrlcmd.timeout_ms = 10000;
@@ -571,7 +671,9 @@ int msm_send_open_server(struct msm_cam_v4l2_device *pcam)
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, 0, &ctrlcmd);
-
+//LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
+	printk("%s: X\n", __func__);
+//LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com
 	return rc;
 }
 
@@ -579,6 +681,9 @@ int msm_send_close_server(struct msm_cam_v4l2_device *pcam)
 {
 	int rc = 0;
 	struct msm_ctrl_cmd ctrlcmd;
+//LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
+	printk("%s: E\n", __func__);
+//LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com
 	D("%s qid %d\n", __func__, pcam->server_queue_idx);
 	ctrlcmd.type	   = MSM_V4L2_CLOSE;
 	ctrlcmd.timeout_ms = 10000;
@@ -593,6 +698,9 @@ int msm_send_close_server(struct msm_cam_v4l2_device *pcam)
 
 	/* send command to config thread in usersspace, and get return value */
 	rc = msm_server_control(&g_server_dev, 0, &ctrlcmd);
+//LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
+	printk("%s: X\n", __func__);
+//LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com
 
 	return rc;
 }
@@ -862,7 +970,13 @@ int msm_server_s_ctrl(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.length = sizeof(struct v4l2_control);
 	ctrlcmd.value = (void *)ctrl_data;
 	memcpy(ctrlcmd.value, ctrl, ctrlcmd.length);
+/* LGE_CHANGE_S, Increase Waiting Time, 2012.11.27, jungki.kim[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM)
+	ctrlcmd.timeout_ms = 3000;
+#else
 	ctrlcmd.timeout_ms = 1000;
+#endif
+/* LGE_CHANGE_E, Increase Waiting Time, 2012.11.27, jungki.kim[End] */
 	ctrlcmd.vnode_id = pcam->vnode_id;
 	ctrlcmd.queue_idx = pcam->server_queue_idx;
 	ctrlcmd.config_ident = g_server_dev.config_info.config_dev_id[0];
@@ -1402,6 +1516,17 @@ static int msm_open_server(struct file *fp)
 	return rc;
 }
 
+/* LGE_CHANGE_S, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+int get_server_use_count(void)
+{
+	int server_count;
+	mutex_lock(&g_server_dev.server_lock);
+	server_count = g_server_dev.use_count;
+	mutex_unlock(&g_server_dev.server_lock);
+	return server_count;
+}
+/* LGE_CHANGE_E, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+
 static int msm_close_server(struct file *fp)
 {
 	struct v4l2_event_subscription sub;
@@ -1641,6 +1766,9 @@ static uint32_t msm_camera_server_find_mctl(
 		else if (((struct isp_msg_event *)arg)->msg_id ==
 			MSG_ID_RDI1_UPDATE_ACK)
 			interface = RDI_1;
+		else if (((struct isp_msg_event *)arg)->msg_id ==
+                        MSG_ID_RDI2_UPDATE_ACK)
+                        interface = RDI_2;
 		else
 			interface = PIX_0;
 		break;
@@ -1651,6 +1779,9 @@ static uint32_t msm_camera_server_find_mctl(
 		else if (((struct isp_msg_output *)arg)->output_id ==
 						MSG_ID_OUTPUT_TERTIARY2)
 			interface = RDI_1;
+		else if (((struct isp_msg_output *)arg)->output_id ==
+						MSG_ID_OUTPUT_TERTIARY3)
+			interface = RDI_2;
 		else
 			interface = PIX_0;
 		break;
@@ -1676,6 +1807,8 @@ static uint32_t msm_camera_server_find_mctl(
 				interface = RDI_0;
 			else if (frame_info->path == VFE_MSG_OUTPUT_TERTIARY2)
 				interface = RDI_1;
+			else if (frame_info->path == VFE_MSG_OUTPUT_TERTIARY3)
+				interface = RDI_2;
 			else
 				interface = PIX_0;
 		}
@@ -1748,7 +1881,7 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 		break;
 	case NOTIFY_AXI_RDI_SOF_COUNT:
 		p_mctl = msm_cam_server_get_mctl(mctl_handle);
-		if (p_mctl->axi_sdev)
+		if (p_mctl && p_mctl->axi_sdev)
 			rc = v4l2_subdev_call(p_mctl->axi_sdev, core, ioctl,
 				VIDIOC_MSM_AXI_RDI_COUNT_UPDATE, arg);
 		break;
@@ -3076,9 +3209,14 @@ static int msm_close_config(struct inode *node, struct file *f)
 		isp_event = (struct msm_isp_event_ctrl *)
 			(*((uint32_t *)ev.u.data));
 		if (isp_event) {
+			// Start LGE_BSP_CAMERA::seongjo.kim@lge.com Add type check to prevent kernel crash(SR#962146)
+			if( ev.type == (V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_STAT_EVT_MSG) )
+			{
 			if (isp_event->isp_data.isp_msg.len != 0 &&
 				isp_event->isp_data.isp_msg.data != NULL)
 				kfree(isp_event->isp_data.isp_msg.data);
+			}
+			// End LGE_BSP_CAMERA::seongjo.kim@lge.com Add type check to prevent kernel crash(SR#962146)
 			kfree(isp_event);
 		}
 	}

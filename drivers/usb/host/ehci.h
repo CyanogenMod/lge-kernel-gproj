@@ -133,6 +133,7 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		random_frame;
 	unsigned long		next_statechange;
 	ktime_t			last_periodic_enable;
+	ktime_t			last_susp_resume;
 	u32			command;
 
 	unsigned		log2_irq_thresh;

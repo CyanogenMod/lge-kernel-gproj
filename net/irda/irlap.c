@@ -949,9 +949,21 @@ void irlap_apply_default_connection_parameters(struct irlap_cb *self)
 	IRDA_ASSERT(self != NULL, return;);
 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
 
+/* LGE_CHANGE
+ * Refering to other phones,
+ * we got to know that the default number of xbofs is 10, not 12.
+ * <for IrDA authentication>
+ * 2012-04-06, chaeuk.lee@lge.com
+ */
+#ifdef CONFIG_LGE_IRDA
+	/* xbofs : Default value in NDM */
+	self->next_bofs   = 10;
+	self->bofs_count  = 10;
+#else /* below the original */
 	/* xbofs : Default value in NDM */
 	self->next_bofs   = 12;
 	self->bofs_count  = 12;
+#endif /* CONFIG_LGE_IRDA */
 
 	/* NDM Speed is 9600 */
 	irlap_change_speed(self, 9600, TRUE);
@@ -985,8 +997,19 @@ void irlap_apply_default_connection_parameters(struct irlap_cb *self)
 	self->qos_rx.data_size.value = 64;
 	self->qos_tx.window_size.value = 1;
 	self->qos_rx.window_size.value = 1;
+/* LGE_CHANGE
+ * Refering to other phones,
+ * we got to know that the default number of xbofs is 10, not 12.
+ * <for IrDA authentication>
+ * 2012-04-06, chaeuk.lee@lge.com
+ */
+#ifdef CONFIG_LGE_IRDA
+	self->qos_tx.additional_bofs.value = 10;
+	self->qos_rx.additional_bofs.value = 10;
+#else
 	self->qos_tx.additional_bofs.value = 12;
 	self->qos_rx.additional_bofs.value = 12;
+#endif /* CONFIG_LGE_IRDA */
 	self->qos_tx.link_disc_time.value = 0;
 	self->qos_rx.link_disc_time.value = 0;
 
@@ -1047,7 +1070,20 @@ void irlap_apply_connection_parameters(struct irlap_cb *self, int now)
 	 * Or, this is how much we can keep the pf bit in primary mode.
 	 * Therefore, it must be lower or equal than our *OWN* max turn around.
 	 * Jean II */
+#ifdef CONFIG_LGE_IRDA
+	/* LGE_CHANGE
+	 * The default qos_tx.max_turn_time.value is 500ms	and self->poll_timeout is 50.
+	 * It is slow.
+	 * We just need over the 10ms(qos_tx.max_turn_time.value).
+	 * So, we set  self->poll_timeout to 3.
+	 * This is mean qos_tx.max_turn_time.value is around 30ms
+	 * Therefore, it is faster than old.
+	 * 2012-03-12, changyong.yi@lge.com
+	 */
+	self->poll_timeout = 3;
+#else
 	self->poll_timeout = self->qos_tx.max_turn_time.value * HZ / 1000;
+#endif
 	/* The Final timeout applies only to the primary station.
 	 * It defines the maximum time the primary wait (mostly in RECV mode)
 	 * for an answer from the secondary station before polling it again.
@@ -1234,4 +1270,74 @@ const struct file_operations irlap_seq_fops = {
 	.release	= seq_release_private,
 };
 
+/* LGE_CHANGE
+ * refer to irproc.c file
+ * 2012-02-08, chaeuk.lee@lge.com
+ */
+#ifdef CONFIG_LGE_IRDA
+static void *line_check_seq_start(struct seq_file *seq, loff_t *pos)
+{
+	struct irlap_iter_state *iter = seq->private;
+	struct irlap_cb *self;
+   	/* Protect our access to the tsap list */
+	spin_lock_irq(&irlap->hb_spinlock);
+	iter->id = 0;
+
+	for (self = (struct irlap_cb *) hashbin_get_first(irlap);
+	     self; self = (struct irlap_cb *) hashbin_get_next(irlap)) {
+		if (iter->id == *pos)
+			break;
+		++iter->id;
+	}
+
+	return self;
+}
+
+static void *line_check_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+{
+	struct irlap_iter_state *iter = seq->private;
+   	++*pos;
+	++iter->id;
+	return (void *) hashbin_get_next(irlap);
+}
+
+static void line_check_seq_stop(struct seq_file *seq, void *v)
+{
+   	spin_unlock_irq(&irlap->hb_spinlock);
+}
+
+static int line_check_seq_show(struct seq_file *seq, void *v)
+{
+	const struct irlap_cb *self = v;
+   	IRDA_ASSERT(self->magic == LAP_MAGIC, return -EINVAL;);
+
+	seq_printf(seq, "%s", irlap_state[self->state]);
+
+	return 0;
+}
+
+static const struct seq_operations line_check_seq_ops = {
+	.start  = line_check_seq_start,
+	.next   = line_check_seq_next,
+	.stop   = line_check_seq_stop,
+	.show   = line_check_seq_show,
+};
+
+static int line_check_seq_open(struct inode *inode, struct file *file)
+{
+   	if (irlap == NULL)
+		return -EINVAL;
+
+	return seq_open_private(file, &line_check_seq_ops,
+			sizeof(struct irlap_iter_state));
+}
+
+const struct file_operations line_check_seq_fops = {
+	.owner		= THIS_MODULE,
+	.open           = line_check_seq_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release	= seq_release_private,
+};
+#endif /* CONFIG_LGE_IRDA */
 #endif /* CONFIG_PROC_FS */

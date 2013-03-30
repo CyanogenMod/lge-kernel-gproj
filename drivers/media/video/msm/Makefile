@@ -22,6 +22,7 @@ endif
 obj-$(CONFIG_MSM_CAMERA) += vfe/
 obj-$(CONFIG_MSM_CAMERA) += msm_axi_qos.o gemini/ mercury/ jpeg_10/
 obj-$(CONFIG_MSM_CAMERA_FLASH) += flash.o
+obj-$(CONFIG_MSM_CAMERA_FLASH_LM3559) += flash_lm3559.o
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   obj-$(CONFIG_ARCH_MSM8X60) += msm_vpe.o
   obj-$(CONFIG_ARCH_MSM7X30) += msm_vpe.o msm_axi_qos.o
@@ -40,6 +41,8 @@ obj-$(CONFIG_S5K3E2FX) += s5k3e2fx.o
 #FIXME: Merge the two ifeq causes VX6953 preview not coming up.
 ifneq ($(CONFIG_MSM_CAMERA_V4L2),y)
   obj-$(CONFIG_VX6953) += vx6953.o vx6953_reg.o
+  obj-$(CONFIG_CE1702) += ce1702_v4l2.o
+  obj-$(CONFIG_IMX132) += imx132_v4l2.o
   obj-$(CONFIG_IMX074) += imx074.o imx074_reg.o
   obj-$(CONFIG_MT9E013) += mt9e013.o mt9e013_reg.o
   obj-$(CONFIG_WEBCAM_OV9726) += ov9726.o ov9726_reg.o

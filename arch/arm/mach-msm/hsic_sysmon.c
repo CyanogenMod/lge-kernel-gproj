@@ -24,6 +24,10 @@
 #include <linux/usb.h>
 #include <linux/debugfs.h>
 
+#ifdef CONFIG_LGE_EMS_CH
+#include <mach/hsic_debug_ch.h>
+#endif
+
 #include "hsic_sysmon.h"
 #include "sysmon.h"
 
@@ -50,6 +54,17 @@ struct hsic_sysmon {
 	atomic_t		dbg_pending[NUM_OPS];
 };
 static struct hsic_sysmon *hsic_sysmon_devices[NUM_HSIC_SYSMON_DEVS];
+
+#ifdef CONFIG_LGE_EMS_CH 
+void sysmon_hsic_debug_init(struct usb_device *udev_from_hs, struct usb_interface *ifc_from_hs, __u8 in_epaddr);
+#define HSIC_DEBUG_CH_INFO
+#ifdef HSIC_DEBUG_CH_INFO
+#define LTE_INFO(fmt,args...)printk("[%s] "fmt,__FUNCTION__, ## args)
+#else
+#define LTE_INFO(fmt, args...)
+#endif
+extern int sysmon_hsic_in_busy;
+#endif
 
 static void hsic_sysmon_delete(struct kref *kref)
 {
@@ -122,6 +137,10 @@ static int hsic_sysmon_readwrite(enum hsic_sysmon_device_id id, void *data,
 
 	pr_debug("%s: id:%d, data len:%d, timeout:%d", opstr, id, len, timeout);
 
+#ifdef CONFIG_LGE_EMS_CH
+	if(op == HSIC_SYSMON_OP_WRITE)
+		sysmon_hsic_in_busy = 1;
+#endif
 	if (id >= NUM_HSIC_SYSMON_DEVS) {
 		pr_err("invalid dev id(%d)", id);
 		return -ENODEV;
@@ -164,6 +183,10 @@ static int hsic_sysmon_readwrite(enum hsic_sysmon_device_id id, void *data,
 		atomic_add(*actual_len, &hs->dbg_bytecnt[op]);
 
 	usb_autopm_put_interface(hs->ifc);
+#ifdef CONFIG_LGE_EMS_CH 
+	if(op == HSIC_SYSMON_OP_READ)
+		sysmon_hsic_in_busy = 0;
+#endif
 	return ret;
 }
 
@@ -374,6 +397,9 @@ hsic_sysmon_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	hs->pdev.name = "sys_mon";
 	hs->pdev.id = SYSMON_SS_EXT_MODEM;
 	hs->pdev.dev.release = hsic_sysmon_pdev_release;
+#ifdef CONFIG_LGE_EMS_CH
+	sysmon_hsic_debug_init(hs->udev,hs->ifc,hs->in_epaddr);
+#endif
 	platform_device_register(&hs->pdev);
 
 	pr_debug("complete");
@@ -390,7 +416,9 @@ error:
 static void hsic_sysmon_disconnect(struct usb_interface *ifc)
 {
 	struct hsic_sysmon	*hs = usb_get_intfdata(ifc);
-
+#ifdef CONFIG_LGE_EMS_CH
+	sysmon_hsic_debug_disconnect();
+#endif
 	platform_device_unregister(&hs->pdev);
 	kref_put(&hs->kref, hsic_sysmon_delete);
 	usb_set_intfdata(ifc, NULL);
@@ -398,11 +426,17 @@ static void hsic_sysmon_disconnect(struct usb_interface *ifc)
 
 static int hsic_sysmon_suspend(struct usb_interface *ifc, pm_message_t message)
 {
+#ifdef CONFIG_LGE_EMS_CH
+	sysmon_hsic_debug_suspend(1);
+#endif
 	return 0;
 }
 
 static int hsic_sysmon_resume(struct usb_interface *ifc)
 {
+#ifdef CONFIG_LGE_EMS_CH
+	sysmon_hsic_debug_suspend(0);	
+#endif
 	return 0;
 }
 

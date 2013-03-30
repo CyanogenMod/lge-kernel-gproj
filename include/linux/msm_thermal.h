@@ -20,6 +20,9 @@ struct msm_thermal_data {
 	uint32_t limit_temp_degC;
 	uint32_t temp_hysteresis_degC;
 	uint32_t freq_step;
+#if defined(CONFIG_MACH_APQ8064_GK_KR)||defined(CONFIG_MACH_APQ8064_GKATT)||defined(CONFIG_MACH_APQ8064_GVDCM)
+	uint32_t limit_temp_degC_low;
+#endif	
 };
 
 #ifdef CONFIG_THERMAL_MONITOR

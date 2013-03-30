@@ -58,6 +58,7 @@
 #include <linux/jump_label.h>
 #include <linux/pfn.h>
 #include <linux/bsearch.h>
+#include <linux/ccsecurity.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
@@ -773,6 +774,8 @@ SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
 	int ret, forced = 0;
 
 	if (!capable(CAP_SYS_MODULE) || modules_disabled)
+		return -EPERM;
+	if (!ccs_capable(CCS_USE_KERNEL_MODULE))
 		return -EPERM;
 
 	if (strncpy_from_user(name, name_user, MODULE_NAME_LEN-1) < 0)
@@ -3014,6 +3017,8 @@ SYSCALL_DEFINE3(init_module, void __user *, umod,
 
 	/* Must have permission */
 	if (!capable(CAP_SYS_MODULE) || modules_disabled)
+		return -EPERM;
+	if (!ccs_capable(CCS_USE_KERNEL_MODULE))
 		return -EPERM;
 
 	/* Do all the hard work */

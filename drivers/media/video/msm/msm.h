@@ -210,11 +210,13 @@ struct msm_cam_return_frame_info {
 	int dirty;
 	int node_type;
 	struct timeval timestamp;
+	uint32_t frameid;
 };
 
 struct msm_cam_timestamp {
 	uint8_t present;
 	struct timeval timestamp;
+	uint32_t frameid;	
 };
 
 struct msm_cam_buf_map_info {
@@ -317,6 +319,7 @@ struct msm_cam_media_controller {
 	uint32_t ping_imem_cbcr;
 	uint32_t pong_imem_y;
 	uint32_t pong_imem_cbcr;
+	uint8_t hardware_running; /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 
 	/*IOMMU domain for this session*/
 	int domain_num;
@@ -733,6 +736,11 @@ int msm_mctl_pp_get_vpe_buf_info(struct msm_mctl_pp_frame_info *zoom);
 void msm_queue_init(struct msm_device_queue *queue, const char *name);
 void msm_enqueue(struct msm_device_queue *queue, struct list_head *entry);
 void msm_drain_eventq(struct msm_device_queue *queue);
+int get_server_use_count(void); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
+// Start LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
+void msm_cam_stop_hardware(struct msm_cam_v4l2_device *pcam);
+// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
+
 #endif /* __KERNEL__ */
 
 #endif /* _MSM_H */

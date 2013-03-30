@@ -19,6 +19,9 @@
 #include <linux/poll.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
+#ifdef CONFIG_USB_LGE_DDM_BRIDGE
+#include <mach/ddm_bridge.h>
+#endif
 #include "rmnet_usb_ctrl.h"
 
 #define DEVICE_NAME			"hsicctl"
@@ -454,8 +457,8 @@ static int rmnet_ctl_open(struct inode *inode, struct file *file)
 					msecs_to_jiffies(dev->mdm_wait_timeout *
 									1000));
 		if (retval == 0) {
-			dev_err(dev->devicep, "%s: Timeout opening %s\n",
-						__func__, dev->name);
+			dev_err(dev->devicep, "%s: Timeout opening %s %d\n",
+						__func__, dev->name, dev->intf->altsetting->desc.bInterfaceNumber);
 			return -ETIMEDOUT;
 		} else if (retval < 0) {
 			dev_err(dev->devicep, "%s: Error waiting for %s\n",
@@ -754,6 +757,10 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 	dev->int_pipe = usb_rcvintpipe(udev,
 		int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 
+#ifdef LG_FW_HSIC_EMS_DEBUG/*secheol.pyo - endpoint logging*/
+	printk("[%s] RmNet Ctrl Interrupt IN end_point = %d \n", __func__,
+		(int)(int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK)); //secheol.pyo@lge.com
+#endif/*secheol.pyo - endpoint logging*/
 	mutex_lock(&dev->dev_lock);
 	dev->intf = intf;
 

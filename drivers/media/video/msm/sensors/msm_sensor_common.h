@@ -152,10 +152,39 @@ struct msm_sensor_fn_t {
 	int (*sensor_power_down)
 		(struct msm_sensor_ctrl_t *);
 	int (*sensor_power_up) (struct msm_sensor_ctrl_t *);
+	//Start :randy@qualcomm.com for calibration 2012.03.25
+	int (*sensor_get_eeprom_data) (struct msm_sensor_ctrl_t *,
+		struct sensor_cfg_data *);
+	//End :randy@qualcomm.com for calibration 2012.03.25	
 	int32_t (*sensor_match_id)(struct msm_sensor_ctrl_t *s_ctrl);
 	void (*sensor_adjust_frame_lines) (struct msm_sensor_ctrl_t *s_ctrl);
 	int32_t (*sensor_get_csi_params)(struct msm_sensor_ctrl_t *,
 		struct csi_lane_params_t *);
+/* LGE_CHANGE_S, Added For CE1702 For GK/GV, 2012.10.22, jungki.kim[Start] */
+	int32_t (*sensor_special_effect) (struct msm_sensor_ctrl_t *, uint8_t);				//Color Effect by Jungki.kim
+	int32_t (*sensor_exposure_compensation) (struct msm_sensor_ctrl_t *, uint8_t);		//Adjust Exposure by Jungki.kim
+	int8_t (*sensor_set_focus_mode_setting)(struct msm_sensor_ctrl_t *, int32_t);		//AF Mode Settings for CE1702 by jungki.kim
+	int8_t (*sensor_start_af)(struct msm_sensor_ctrl_t *);							//Start AF for CE1702 by jungki.kim
+	int8_t (*sensor_stop_af)(struct msm_sensor_ctrl_t *);							//Stop AF for CE1702 by jungki.kim
+	int8_t (*sensor_whitebalance_setting)(struct msm_sensor_ctrl_t *, uint8_t);			//White Balance Settings for CE1702 by jungki.kim
+	int8_t (*sensor_set_zoom_ratio)(struct msm_sensor_ctrl_t *, int32_t);				//Zoom Ratio Settings for CE1702 by jungki.kim
+	int8_t (*sensor_set_manual_focus_length)(struct msm_sensor_ctrl_t *, int32_t);		//Support Manual Focus by jungki.kim
+	int8_t (*sensor_set_led_flash_mode)(struct msm_sensor_ctrl_t *, int32_t);			//Support LED Flash only for CE1702 by jungki.kim
+	int8_t (*sensor_set_antibanding_ce1702)(struct msm_sensor_ctrl_t *, int32_t);		//Set Antibanding for CE1702 by jungki.kim
+	int8_t (*sensor_set_af_window)(struct msm_sensor_ctrl_t *, int16_t *);				//Set AF Window for CE1702 by jungki.kim
+	int8_t (*sensor_set_ae_window)(struct msm_sensor_ctrl_t *, int16_t *);				//Set AE Window for CE1702 by jungki.kim
+	int (*sensor_object_tracking) (struct msm_sensor_ctrl_t *, struct rec_t*);			//add the object tracking method for GK project, 2012.10.19 youngil.yun@lge.com
+	int8_t (*sensor_set_aec_awb_lock)(struct msm_sensor_ctrl_t *, int32_t);				//Set AEC/AWB Lock for CE1702 by jungki.kim
+	int (*sensor_dim_info) (struct msm_sensor_ctrl_t *, struct dimen_t*);				//add the sensor setting fucntion for GK project, 2012.10.19 youngil.yun@lge.com
+	int8_t (*sensor_get_cam_open_mode)(struct msm_sensor_ctrl_t *, int32_t);			//Get Current Previewing Mode by jungki.kim@lge.com
+	int8_t (*sensor_set_iso)(struct msm_sensor_ctrl_t *, int32_t);						//Set ISO setting for ce1702 by gayoung85.lee
+	int8_t (*sensor_set_manual_scene_mode)(struct msm_sensor_ctrl_t *, int32_t);		//Support ManualSceneMode for CE1702 by gayoung85.lee
+	int (*sensor_set_gyro_data) (struct msm_sensor_ctrl_t *, uint8_t *);				//Set Gyro Data For GK/GV by junghee.eim@lge.com
+	int8_t (*sensor_set_wdr)(struct msm_sensor_ctrl_t *, int32_t);						//Support WDR for ce1702 by gayoung85.lee
+	int8_t (*sensor_set_exif_rotation)(struct msm_sensor_ctrl_t *, int);					//Insert Rotation Information In EXIF by jungki.kim@lge.com
+	int8_t (*sensor_set_exif_gps)(struct msm_sensor_ctrl_t *, struct k_exif_gps_t*);		//Set GPS Exif Tags For GK/GV by jungki.kim@lge.com
+	int8_t (*sensor_set_asd_enable)(struct msm_sensor_ctrl_t *, int32_t);					//Support ASD for CE1702 by gayoung85.lee
+/* LGE_CHANGE_E, Added For CE1702 For GK/GV, 2012.10.22, jungki.kim[End] */
 };
 
 struct msm_sensor_csi_info {
