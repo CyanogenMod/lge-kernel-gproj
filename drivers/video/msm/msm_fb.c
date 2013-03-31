@@ -2135,6 +2135,7 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 {
 	struct mdp_dirty_region dirty;
 	struct mdp_dirty_region *dirtyPtr = NULL;
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
 #if !defined(LGE_DSDR_KERNEL_SUPPORT)
 	/*
