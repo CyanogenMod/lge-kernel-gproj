@@ -89,7 +89,7 @@
 #include "f_mtp.c"
 #include "f_accessory.c"
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_G_LGE_ANDROID_DISABLE
 /* LGE_CHANGE
  * we must use ecm and rndis exclusively.
  * 2011-10-24, hyunhui.park@lge.com
@@ -103,7 +103,7 @@
 #include "u_ether.c"
 #include "u_bam_data.c"
 #include "f_mbim.c"
-#ifndef CONFIG_USB_G_LGE_ANDROID
+#ifndef CONFIG_USB_G_LGE_ANDROID_DISABLED
 #include "f_qc_ecm.c"
 #include "f_qc_rndis.c"
 #include "u_qc_ether.c"
@@ -1133,7 +1133,7 @@ static struct android_usb_function ptp_function = {
 	.bind_config	= ptp_function_bind_config,
 };
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_G_LGE_ANDROID_DISABLE
 struct ecm_function_config {
 	u8      ethaddr[ETH_ALEN];
 	u32     vendorID;
@@ -1966,7 +1966,7 @@ static struct android_usb_function *supported_functions[] = {
 	&acm_function,
 	&mtp_function,
 	&ptp_function,
-#ifdef CONFIG_USB_G_LGE_ANDROID
+#ifdef CONFIG_USB_G_LGE_ANDROID_DISABLE
 	&ecm_function,
 #else /* google original: rndis */
 	&rndis_function,
