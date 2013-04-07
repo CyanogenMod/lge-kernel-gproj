@@ -41,8 +41,8 @@
 #endif
 
 #include "board-j1.h"
-/* gpio and clock control for vibrator */
 
+/* gpio and clock control for vibrator */
 #define REG_WRITEL(value, reg)		writel(value, (MSM_CLK_CTL_BASE+reg))
 #define REG_READL(reg)			readl((MSM_CLK_CTL_BASE+reg))
 
@@ -61,9 +61,8 @@
 #endif
 /* Vibrator GPIOs */
 #ifdef CONFIG_ANDROID_VIBRATOR
-#define GPIO_LIN_MOTOR_EN                33
-#define GPIO_LIN_MOTOR_PWR               47
-#define GPIO_LIN_MOTOR_PWM               3
+#define GPIO_MOTOR_EN		PM8921_GPIO_PM_TO_SYS(33)
+#define GPIO_MOTOR_PWM		3
 
 #define GP_CLK_ID                        0 /* gp clk 0 */
 #define GP_CLK_M_DEFAULT                 1
@@ -75,49 +74,32 @@
 #endif
 
 #if defined(CONFIG_ANDROID_VIBRATOR)
-static struct gpiomux_setting vibrator_suspend_cfg = {
+static struct gpiomux_setting vibrator_suspend_cfg_gpio3 = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-/* gpio 3 */
-static struct gpiomux_setting vibrator_active_cfg_gpio3 = {
+static struct gpiomux_setting vibrator_active_cfg = {
 	.func = GPIOMUX_FUNC_2, /*gp_mn:2 */
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct msm_gpiomux_config gpio2_vibrator_configs[] = {
+static struct msm_gpiomux_config gpio3_vibrator_configs[] = {
 	{
-		.gpio = 3,
+		.gpio = GPIO_MOTOR_PWM,
 		.settings = {
-			[GPIOMUX_ACTIVE]    = &vibrator_active_cfg_gpio3,
-			[GPIOMUX_SUSPENDED] = &vibrator_suspend_cfg,
+			[GPIOMUX_ACTIVE]    = &vibrator_active_cfg,
+			[GPIOMUX_SUSPENDED] = &vibrator_suspend_cfg_gpio3,
 		},
 	},
 };
 
 static struct msm_xo_voter *vib_clock;
-static int gpio_vibrator_en = 33;
-static int gpio_vibrator_pwm = 3;
+static int gpio_vibrator_en = GPIO_MOTOR_EN;
 static int gp_clk_id = 0;
 static DEFINE_MUTEX(vib_lock);
-
-static int vibrator_gpio_init(void)
-{
-	gpio_vibrator_en = GPIO_LIN_MOTOR_EN;
-	gpio_vibrator_pwm = GPIO_LIN_MOTOR_PWM;
-/*
-	if (lge_get_board_revno() == HW_REV_B) {
-#ifdef CONFIG_LGE_ISA1200
-		gpio_vibrator_pwm = 4;
-#endif
-	}
-	gpio_vibrator_en = 33;
-	gpio_vibrator_pwm = 3;*/
-	return 0;
-}
 
 static void vibrator_clock_init(void)
 {
@@ -260,17 +242,14 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 
 static int vibrator_ic_enable_set(int enable)
 {
-	int gpio_lin_motor_en = 0;
-	gpio_lin_motor_en = PM8921_GPIO_PM_TO_SYS(GPIO_LIN_MOTOR_EN);
-
 	INFO_MSG("enable=%d\n", enable);
 
 	//gpio_lin_motor_en = gpio_vibrator_en;
 
 	if (enable)
-		gpio_direction_output(gpio_lin_motor_en, 1);
+		gpio_set_value(gpio_vibrator_en, 1);
 	else
-		gpio_direction_output(gpio_lin_motor_en, 0);
+		gpio_set_value(gpio_vibrator_en, 0);
 
 	return 0;
 }
@@ -278,28 +257,14 @@ static int vibrator_ic_enable_set(int enable)
 static int vibrator_init(void)
 {
 	int rc;
-	int gpio_motor_en = 0;
-	int gpio_motor_pwm = 0;
-
-	gpio_motor_en = gpio_vibrator_en;
-	gpio_motor_pwm = gpio_vibrator_pwm;
 
 	/* GPIO function setting */
-	msm_gpiomux_install(gpio2_vibrator_configs, ARRAY_SIZE(gpio2_vibrator_configs));
+	msm_gpiomux_install(gpio3_vibrator_configs, ARRAY_SIZE(gpio3_vibrator_configs));
 
-	/* GPIO setting for Motor EN in pmic8921 */
-	gpio_motor_en = PM8921_GPIO_PM_TO_SYS(GPIO_LIN_MOTOR_EN);
-	rc = gpio_request(gpio_motor_en, "motor_en");
+	rc = gpio_request_one(gpio_vibrator_en, GPIOF_OUT_INIT_LOW, "motor_en");
 	if (rc) {
-		ERR_MSG("GPIO_LIN_MOTOR_EN %d request failed\n", gpio_motor_en);
+		ERR_MSG("GPIO_LIN_MOTOR_EN %d request failed\n", gpio_vibrator_en);
 		return 0;
-	}
-
-	/* gpio init */
-	rc = gpio_request(gpio_motor_pwm, "motor_pwm");
-	if (unlikely(rc < 0)) {
-		ERR_MSG("not able to get gpio\n");
-		goto err_gpio_motor_pwm;
 	}
 
 	vreg_l16 = regulator_get(NULL, "8921_l16");   //2.6 ~ 3V
@@ -318,9 +283,7 @@ static int vibrator_init(void)
 	return 0;
 
 err_regulator_get:
-	gpio_free(gpio_motor_pwm);
-err_gpio_motor_pwm:
-	gpio_free(gpio_motor_en);
+	gpio_free(gpio_vibrator_en);
 	return rc;
 }
 
@@ -595,7 +558,6 @@ void __init apq8064_init_misc(void)
 	INFO_MSG("%s\n", __func__);
 
 #if defined(CONFIG_ANDROID_VIBRATOR)
-	vibrator_gpio_init();
 
 #if defined(CONFIG_MACH_APQ8064_J1V) || defined(CONFIG_MACH_APQ8064_J1U) || defined(CONFIG_MACH_APQ8064_J1A) || defined(CONFIG_MACH_APQ8064_J1SP) || defined(CONFIG_MACH_APQ8064_J1D) || defined(CONFIG_MACH_APQ8064_J1SK) || defined(CONFIG_MACH_APQ8064_J1KT) || defined(CONFIG_MACH_APQ8064_J1KD) || defined(CONFIG_MACH_APQ8064_J1R) || defined(CONFIG_MACH_APQ8064_J1B)|| defined(CONFIG_MACH_APQ8064_J1VD)|| defined(CONFIG_MACH_APQ8064_J1X)|| defined(CONFIG_MACH_APQ8064_J1TL) || defined(CONFIG_MACH_APQ8064_J1TM) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKATT)
 	platform_add_devices(misc_devices, ARRAY_SIZE(misc_devices));
