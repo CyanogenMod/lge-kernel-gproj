@@ -20,7 +20,7 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *
-* $Id: dhd_custom_gpio.c 353167 2012-08-24 22:11:30Z $
+* $Id: dhd_custom_gpio.c 353280 2012-08-26 04:33:17Z $
 */
 
 #include <typedefs.h>
@@ -195,290 +195,233 @@ dhd_custom_get_mac_address(unsigned char *buf)
 }
 #endif /* GET_CUSTOM_MAC_ENABLE */
 
-#if !defined(CUSTOMER_HW4) || defined(CUSTOMER_HW10)
-#ifdef CUSTOMER_HW10
-#define EXAMPLE_TABLE
-#endif
 /* Customized Locale table : OPTIONAL feature */
 const struct cntry_locales_custom translate_custom_table[] = {
-/* Table should be filled out based on custom platform regulatory requirement */
 #ifdef EXAMPLE_TABLE
-	{"",   "XY", 4},  /* Universal if Country code is unknown or empty */
-#if 0  //LGE_CHANGE_S, moon-wifi@lge.com by wo0ngs 2012-12-20 	
-	{"US", "US", 69}, /* input ISO "US" to : US regrev 69 */
-	{"CA", "US", 69}, /* input ISO "CA" to : US regrev 69 */
-	{"EU", "EU", 5},  /* European union countries to : EU regrev 05 */
-	{"AT", "EU", 5},
-	{"BE", "EU", 5},
-	{"BG", "EU", 5},
-	{"CY", "EU", 5},
-	{"CZ", "EU", 5},
-	{"DK", "EU", 5},
-	{"EE", "EU", 5},
-	{"FI", "EU", 5},
-	{"FR", "EU", 5},
-	{"DE", "EU", 5},
-	{"GR", "EU", 5},
-	{"HU", "EU", 5},
-	{"IE", "EU", 5},
-	{"IT", "EU", 5},
-	{"LV", "EU", 5},
-	{"LI", "EU", 5},
-	{"LT", "EU", 5},
-	{"LU", "EU", 5},
-	{"MT", "EU", 5},
-	{"NL", "EU", 5},
-	{"PL", "EU", 5},
-	{"PT", "EU", 5},
-	{"RO", "EU", 5},
-	{"SK", "EU", 5},
-	{"SI", "EU", 5},
-	{"ES", "EU", 5},
-	{"SE", "EU", 5},
-	{"GB", "EU", 5},
-	{"KR", "XY", 3},
-	{"AU", "XY", 3},
-	{"CN", "XY", 3}, /* input ISO "CN" to : XY regrev 03 */
-	{"TW", "XY", 3},
-	{"AR", "XY", 3},
-	{"MX", "XY", 3},
-	{"IL", "IL", 0},
-	{"CH", "CH", 0},
-	{"TR", "TR", 0},
-	{"NO", "NO", 0},
-#else
-	{"AD", "GB", 0}, //Andorra
-	{"AE", "KR", 24}, //UAE
-	{"AF", "AF" , 0}, //Afghanistan
-	{"AG", "US", 100}, //Antigua & Barbuda
-	{"AI", "US", 100}, //Anguilla
-	{"AL", "GB", 0}, //Albania
-	{"AM", "IL", 10}, //Armenia
-	{"AN", "BR", 0}, //Netherlands Antilles
-	{"AO", "IL", 10}, //Angola
-	{"AR", "BR", 0}, //Argentina
-	{"AS", "US", 100}, //American Samoa (USA)
-	{"AT", "GB", 0}, //Austria
-	{"AU", "AU", 2}, //Australia
-	{"AW", "KR", 24}, //Aruba
-	{"AZ", "BR", 0}, //Azerbaijan
-	{"BA", "GB", 0}, //Bosnia and Herzegovina
-	{"BB", "RU", 5}, //Barbados
-	{"BD", "CN", 0}, //Bangladesh
-	{"BE", "GB" , 0}, //Belgium
-	{"BF", "CN", 0}, //Burkina Faso
-	{"BG", "GB", 0}, //Bulgaria
-	{"BH", "RU", 5}, //Bahrain
-	{"BI", "IL" , 10}, //Burundi
-	{"BJ", "IL", 10}, //Benin
-	{"BM", "US", 100}, //Bermuda
-	{"BN", "RU", 5}, //Brunei
-	{"BO", "IL", 10}, //Bolivia
-	{"BR", "BR", 0}, //Brazil
-	{"BS", "RU", 5}, //Bahamas
-	{"BT", "IL", 10}, //Bhntan
-	{"BW", "GB", 0}, //Botswana
-	{"BY", "GB", 0}, //Belarus
-	{"BZ", "IL" , 10}, //Belize
-	{"CA", "US", 100}, //Canada
-	{"CD", "IL", 10}, //Congo. Democratic Republic of the
-	{"CF", "IL", 10}, //Central African Republic
-	{"CG", "IL", 10}, //Congo. Republic of the
-	{"CH", "GB", 0}, //Switzerland
-	{"CI", "IL", 10}, //Cote d'lvoire
-	{"CK", "BR", 0}, //Cook Island
-	{"CL", "RU", 5}, //Chile
-	{"CM", "IL", 10}, //Cameroon
-	{"CN", "CN", 0}, //China
-	{"CO", "BR", 0}, //Columbia
-	{"CR", "BR", 0}, //Costa Rica
-	{"CU", "BR", 0}, //Cuba
-	{"CV", "GB", 0}, //Cape Verde
-	{"CX", "AU", 2}, //Christmas Island (Australia)
-	{"CY", "GB", 0}, //Cyprus
-	{"CZ", "GB", 0}, //Czech
-	{"DE", "GB", 0}, //Germany
-	{"DJ", "IL", 10}, //Djibouti
-	{"DK", "GB", 0}, //Denmark
-	{"DM", "BR", 0}, //Dominica
-	{"DO", "BR", 0}, //Dominican Republic
-	{"DZ", "KW", 1}, //Algeria
-	{"EC", "BR", 0}, //Ecuador
-	{"EE", "GB", 0}, //Estonia
-	{"EG", "RU", 5}, //Egypt
-	{"ER", "IL", 10}, //Eritrea
-	{"ES", "GB", 0}, //Spain
-	{"ET", "GB", 0}, //Ethiopia
-	{"FI", "GB", 0}, //Finland
-	{"FJ", "IL", 10}, //Fiji
-	{"FM", "US", 100}, //Federated States of Micronesia
-	{"FO", "GB", 0}, //Faroe Island
-	{"FR", "GB", 0}, //France
-	{"GA", "IL", 10}, //Gabon
-	{"GB", "GB", 0}, //United Kingdom
-	{"GD", "BR", 0}, //Grenada
-	{"GE", "GB", 0}, //Georgia
-	{"GF", "GB", 0}, //French Guiana
-	{"GH", "BR", 0}, //Ghana
-	{"GI", "GB", 0}, //Gibraltar
-	{"GM", "IL", 10}, //Gambia
-	{"GN", "IL", 10}, //Guinea
-	{"GP", "GB", 0}, //Guadeloupe
-	{"GQ", "IL", 10}, //Equatorial Guinea
-	{"GR", "GB", 0}, //Greece
-	{"GT", "RU", 5}, //Guatemala
-	{"GU", "US", 100}, //Guam
-	{"GW", "IL", 10}, //Guinea-Bissau
-	{"GY", "QA", 0}, //Guyana
-	{"HK", "BR", 0}, //Hong Kong
-	{"HN", "CN" , 0}, //Honduras
-	{"HR", "GB", 0}, //Croatia
-	{"HT", "RU", 5}, //Haiti
-	{"HU", "GB", 0}, //Hungary
-	{"ID", "ID", 1}, //Indonesia
-	{"IE", "GB", 0}, //Ireland
-	{"IL", "IL" , 10}, //Israel
-	{"IM", "GB", 0}, //Isle of Man
-	{"IN", "RU", 5}, //India
-	{"IQ", "IL", 10}, //Iraq
-	{"IR", "IL", 10}, //Iran
-	{"IS", "GB", 0}, //Iceland
-	{"IT", "GB", 0}, //Italy
-	{"JE", "GB", 0}, //Jersey
-	{"JM", "GB", 0}, //Jameica
-	{"JO", "XY", 3}, //Jordan
-	{"JP", "JP", 5}, //Japan
-	{"KE", "GB", 0}, //Kenya
-	{"KG", "IL", 10}, //Kyrgyzstan
-	{"KH", "BR", 0}, //Cambodia
-	{"KI", "AU", 2}, //Kiribati
-	{"KM", "IL", 10}, //Comoros
-	{"KP", "IL", 10}, //North Korea
-	{"KR", "KR", 24}, //South Korea
-	{"KW", "KW", 1}, //Kuwait
-	{"KY", "US", 100}, //Cayman Islands
-	{"KZ", "BR", 0}, //Kazakhstan
-	{"LA", "KR", 24}, //Laos
-	{"LB", "BR" , 0}, //Lebanon
-	{"LC", "BR", 0}, //Saint Lucia
-	{"LI", "GB", 0}, //Liechtenstein
-	{"LK", "BR" , 0}, //Sri Lanka
-	{"LR", "BR", 0}, //Liberia
-	{"LS", "GB", 0}, //Lesotho
-	{"LT", "GB", 0}, //Lithuania
-	{"LU", "GB", 0}, //Luxemburg
-	{"LV", "GB", 0}, //Latvia
-	{"LY", "IL", 10}, //Libya
-	{"MA", "KW", 1}, //Morocco
-	{"MC", "GB", 0}, //Monaco
-	{"MD", "GB", 0}, //Moldova
-	{"ME", "GB", 0}, //Montenegro
-	{"MF", "GB", 0}, //Saint Martin / Sint Marteen (Added on window's list)
-	{"MG", "IL" , 10}, //Madagascar
-	{"MH", "BR", 0}, //Marshall Islands
-	{"MK", "GB", 0}, //Macedonia
-	{"ML", "IL" , 10}, //Mali
-	{"MM", "IL", 10}, //Burma (Myanmar)
-	{"MN", "IL", 10}, //Mongolia
-	{"MO", "CN", 0}, //Macau
-	{"MP", "US", 100}, //Northern Mariana Islands (Rota Island. Saipan and Tinian Island)
-	{"MQ", "GB", 0}, //Martinique (France)
-	{"MR", "GB", 0}, //Mauritania
-	{"MS", "GB", 0}, //Montserrat (UK)
-	{"MT", "GB", 0}, //Malta
-	{"MU", "GB", 0}, //Mauritius
-	{"MV", "RU", 5}, //Maldives
-	{"MW", "CN", 0}, //Malawi
-	{"MX", "RU", 5}, //Mexico
-	{"MY", "RU", 5}, //Malaysia
-	{"MZ", "BR", 0}, //Mozambique
-	{"NA", "BR", 0}, //Namibia
-	{"NC", "IL", 10}, //New Caledonia
-	{"NE", "BR", 0}, //Niger
-	{"NF", "BR", 0}, //Norfolk Island
-	{"NG", "NG", 0}, //Nigeria
-	{"NI", "BR" , 0}, //Nicaragua
-	{"NL", "GB", 0}, //Netherlands
-	{"NO", "GB", 0}, //Norway
-	{"NP", "SA", 0}, //Nepal
-	{"NR", "IL", 10}, //Nauru
-	{"NU", "BR", 0}, //Niue
-	{"NZ", "BR", 0 }, //New Zealand
-	{"OM", "GB", 0}, //Oman
-	{"PA", "RU", 5}, //Panama
-	{"PE", "BR", 0}, //Peru
-	{"PF", "GB", 0}, //French Polynesia (France)
-	{"PG", "XY", 3}, //Papua New Guinea
-	{"PH", "BR", 0}, //Philippines
-	{"PK", "CN", 0}, //Pakistan
-	{"PL", "GB", 0}, //Poland
-	{"PM", "GB", 0}, //Saint Pierre and Miquelon
-	{"PN", "GB", 0}, //Pitcairn Islands
-	{"PR", "US", 100}, //Puerto Rico (USA)
-	{"PS", "BR", 0}, //Palestinian Authority
-	{"PT", "GB", 0}, //Portugal
-	{"PW", "BR", 0}, //Palau
-	{"PY", "BR", 0}, //Paraguay
-	{"QA", "CN", 0}, //Qatar
-	{"RE", "GB", 0}, //Reunion (France)
-	{"RKS", "IL", 10}, //Kosvo (Added on window's list)
-	{"RO", "GB", 0}, //Romania
-	{"RS", "GB", 0}, //Serbia
-	{"RU", "RU", 5}, //Russia
-	{"RW", "CN", 0}, //Rwanda
-	{"SA", "SA", 0}, //Saudi Arabia
-	{"SB", "IL", 10}, //Solomon Islands
-	{"SC", "IL", 10}, //Seychelles
-	{"SD", "GB", 0}, //Sudan
-	{"SE", "GB", 0}, //Sweden
-	{"SG", "BR", 0}, //Singapole
-	{"SI", "GB", 0}, //Slovenia
-	{"SK", "GB", 0}, //Slovakia
-	{"SKN", "CN", 0}, //Saint Kitts and Nevis
-	{"SL", "IL", 10}, //Sierra Leone
-	{"SM", "GB", 0}, //San Marino
-	{"SN", "GB", 0}, //Senegal
-	{"SO", "IL", 10}, //Somalia
-	{"SR", "IL", 10}, //Suriname
-	{"SS", "GB", 0}, //South_Sudan
-	{"ST", "IL", 10}, //Sao Tome and Principe
-	{"SV", "RU", 5}, //El Salvador
-	{"SY", "BR", 0}, //Syria
-	{"SZ", "IL", 10}, //Swaziland
-	{"TC", "GB", 0}, //Turks and Caicos Islands (UK)
-	{"TD", "IL", 10}, //Chad
-	{"TF", "GB", 0}, //French Southern and Antarctic Lands)
-	{"TG", "IL", 10}, //Togo
-	{"TH", "BR", 0}, //Thailand
-	{"TJ", "IL", 10}, //Tajikistan
-	{"TL", "BR", 0}, //East Timor
-	{"TM", "IL", 10}, //Turkmenistan
-	{"TN", "KW", 1}, //Tunisia
-	{"TO", "IL", 10}, //Tonga
-	{"TR", "GB", 0}, //Turkey
-	{"TT", "BR", 0}, //Trinidad and Tobago
-	{"TV", "IL", 10}, //Tuvalu
-	{"TW", "TW", 2}, //Taiwan
-	{"TZ", "CN", 0}, //Tanzania
-	{"UA", "RU", 5}, //Ukraine
-	{"UG", "BR", 0}, //Ugnada
-	{"US", "US", 100}, //US
-	{"UY", "BR", 0}, //Uruguay
-	{"UZ", "IL", 10}, //Uzbekistan
-	{"VA", "GB", 0}, //Vatican (Holy See)
-	{"VC", "BR", 0}, //Saint Vincent and the Grenadines
-	{"VE", "RU", 5}, //Venezuela
-	{"VG", "GB", 0}, //British Virgin Islands
-	{"VI", "US", 100}, //US Virgin Islands
-	{"VN", "BR", 0}, //Vietnam
-	{"VU", "IL", 10}, //Vanuatu
-	{"WS", "SA", 0}, //Samoa
-	{"YE", "IL", 10}, //Yemen
-	{"YT", "GB", 0}, //Mayotte (France)
-	{"ZA", "GB", 0}, //South Africa
-	{"ZM", "RU", 5}, //Zambia
-	{"ZW", "BR", 0}, //Zimbabwe
-#endif //LGE_CHANGE_E, moon-wifi@lge.com by wo0ngs 2012-12-20 	
+#if defined(BCM4334_CHIP) || defined(BCM43241_CHIP) || defined(BCM4335_CHIP)
+	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
+	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
+	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
+	{"SY", "XZ", 11},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
+	{"GL", "XZ", 11},	/* Universal if Country code is GREENLAND */
+	{"PS", "XZ", 11},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
+	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
+	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
+	{"PK", "XZ", 11},	/* Universal if Country code is PAKISTAN */
+#endif
+#if defined(BCM4330_CHIP) || defined(BCM4334_CHIP) || defined(BCM43241_CHIP)
+	{"AE", "AE", 1},
+	{"AR", "AR", 1},
+	{"AT", "AT", 1},
+	{"AU", "AU", 2},
+	{"BE", "BE", 1},
+	{"BG", "BG", 1},
+	{"BN", "BN", 1},
+	{"CA", "CA", 2},
+	{"CH", "CH", 1},
+	{"CY", "CY", 1},
+	{"CZ", "CZ", 1},
+	{"DE", "DE", 3},
+	{"DK", "DK", 1},
+	{"EE", "EE", 1},
+	{"ES", "ES", 1},
+	{"FI", "FI", 1},
+	{"FR", "FR", 1},
+	{"GB", "GB", 1},
+	{"GR", "GR", 1},
+	{"HR", "HR", 1},
+	{"HU", "HU", 1},
+	{"IE", "IE", 1},
+	{"IS", "IS", 1},
+	{"IT", "IT", 1},
+	{"JP", "JP", 5},
+	{"KR", "KR", 24},
+	{"KW", "KW", 1},
+	{"LI", "LI", 1},
+	{"LT", "LT", 1},
+	{"LU", "LU", 1},
+	{"LV", "LV", 1},
+	{"MT", "MT", 1},
+	{"MX", "MX", 1},
+	{"NL", "NL", 1},
+	{"NO", "NO", 1},
+	{"PL", "PL", 1},
+	{"PT", "PT", 1},
+	{"PY", "PY", 1},
+	{"RO", "RO", 1},
+	{"SE", "SE", 1},
+	{"SI", "SI", 1},
+	{"SK", "SK", 1},
+	{"TW", "TW", 2},
+#endif /* defined(BCM4330_CHIP) || defined(BCM4334_CHIP) || defined(BCM43241_CHIP) */
+#if defined(BCM4334_CHIP) || defined(BCM43241_CHIP)
+	{"RU", "RU", 13},
+	{"SG", "SG", 4},
+	{"US", "US", 46},
+	{"UA", "UA", 8},
+	{"CO", "CO", 4},
+	{"ID", "ID", 1},
+	{"LA", "LA", 1},
+	{"LB", "LB", 2},
+	{"VN", "VN", 4},
+	{"MA", "MA", 1},
+	{"TR", "TR", 7},
+#endif /* defined(BCM4334_CHIP) || defined(BCM43241_CHIP) */
+#ifdef BCM4330_CHIP
+	{"",   "XZ", 1},	/* Universal if Country code is unknown or empty */
+	{"RU", "RU", 13},
+	{"US", "US", 5},
+	{"UA", "UY", 0},
+	{"AD", "AL", 0},
+	{"CX", "AU", 2},
+	{"GE", "GB", 1},
+	{"ID", "MW", 0},
+	{"KI", "AU", 2},
+	{"NP", "SA", 0},
+	{"WS", "SA", 0},
+	{"LR", "BR", 0},
+	{"ZM", "IN", 0},
+	{"AN", "AG", 0},
+	{"AI", "AS", 0},
+	{"BM", "AS", 0},
+	{"DZ", "IL", 0},
+	{"LC", "AG", 0},
+	{"MF", "BY", 0},
+	{"GY", "CU", 0},
+	{"LA", "GB", 1},
+	{"LB", "BR", 0},
+	{"MA", "IL", 0},
+	{"MO", "BD", 0},
+	{"MW", "BD", 0},
+	{"QA", "BD", 0},
+	{"TR", "GB", 1},
+	{"TZ", "BF", 0},
+	{"VN", "BR", 0},
+	{"JO", "XZ", 1},
+	{"PG", "XZ", 1},
+	{"SA", "XZ", 1},
+#endif /* BCM4330_CHIP */
+#ifdef BCM4335_CHIP
+	{"AL", "AL", 2},
+	{"DZ", "DZ", 1},
+	{"AS", "AS", 2},
+	{"AI", "AI", 1},
+	{"AG", "AG", 2},
+	{"AR", "AR", 21},
+	{"AW", "AW", 2},
+	{"AU", "AU", 6},
+	{"AT", "AT", 4},
+	{"AZ", "AZ", 2},
+	{"BS", "BS", 2},
+	{"BH", "BH", 24},
+	{"BD", "BD", 1},
+	{"BY", "BY", 3},
+	{"BE", "BE", 4},
+	{"BM", "BM", 12},
+	{"BA", "BA", 2},
+	{"BR", "BR", 4},
+	{"VG", "VG", 2},
+	{"BN", "BN", 4},
+	{"BG", "BG", 4},
+	{"KH", "KH", 2},
+	{"CA", "CA", 31},
+	{"KY", "KY", 3},
+	{"CN", "CN", 9},
+	{"CO", "CO", 17},
+	{"CR", "CR", 17},
+	{"HR", "HR", 4},
+	{"CY", "CY", 4},
+	{"CZ", "CZ", 4},
+	{"DK", "DK", 4},
+	{"EE", "EE", 4},
+	{"ET", "ET", 2},
+	{"FI", "FI", 4},
+	{"FR", "FR", 5},
+	{"GF", "GF", 2},
+	{"DE", "DE", 7},
+	{"GR", "GR", 4},
+	{"GD", "GD", 2},
+	{"GP", "GP", 2},
+	{"GU", "GU", 12},
+	{"HK", "HK", 2},
+	{"HU", "HU", 4},
+	{"IS", "IS", 4},
+	{"IN", "IN", 3},
+	{"ID", "ID", 1},
+	{"IE", "IE", 5},
+	{"IL", "IL", 7},
+	{"IT", "IT", 4},
+	{"JP", "JP", 45},
+	{"JO", "JO", 3},
+	{"KW", "KW", 5},
+	{"LA", "LA", 2},
+	{"LV", "LV", 4},
+	{"LB", "LB", 5},
+	{"LS", "LS", 2},
+	{"LI", "LI", 4},
+	{"LT", "LT", 4},
+	{"LU", "LU", 1},
+	{"MO", "MO", 2},
+	{"MK", "MK", 2},
+	{"MW", "MW", 1},
+	{"MY", "MY", 3},
+	{"MV", "MV", 3},
+	{"MT", "MT", 4},
+	{"MQ", "MQ", 2},
+	{"MR", "MR", 2},
+	{"MU", "MU", 2},
+	{"YT", "YT", 2},
+	{"MX", "MX", 20},
+	{"MD", "MD", 2},
+	{"MC", "MC", 1},
+	{"ME", "ME", 2},
+	{"MA", "MA", 2},
+	{"NP", "NP", 3},
+	{"NL", "NL", 4},
+	{"AN", "AN", 2},
+	{"NZ", "NZ", 4},
+	{"NO", "NO", 4},
+	{"OM", "OM", 4},
+	{"PA", "PA", 17},
+	{"PG", "PG", 2},
+	{"PY", "PY", 2},
+	{"PE", "PE", 20},
+	{"PH", "PH", 5},
+	{"PL", "PL", 4},
+	{"PT", "PT", 4},
+	{"PR", "PR", 20},
+	{"RE", "RE", 2},
+	{"RO", "RO", 4},
+	{"SN", "SN", 2},
+	{"RS", "RS", 2},
+	{"SG", "SG", 4},
+	{"SK", "SK", 4},
+	{"SI", "SI", 4},
+	{"ZA", "ZA", 6},
+	{"ES", "ES", 4},
+	{"LK", "LK", 3},
+	{"SE", "SE", 4},
+	{"CH", "CH", 4},
+	{"TW", "TW", 1},
+	{"TH", "TH", 5},
+	{"TT", "TT", 3},
+	{"TR", "TR", 7},
+	{"AE", "AE", 4},
+	{"UG", "UG", 2},
+	{"GB", "GB", 6},
+	{"UY", "UY", 1},
+	{"VI", "VI", 13},
+	{"VA", "VA", 2},
+	{"VE", "VE", 3},
+	{"VN", "VN", 4},
+	{"MA", "MA", 1},
+	{"ZM", "ZM", 2},
+	{"EC", "EC", 21},
+	{"SV", "SV", 19},
+	{"KR", "KR", 48},
+	{"RU", "RU", 34},
+	{"UA", "UA", 12},
+#endif /* BCM4335_CHIP */
 #endif /* EXMAPLE_TABLE */
 };
 
@@ -489,8 +432,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 */
 void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 {
-//LGE_CHANGE, moon-wifi@lge.com by wo0ngs 2012-12-20, 
-#if defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)) && !defined(CUSTOMER_HW10) 
+#if defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
 
 	struct cntry_locales_custom *cloc_ptr;
 
@@ -519,23 +461,14 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 			memcpy(cspec->ccode,
 				translate_custom_table[i].custom_locale, WLC_CNTRY_BUF_SZ);
 			cspec->rev = translate_custom_table[i].custom_locale_rev;
-
-			WL_TRACE(("%s: finally set country code : country_iso_code(%s), ccode(%s), rev(%d) \n"
-				,__FUNCTION__, country_iso_code, cspec->ccode, cspec->rev));
-
 			return;
 		}
 	}
-//LGE_CHANGE_S, moon-wifi@lge.com by wo0ngs 2012-12-20, use default config country code
-#if 0
 #ifdef EXAMPLE_TABLE
 	/* if no country code matched return first universal code from translate_custom_table */
 	memcpy(cspec->ccode, translate_custom_table[0].custom_locale, WLC_CNTRY_BUF_SZ);
 	cspec->rev = translate_custom_table[0].custom_locale_rev;
 #endif /* EXMAPLE_TABLE */
-#endif
-//LGE_CHANGE_E, moon-wifi@lge.com by wo0ngs 2012-12-20, use default config country code
 	return;
 #endif /* defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)) */
 }
-#endif /* !CUSTOMER_HW4 || CUSTOMER_HW10 */

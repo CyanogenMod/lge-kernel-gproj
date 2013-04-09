@@ -22,7 +22,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmwifi_channels.c 309193 2012-01-19 00:03:57Z $
+ * $Id: bcmwifi.c 309193 2012-01-19 00:03:57Z $
  */
 
 #include <bcm_cfg.h>
@@ -41,13 +41,7 @@
 #define ASSERT(exp)
 #endif
 #endif 
-
-#ifdef _bcmwifi_c_
-
 #include <bcmwifi.h>
-#else
-#include <bcmwifi_channels.h>
-#endif
 
 #if defined(WIN32) && (defined(BCMDLL) || defined(WLMDLL))
 #include <bcmstdlib.h> 	
@@ -440,7 +434,7 @@ wf_chspec_aton(const char *a)
 		return 0;
 
 	
-	c = tolower((int)a[0]);
+	c = tolower(a[0]);
 	if (c == 'g') {
 		a ++; 
 
@@ -456,7 +450,7 @@ wf_chspec_aton(const char *a)
 		if (!read_uint(&a, &ctl_ch))
 			return 0;
 
-		c = tolower((int)a[0]);
+		c = tolower(a[0]);
 	}
 	else {
 		
@@ -503,7 +497,7 @@ wf_chspec_aton(const char *a)
 
 	
 
-	c = tolower((int)a[0]);
+	c = tolower(a[0]);
 
 	
 	if (chspec_band == WL_CHANSPEC_BAND_2G && bw == 40) {
@@ -840,56 +834,6 @@ wf_chspec_ctlchspec(chanspec_t chspec)
 		ctl_chspec |= CHSPEC_BAND(chspec);
 	}
 	return ctl_chspec;
-}
-
-
-uint16
-wf_channel2chspec(uint ctl_ch, uint bw)
-{
-	uint16 chspec;
-	const uint8 *center_ch = NULL;
-	int num_ch = 0;
-	int sb = -1;
-	int i = 0;
-
-	chspec = ((ctl_ch <= CH_MAX_2G_CHANNEL) ? WL_CHANSPEC_BAND_2G : WL_CHANSPEC_BAND_5G);
-
-	chspec |= bw;
-
-	if (bw == WL_CHANSPEC_BW_40) {
-		center_ch = wf_5g_40m_chans;
-		num_ch = WF_NUM_5G_40M_CHANS;
-		bw = 40;
-	} else if (bw == WL_CHANSPEC_BW_80) {
-		center_ch = wf_5g_80m_chans;
-		num_ch = WF_NUM_5G_80M_CHANS;
-		bw = 80;
-	} else if (bw == WL_CHANSPEC_BW_160) {
-		center_ch = wf_5g_160m_chans;
-		num_ch = WF_NUM_5G_160M_CHANS;
-		bw = 160;
-	} else if (bw == WL_CHANSPEC_BW_20) {
-		chspec |= ctl_ch;
-		return chspec;
-	} else {
-		return 0;
-	}
-
-	for (i = 0; i < num_ch; i ++) {
-		sb = channel_to_sb(center_ch[i], ctl_ch, bw);
-		if (sb >= 0) {
-			chspec |= center_ch[i];
-			chspec |= (sb << WL_CHANSPEC_CTL_SB_SHIFT);
-			break;
-		}
-	}
-
-	
-	if (sb < 0) {
-		return 0;
-	}
-
-	return chspec;
 }
 
 #endif 

@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wpa.h 261155 2011-05-23 23:51:32Z $
+ * $Id: wpa.h 369547 2012-11-19 08:57:31Z $
  */
 
 #ifndef _proto_wpa_h_
@@ -33,7 +33,6 @@
 
 
 #include <packed_section_start.h>
-
 
 
 
@@ -170,10 +169,8 @@ typedef BWL_PRE_PACKED_STRUCT struct
 #define RSN_CAP_2_REPLAY_CNTRS		1
 #define RSN_CAP_4_REPLAY_CNTRS		2
 #define RSN_CAP_16_REPLAY_CNTRS		3
-#ifdef MFP
 #define RSN_CAP_MFPR			0x0040
 #define RSN_CAP_MFPC			0x0080
-#endif
 
 
 #define WPA_CAP_4_REPLAY_CNTRS		RSN_CAP_4_REPLAY_CNTRS

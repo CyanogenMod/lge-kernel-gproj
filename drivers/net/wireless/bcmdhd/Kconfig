@@ -1,12 +1,9 @@
 config BCMDHD
-	tristate "Broadcom 4330/34 wireless cards support"
+	tristate "Broadcom 4335 wireless cards support"
 	depends on MMC
 	---help---
 	  This module adds support for wireless adapters based on
-	  Broadcom 4330/34 chipset.
-	  This driver uses the kernel's wireless extensions subsystem.
-	  If you choose to build a module, it'll be called dhd. Say M if
-	  unsure.
+	  Broadcom chipset.
 
 config BCM4330
 	tristate "Broadcom 4330 wireless cards support"
@@ -23,6 +20,13 @@ config BCM4334
 	---help---
 	  This module adds support for wireless adapters based on
 	  Broadcom 4334 chipset.
+
+config BCM4335
+	tristate "Broadcom 4335 wireless cards support"
+	depends on BCMDHD
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 4335 chipset.
 
 config BCMDHD_FW_PATH
 	depends on BCMDHD
@@ -46,41 +50,24 @@ config BCMDHD_WEXT
 	---help---
 	  Enables WEXT support
 
-config LGE_BCM433X_PATCH
-	bool "BCM433X Patch by LGE"
-	default y
-	depends on BCMDHD
-
-config BCMDHD_CONFIG_PATH
-	depends on LGE_BCM433X_PATCH
-	string "Config path"
-	default "/data/misc/wifi/config"
-	---help---
-	  Path to the config file.
-
 config BCMDHD_GPIO_WL_RESET
 	depends on BCMDHD
 	int "GPIO to the Reset"
-	default 29
+	default 82
 	---help---
 	  GPIO to the Reset
 
 config BCMDHD_HOSTWAKEUP_USE_GPIO
 	depends on BCMDHD
 	bool "Use GPIO to Host Wakeup"
+	default y
 	---help---
 	  Use GPIO to Host Wakeup
-
-config BCMDHD_HOSTWAKEUP_USE_SDIO
-	depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = n
-	bool "Use SDIO pin to the Host Wakeup"
-	---help---
-	  Use SDIO pin to the Host Wakeup
 
 config BCMDHD_GPIO_WL_HOSTWAKEUP
 	depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = y
 	int "GPIO to the Host Wakeup"
-	default 34
+	default 81
 	---help---
 	  GPIO to the Host Wakeup
 
@@ -102,6 +89,12 @@ config BROADCOM_WIFI_RESERVED_MEM
 	bool "BROADCOM Reserved memory for wifi device"
 	depends on BCMDHD
 	---help---
-	   This is a configuration for broadcom WLAN driver.
+	  This is a configuration for broadcom WLAN driver.
 
+config BCM4335BT
+	bool "BROADCOM BTLOCK Enable"
+	depends on BCM4335
+	default n
+	---help---
+	  This is a configuration for bt lock enable.
 

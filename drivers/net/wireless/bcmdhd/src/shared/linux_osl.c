@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: linux_osl.c 372888 2012-12-05 06:56:47Z $
+ * $Id: linux_osl.c 390461 2013-03-12 07:21:34Z $
  */
 
 #define LINUX_PORT
@@ -100,12 +100,23 @@ struct osl_info {
 	uint magic;
 	void *pdev;
 	atomic_t malloced;
+	atomic_t pktalloced; 	
 	uint failed;
 	uint bustype;
 	bcm_mem_link_t *dbgmem_list;
 	spinlock_t dbgmem_lock;
 	spinlock_t pktalloc_lock;
 };
+
+#define OSL_PKTTAG_CLEAR(p) \
+do { \
+	struct sk_buff *s = (struct sk_buff *)(p); \
+	ASSERT(OSL_PKTTAG_SZ == 32); \
+	*(uint32 *)(&s->cb[0]) = 0; *(uint32 *)(&s->cb[4]) = 0; \
+	*(uint32 *)(&s->cb[8]) = 0; *(uint32 *)(&s->cb[12]) = 0; \
+	*(uint32 *)(&s->cb[16]) = 0; *(uint32 *)(&s->cb[20]) = 0; \
+	*(uint32 *)(&s->cb[24]) = 0; *(uint32 *)(&s->cb[28]) = 0; \
+} while (0)
 
 
 
@@ -243,9 +254,9 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 		bcm_static_skb = (bcm_static_pkt_t *)((char *)bcm_static_buf + 2048);
 		skb_buff_ptr = dhd_os_prealloc(osh, 4, 0);
 
-		bcopy(skb_buff_ptr, bcm_static_skb, sizeof(struct sk_buff *)*
+		bcopy(skb_buff_ptr, bcm_static_skb, sizeof(struct sk_buff *) *
 			(STATIC_PKT_MAX_NUM * 2 + STATIC_PKT_4PAGE_NUM));
-		for (i = 0; i < (STATIC_PKT_MAX_NUM * 2 + STATIC_PKT_4PAGE_NUM); i++)
+		for (i = 0; i < STATIC_PKT_MAX_NUM * 2 + STATIC_PKT_4PAGE_NUM; i++)
 			bcm_static_skb->pkt_use[i] = 0;
 
 		sema_init(&bcm_static_skb->osl_pkt_sem, 1);
@@ -279,10 +290,13 @@ osl_detach(osl_t *osh)
 static struct sk_buff *osl_alloc_skb(unsigned int len)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
-	return __dev_alloc_skb(len, GFP_ATOMIC);
+	struct sk_buff *skb;
+
+	skb = __dev_alloc_skb(len, GFP_ATOMIC);
+	return skb;
 #else
 	return dev_alloc_skb(len);
-#endif
+#endif 
 }
 
 #ifdef CTFPOOL
@@ -480,6 +494,9 @@ osl_pktfastget(osl_t *osh, uint len)
 #endif
 	atomic_set(&skb->users, 1);
 
+	PKTSETCLINK(skb, NULL);
+	PKTCCLRATTR(skb);
+
 	return skb;
 }
 #endif 
@@ -487,22 +504,15 @@ osl_pktfastget(osl_t *osh, uint len)
 struct sk_buff * BCMFASTPATH
 osl_pkt_tonative(osl_t *osh, void *pkt)
 {
-#ifndef WL_UMK
 	struct sk_buff *nskb;
-	unsigned long flags;
-#endif
 
 	if (osh->pub.pkttag)
-		bzero((void*)((struct sk_buff *)pkt)->cb, OSL_PKTTAG_SZ);
+		OSL_PKTTAG_CLEAR(pkt);
 
-#ifndef WL_UMK
 	
 	for (nskb = (struct sk_buff *)pkt; nskb; nskb = nskb->next) {
-		spin_lock_irqsave(&osh->pktalloc_lock, flags);
-		osh->pub.pktalloced--;
-		spin_unlock_irqrestore(&osh->pktalloc_lock, flags);
+		atomic_sub(PKTISCHAINED(nskb) ? PKTCCNT(nskb) : 1, &osh->pktalloced);
 	}
-#endif 
 	return (struct sk_buff *)pkt;
 }
 
@@ -510,22 +520,15 @@ osl_pkt_tonative(osl_t *osh, void *pkt)
 void * BCMFASTPATH
 osl_pkt_frmnative(osl_t *osh, void *pkt)
 {
-#ifndef WL_UMK
 	struct sk_buff *nskb;
-	unsigned long flags;
-#endif
 
 	if (osh->pub.pkttag)
-		bzero((void*)((struct sk_buff *)pkt)->cb, OSL_PKTTAG_SZ);
+		OSL_PKTTAG_CLEAR(pkt);
 
-#ifndef WL_UMK
 	
 	for (nskb = (struct sk_buff *)pkt; nskb; nskb = nskb->next) {
-		spin_lock_irqsave(&osh->pktalloc_lock, flags);
-		osh->pub.pktalloced++;
-		spin_unlock_irqrestore(&osh->pktalloc_lock, flags);
+		atomic_add(PKTISCHAINED(nskb) ? PKTCCNT(nskb) : 1, &osh->pktalloced);
 	}
-#endif 
 	return (void *)pkt;
 }
 
@@ -534,7 +537,6 @@ void * BCMFASTPATH
 osl_pktget(osl_t *osh, uint len)
 {
 	struct sk_buff *skb;
-	unsigned long flags;
 
 #ifdef CTFPOOL
 	
@@ -546,10 +548,7 @@ osl_pktget(osl_t *osh, uint len)
 		skb_put(skb, len);
 		skb->priority = 0;
 
-
-		spin_lock_irqsave(&osh->pktalloc_lock, flags);
-		osh->pub.pktalloced++;
-		spin_unlock_irqrestore(&osh->pktalloc_lock, flags);
+		atomic_inc(&osh->pktalloced);
 	}
 
 	return ((void*) skb);
@@ -572,10 +571,17 @@ osl_pktfastfree(osl_t *osh, struct sk_buff *skb)
 
 	
 	skb->dev = NULL;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
 	skb->dst = NULL;
-	memset(skb->cb, 0, sizeof(skb->cb));
+#endif
+	OSL_PKTTAG_CLEAR(skb);
 	skb->ip_summed = 0;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
+	skb_orphan(skb);
+#else
 	skb->destructor = NULL;
+#endif
 
 	ctfpool = (ctfpool_t *)CTFPOOLPTR(osh, skb);
 	ASSERT(ctfpool != NULL);
@@ -598,7 +604,11 @@ void BCMFASTPATH
 osl_pktfree(osl_t *osh, void *p, bool send)
 {
 	struct sk_buff *skb, *nskb;
-	unsigned long flags;
+	if (osh == NULL)
+	{
+		printk("%s: osh == NULL \n", __FUNCTION__);
+		return;
+	}
 
 	skb = (struct sk_buff*) p;
 
@@ -629,9 +639,7 @@ osl_pktfree(osl_t *osh, void *p, bool send)
 				
 				dev_kfree_skb(skb);
 		}
-		spin_lock_irqsave(&osh->pktalloc_lock, flags);
-		osh->pub.pktalloced--;
-		spin_unlock_irqrestore(&osh->pktalloc_lock, flags);
+		atomic_dec(&osh->pktalloced);
 		skb = nskb;
 	}
 }
@@ -643,10 +651,8 @@ osl_pktget_static(osl_t *osh, uint len)
 	int i = 0;
 	struct sk_buff *skb;
 
-
 	if (len > DHD_SKB_MAX_BUFSIZE) {
-		printk("osl_pktget_static: Do we really need this big skb??"
-			" len=%d\n", len);
+		printk("%s: attempt to allocate huge packet (0x%x)\n", __FUNCTION__, len);
 		return osl_pktget(osh, len);
 	}
 
@@ -671,7 +677,6 @@ osl_pktget_static(osl_t *osh, uint len)
 	}
 
 	if (len <= DHD_SKB_2PAGE_BUFSIZE) {
-
 		for (i = 0; i < STATIC_PKT_MAX_NUM; i++) {
 			if (bcm_static_skb->pkt_use[i + STATIC_PKT_MAX_NUM]
 				== 0)
@@ -703,7 +708,7 @@ osl_pktget_static(osl_t *osh, uint len)
 #endif
 
 	up(&bcm_static_skb->osl_pkt_sem);
-	printk("osl_pktget_static: all static pkt in use!\n");
+	printk("%s: all static pkt in use!\n", __FUNCTION__);
 	return osl_pktget(osh, len);
 }
 
@@ -734,15 +739,13 @@ osl_pktfree_static(osl_t *osh, void *p, bool send)
 	}
 #ifdef ENHANCED_STATIC_BUF
 	if (p == bcm_static_skb->skb_16k) {
-		bcm_static_skb->pkt_use[STATIC_PKT_MAX_NUM*2] = 0;
+		bcm_static_skb->pkt_use[STATIC_PKT_MAX_NUM * 2] = 0;
 		up(&bcm_static_skb->osl_pkt_sem);
 		return;
 	}
 #endif
 	up(&bcm_static_skb->osl_pkt_sem);
-
 	osl_pktfree(osh, p, send);
-	return;
 }
 #endif 
 
@@ -802,7 +805,11 @@ osl_pci_slot(osl_t *osh)
 {
 	ASSERT(osh && (osh->magic == OS_HANDLE_MAGIC) && osh->pdev);
 
+#if defined(__ARM_ARCH_7A__) && LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 35)
+	return PCI_SLOT(((struct pci_dev *)osh->pdev)->devfn) + 1;
+#else
 	return PCI_SLOT(((struct pci_dev *)osh->pdev)->devfn);
+#endif
 }
 
 
@@ -960,12 +967,45 @@ osl_dma_free_consistent(osl_t *osh, void *va, uint size, ulong pa)
 }
 
 uint BCMFASTPATH
-osl_dma_map(osl_t *osh, void *va, uint size, int direction)
+osl_dma_map(osl_t *osh, void *va, uint size, int direction, void *p, hnddma_seg_map_t *dmah)
 {
 	int dir;
 
 	ASSERT((osh && (osh->magic == OS_HANDLE_MAGIC)));
 	dir = (direction == DMA_TX)? PCI_DMA_TODEVICE: PCI_DMA_FROMDEVICE;
+
+#if defined(__ARM_ARCH_7A__) && defined(BCMDMASGLISTOSL)
+	if (dmah != NULL) {
+		int32 nsegs, i, totsegs = 0, totlen = 0;
+		struct scatterlist *sg, _sg[16];
+		struct sk_buff *skb;
+		for (skb = (struct sk_buff *)p; skb != NULL; skb = PKTNEXT(osh, skb)) {
+			sg = &_sg[totsegs];
+			if (skb_is_nonlinear(skb)) {
+				nsegs = skb_to_sgvec(skb, sg, 0, PKTLEN(osh, skb));
+				ASSERT((nsegs > 0) && (nsegs <= 16));
+				pci_map_sg(osh->pdev, sg, nsegs, dir);
+			} else {
+				nsegs = 1;
+				sg->page_link = 0;
+				sg_set_buf(sg, PKTDATA(osh, skb), PKTLEN(osh, skb));
+				
+				pci_map_single(osh->pdev, PKTDATA(osh, skb),
+				    PKTISCTF(osh, skb) ? CTFMAPSZ : PKTLEN(osh, skb), dir);
+			}
+			totsegs += nsegs;
+			totlen += PKTLEN(osh, skb);
+		}
+		dmah->nsegs = totsegs;
+		dmah->origsize = totlen;
+		for (i = 0, sg = _sg; i < totsegs; i++, sg++) {
+			dmah->segs[i].addr = sg_phys(sg);
+			dmah->segs[i].length = sg->length;
+		}
+		return dmah->segs[0].addr;
+	}
+#endif 
+
 	return (pci_map_single(osh->pdev, va, size, dir));
 }
 
@@ -996,9 +1036,9 @@ osl_assert(const char *exp, const char *file, int line)
 
 	snprintf(tempbuf, 64, "\"%s\": file \"%s\", line %d\n",
 		exp, basename, line);
-	
+
 	printk("%s", tempbuf);
-	
+
 
 }
 #endif 
@@ -1021,7 +1061,8 @@ void *
 osl_pktdup(osl_t *osh, void *skb)
 {
 	void * p;
-	unsigned long irqflags;
+
+	ASSERT(!PKTISCHAINED(skb));
 
 	
 	PKTCTFMAP(osh, skb);
@@ -1043,13 +1084,15 @@ osl_pktdup(osl_t *osh, void *skb)
 #endif 
 
 	
-	if (osh->pub.pkttag)
-		bzero((void*)((struct sk_buff *)p)->cb, OSL_PKTTAG_SZ);
+	PKTSETCLINK(p, NULL);
+	PKTCCLRATTR(p);
 
 	
-	spin_lock_irqsave(&osh->pktalloc_lock, irqflags);
-	osh->pub.pktalloced++;
-	spin_unlock_irqrestore(&osh->pktalloc_lock, irqflags);
+	if (osh->pub.pkttag)
+		OSL_PKTTAG_CLEAR(p);
+
+	
+	atomic_inc(&osh->pktalloced);
 	return (p);
 }
 
@@ -1057,6 +1100,12 @@ osl_pktdup(osl_t *osh, void *skb)
 
 
 
+
+uint
+osl_pktalloced(osl_t *osh)
+{
+	return (atomic_read(&osh->pktalloced));
+}
 
 
 void *
@@ -1093,4 +1142,20 @@ osl_os_close_image(void *image)
 {
 	if (image)
 		filp_close((struct file *)image, NULL);
+}
+
+int
+osl_os_image_size(void *image)
+{
+	int len = 0, curroffset;
+
+	if (image) {
+		
+		curroffset = generic_file_llseek(image, 0, 1);
+		
+		len = generic_file_llseek(image, 0, 2);
+		
+		generic_file_llseek(image, curroffset, 0);
+	}
+	return len;
 }

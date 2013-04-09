@@ -23,7 +23,7 @@
  *
  * Dependencies: proto/bcmeth.h
  *
- * $Id: bcmevent.h 363350 2012-10-17 08:29:23Z $
+ * $Id: bcmevent.h 369617 2012-11-19 16:45:34Z $
  *
  */
 
@@ -188,11 +188,23 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_AUTH_REQ		91	
 #define WLC_E_TDLS_PEER_EVENT 	92	
 #define WLC_E_SPEEDY_RECREATE_FAIL	93	
-#define WLC_E_SERVICE_FOUND             102     
-#define WLC_E_GAS_FRAGMENT_RX   103     
-#define WLC_E_GAS_COMPLETE              104     
-#define WLC_E_LAST                      105     
-
+#define WLC_E_NATIVE			94	
+#define WLC_E_PKTDELAY_IND		95	
+#define WLC_E_AWDL_AW			96	
+#define WLC_E_AWDL_ROLE			97	
+#define WLC_E_AWDL_EVENT		98	
+#ifdef WLNIC
+#define WLC_E_NIC_AF_TXS		99	
+#define WLC_E_NIC_NIC_REPORT		100	
+#endif
+#define WLC_E_BEACON_FRAME_RX		101
+#define WLC_E_SERVICE_FOUND		102	
+#define WLC_E_GAS_FRAGMENT_RX	103	
+#define WLC_E_GAS_COMPLETE		104	
+#define WLC_E_P2PO_ADD_DEVICE	105	
+#define WLC_E_P2PO_DEL_DEVICE	106 
+#define WLC_E_IBSS_COALESCE		107	
+#define WLC_E_LAST              108     
 
 
 typedef struct {
@@ -324,6 +336,7 @@ typedef struct wl_event_data_if {
 #define WLC_E_IF_ROLE_BTA_ACCEPTOR	6	
 #endif
 
+#define WLC_E_IF_FLAGS_BSSCFG_NOIF  0x1     
 
 #define WLC_E_LINK_BCN_LOSS	1	
 #define WLC_E_LINK_DISASSOC	2	
@@ -338,6 +351,27 @@ typedef struct wl_event_data_if {
 #define WLC_E_TDLS_PEER_DISCOVERED		0	
 #define WLC_E_TDLS_PEER_CONNECTED		1
 #define WLC_E_TDLS_PEER_DISCONNECTED	2
+
+
+typedef BWL_PRE_PACKED_STRUCT struct wl_event_gas {
+	uint16  channel;                
+	uint8   dialog_token;   
+	uint8   fragment_id;    
+	uint16  status_code;    
+	uint16  data_len;               
+	uint8   data[1];                
+} BWL_POST_PACKED_STRUCT wl_event_gas_t;
+
+
+typedef BWL_PRE_PACKED_STRUCT struct wl_event_sd {
+	uint8	protocol;		
+	uint16	channel;		
+	uint8	dialog_token;		
+	uint8	fragment_id;		
+	uint16	status_code;		
+	uint16	data_len;		
+	uint8	data[1];		
+} BWL_POST_PACKED_STRUCT wl_event_sd_t;
 
 
 #include <packed_section_end.h>
