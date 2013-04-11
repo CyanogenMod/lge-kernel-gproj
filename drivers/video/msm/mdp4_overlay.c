@@ -2450,7 +2450,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		if (((req->dst_rect.x + req->dst_rect.w) > xres) ||
 			((req->dst_rect.y + req->dst_rect.h) > yres)) {
 			mdp4_stat.err_size++;
-			pr_err("%s invalid dst rectangle\n", __func__);
+			pr_err("%s invalid dst rectangle (%dx%d) vs (%dx%d)\n", __func__,(req->dst_rect.x + req->dst_rect.w),(req->dst_rect.y + req->dst_rect.h),xres,yres);
 			return -ERANGE;
 		}
 	}
