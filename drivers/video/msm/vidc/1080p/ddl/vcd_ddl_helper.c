@@ -412,8 +412,6 @@ void ddl_release_client_internal_buffers(struct ddl_client_context *ddl)
 		ddl_free_enc_hw_buffers(ddl);
 		ddl_free_ltr_list(&encoder->ltr_control);
 	}
-	ddl_pmem_free(&ddl->shared_mem[0]);
-	ddl_pmem_free(&ddl->shared_mem[1]);
 }
 
 u32 ddl_codec_type_transact(struct ddl_client_context *ddl,
