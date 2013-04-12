@@ -2643,7 +2643,7 @@ static unsigned int adreno_check_hw_ts(struct kgsl_device *device,
 
 		if (context) {
 			adreno_ringbuffer_issuecmds(device, context->devctxt,
-					KGSL_CMD_FLAGS_NONE, NULL, 0);
+					KGSL_CMD_FLAGS_GET_INT, NULL, 0);
 		}
 	}
 
