@@ -1014,6 +1014,7 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 
 	if ((pdata) && (pdata->set_backlight)) {
 #if defined(CONFIG_BACKLIGHT_LM3530) || defined(CONFIG_BACKLIGHT_LM3533)
+        	if (temp && temp < 110) { temp = 110; }
 		printk(KERN_INFO "%s : backlight on started!!(bkl_lvl = %d, unset_bl_level = %d)\n", __func__, bkl_lvl, unset_bl_level);
 #else
 		msm_fb_scale_bl(&temp);
