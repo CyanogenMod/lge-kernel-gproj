@@ -16,6 +16,7 @@
 #include <linux/ioport.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/lm35xx_bl.h>
 #include <linux/bootmem.h>
 #include <linux/ion.h>
 #include <asm/mach-types.h>
@@ -2080,18 +2081,6 @@ struct i2c_registry {
 #define PWM_BRIGHTNESS 0x20
 #endif
 
-struct backlight_platform_data {
-   void (*platform_init)(void);
-   int gpio;
-   unsigned int mode;
-   int max_current;
-   int init_on_boot;
-   int min_brightness;
-   int max_brightness;
-   int default_brightness;
-   int factory_brightness;
-};
-
 #if defined (CONFIG_BACKLIGHT_LM3530)
 static struct backlight_platform_data lm3530_data = {
 
@@ -2101,9 +2090,11 @@ static struct backlight_platform_data lm3530_data = {
 #else
 	.max_current = 0x17,					//20121107 ej.jung ABS : Exp. -> Linear (0x15 -> 0x17)
 #endif
-	.min_brightness = 0x01,
-	.max_brightness = 0x71,
-	
+	.min_brightness = 0x02,
+	.max_brightness = 0x72,
+	.default_brightness = 0x11,
+	.blmap = NULL,
+	.blmap_size = 0,
 };
 #elif defined(CONFIG_BACKLIGHT_LM3533)
 static struct backlight_platform_data lm3533_data = {
@@ -2116,7 +2107,7 @@ static struct backlight_platform_data lm3533_data = {
 	.min_brightness = 0x05,
 	.max_brightness = 0xFF,
 	.default_brightness = 0x9C,
-	.factory_brightness = 0x45,
+	//.factory_brightness = 0x45,
 };
 #endif
 static struct i2c_board_info msm_i2c_backlight_info[] = {
