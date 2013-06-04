@@ -73,6 +73,10 @@ extern int load_888rle_image(char *filename);
 #define MSM_FB_NUM	3
 #endif
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#undef CONFIG_HAS_EARLYSUSPEND
+#endif
+
 static unsigned char *fbram;
 static unsigned char *fbram_phys;
 static int fbram_size;
