@@ -61,6 +61,7 @@
 DEFINE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases) =
 {
 
+	.lock = __RAW_SPIN_LOCK_UNLOCKED(hrtimer_bases.lock),
 	.clock_base =
 	{
 		{
@@ -1618,10 +1619,6 @@ static void __cpuinit init_hrtimers_cpu(int cpu)
 {
 	struct hrtimer_cpu_base *cpu_base = &per_cpu(hrtimer_bases, cpu);
 	int i;
-    unsigned long flags;//spin_lock_debug
-
-//spin_lock_debug	raw_spin_lock_init(&cpu_base->lock);
-    raw_spin_lock_irqsave(&cpu_base->lock, flags);
 
 	for (i = 0; i < HRTIMER_MAX_CLOCK_BASES; i++) {
 		cpu_base->clock_base[i].cpu_base = cpu_base;
@@ -1629,8 +1626,6 @@ static void __cpuinit init_hrtimers_cpu(int cpu)
 	}
 
 	hrtimer_init_hres(cpu_base);
-
-    raw_spin_unlock_irqrestore(&cpu_base->lock, flags);//spin_lock_debug
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
