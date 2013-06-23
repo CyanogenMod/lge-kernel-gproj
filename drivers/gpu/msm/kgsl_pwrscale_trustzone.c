@@ -8,6 +8,9 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ * 
+ * Modified by Paul Reioux (Faux123)
+ * 2013-06-20: Added KGSL Simple GPU Governor
  *
  */
 
@@ -140,8 +143,6 @@ static void tz_wake(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale)
 }
 
 #ifdef CONFIG_MSM_KGSL_SIMPLE_GOV
-/* KGSL Simple GPU Governor */
-/* Copyright (c) 2011-2013, Paul Reioux (Faux123). All rights reserved. */
 static int default_laziness = 5;
 module_param_named(simple_laziness, default_laziness, int, 0664);
 
@@ -152,33 +153,42 @@ static int laziness;
 
 static int simple_governor(struct kgsl_device *device, int idle_stat)
 {
-	int val = 0;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	/* it's currently busy */
-	if (idle_stat < ramp_up_threshold) {
+	if (idle_stat < ramp_up_threshold) 
+	{
 		if (pwr->active_pwrlevel == 0)
-			val = 0; /* already maxed, so do nothing */
+			/* already maxed, so do nothing */
+			return 0; 
+		
 		else if ((pwr->active_pwrlevel > 0) &&
 			(pwr->active_pwrlevel <= (pwr->num_pwrlevels - 1)))
-			val = -1; /* bump up to next pwrlevel */
+			/* bump up to next pwrlevel */
+			return -1; 
+	} 
 	/* idle case */
-	} else {
+	else 
+	{
 		if ((pwr->active_pwrlevel >= 0) &&
 			(pwr->active_pwrlevel < (pwr->num_pwrlevels - 1)))
-			if (laziness > 0) {
-				/* hold off for a while */
-				laziness--;
-				val = 0; /* don't change anything yet */
-			} else {
-				val = 1; /* above min, lower it */
-				/* reset laziness count */
+			if (likely(--laziness > 0)) 
+			{
+				/* don't change anything yet hold off for a while */
+				return 0;
+			} 
+			else 
+			{
+				/* above min, lower it */	
 				laziness = default_laziness;
+				return 1; 	
 			}
 		else if (pwr->active_pwrlevel == (pwr->num_pwrlevels - 1))
-			val = 0; /* already @ min, so do nothing */
+			/* already @ min, so do nothing */
+			return 0; 
 	}
-	return val;
+
+	return 0;
 }
 #endif
 
@@ -260,7 +270,7 @@ static int tz_init(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale)
 	if (pwrscale->priv == NULL)
 		return -ENOMEM;
 
-	priv->governor = TZ_GOVERNOR_ONDEMAND;
+	priv->governor = TZ_GOVERNOR_SIMPLE;
 	spin_lock_init(&tz_lock);
 	kgsl_pwrscale_policy_add_files(device, pwrscale, &tz_attr_group);
 
