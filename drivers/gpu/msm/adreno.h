@@ -179,14 +179,15 @@ struct adreno_device {
 /**
  * struct adreno_perfcount_register: register state
  * @countable: countable the register holds
- * @refcount: number of users of the register
+ * @kernelcount: number of user space users of the register
+ * @usercount: number of kernel users of the register
  * @offset: register hardware offset
  */
 struct adreno_perfcount_register {
 	unsigned int countable;
-	unsigned int refcount;
+	unsigned int kernelcount;
+	unsigned int usercount;
 	unsigned int offset;
-	unsigned int flags;
 };
 
 /**
@@ -429,7 +430,7 @@ int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 	unsigned int flags);
 
 int adreno_perfcounter_put(struct adreno_device *adreno_dev,
-	unsigned int groupid, unsigned int countable);
+	unsigned int groupid, unsigned int countable, unsigned int flags);
 
 static inline int adreno_is_a200(struct adreno_device *adreno_dev)
 {
