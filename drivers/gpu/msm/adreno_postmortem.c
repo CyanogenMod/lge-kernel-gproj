@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include "adreno_ringbuffer.h"
 #include "kgsl_cffdump.h"
 #include "kgsl_pwrctrl.h"
+#include "adreno_trace.h"
 
 #include "a2xx_reg.h"
 #include "a3xx_reg.h"
@@ -50,7 +51,6 @@ static const struct pm_id_name pm3_types[] = {
 	{CP_DRAW_INDX,			"DRW_NDX_"},
 	{CP_DRAW_INDX_BIN,		"DRW_NDXB"},
 	{CP_EVENT_WRITE,		"EVENT_WT"},
-	{CP_MEM_WRITE,			"MEM_WRIT"},
 	{CP_IM_LOAD,			"IN__LOAD"},
 	{CP_IM_LOAD_IMMEDIATE,		"IM_LOADI"},
 	{CP_IM_STORE,			"IM_STORE"},
@@ -725,6 +725,9 @@ int adreno_dump(struct kgsl_device *device, int manual)
 	kgsl_regread(device, REG_CP_IB2_BASE, &cp_ib2_base);
 	kgsl_regread(device, REG_CP_IB2_BUFSZ, &cp_ib2_bufsz);
 
+	trace_adreno_gpu_fault(rbbm_status, cp_rb_rptr, cp_rb_wptr,
+			cp_ib1_base, cp_ib1_bufsz, cp_ib2_base, cp_ib2_bufsz);
+
 	/* If postmortem dump is not enabled, dump minimal set and return */
 	if (!device->pm_dump_enable) {
 
@@ -904,5 +907,9 @@ int adreno_dump(struct kgsl_device *device, int manual)
 error_vfree:
 	vfree(rb_copy);
 end:
+	/* Restart the dispatcher after a manually triggered dump */
+	if (manual)
+		adreno_dispatcher_start(adreno_dev);
+
 	return result;
 }

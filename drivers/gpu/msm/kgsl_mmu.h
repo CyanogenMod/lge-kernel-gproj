@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,10 +125,10 @@ struct kgsl_mmu_ops {
 	int (*mmu_close) (struct kgsl_mmu *mmu);
 	int (*mmu_start) (struct kgsl_mmu *mmu);
 	void (*mmu_stop) (struct kgsl_mmu *mmu);
-	void (*mmu_setstate) (struct kgsl_mmu *mmu,
+	int (*mmu_setstate) (struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable,
 		unsigned int context_id);
-	void (*mmu_device_setstate) (struct kgsl_mmu *mmu,
+	int (*mmu_device_setstate) (struct kgsl_mmu *mmu,
 					uint32_t flags);
 	void (*mmu_pagefault) (struct kgsl_mmu *mmu);
 	unsigned int (*mmu_get_current_ptbase)
@@ -137,6 +137,8 @@ struct kgsl_mmu_ops {
 		(struct kgsl_mmu *mmu, uint32_t ts, bool ts_valid);
 	int (*mmu_enable_clk)
 		(struct kgsl_mmu *mmu, int ctx_id);
+	void (*mmu_disable_clk)
+		(struct kgsl_mmu *mmu);
 	int (*mmu_get_pt_lsb)(struct kgsl_mmu *mmu,
 				unsigned int unit_id,
 				enum kgsl_iommu_context_id ctx_id);
@@ -149,16 +151,16 @@ struct kgsl_mmu_ops {
 	unsigned int (*mmu_get_pt_base_addr)
 			(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt);
-	int (*mmu_setup_pt) (struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pt);
-	void (*mmu_cleanup_pt) (struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pt);
 	unsigned int (*mmu_sync_lock)
 			(struct kgsl_mmu *mmu,
 			unsigned int *cmds);
 	unsigned int (*mmu_sync_unlock)
 			(struct kgsl_mmu *mmu,
 			unsigned int *cmds);
+	int (*mmu_setup_pt) (struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pt);
+	void (*mmu_cleanup_pt) (struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pt);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -210,7 +212,7 @@ int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
 int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
-void kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
+int kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
 			uint32_t flags);
 int kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu,
 					unsigned int pt_base);
@@ -239,19 +241,23 @@ static inline unsigned int kgsl_mmu_get_current_ptbase(struct kgsl_mmu *mmu)
 		return 0;
 }
 
-static inline void kgsl_mmu_setstate(struct kgsl_mmu *mmu,
+static inline int kgsl_mmu_setstate(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pagetable,
 			unsigned int context_id)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_setstate)
-		mmu->mmu_ops->mmu_setstate(mmu, pagetable, context_id);
+		return mmu->mmu_ops->mmu_setstate(mmu, pagetable, context_id);
+
+	return 0;
 }
 
-static inline void kgsl_mmu_device_setstate(struct kgsl_mmu *mmu,
+static inline int kgsl_mmu_device_setstate(struct kgsl_mmu *mmu,
 						uint32_t flags)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_device_setstate)
-		mmu->mmu_ops->mmu_device_setstate(mmu, flags);
+		return mmu->mmu_ops->mmu_device_setstate(mmu, flags);
+
+	return 0;
 }
 
 static inline void kgsl_mmu_stop(struct kgsl_mmu *mmu)
@@ -298,6 +304,12 @@ static inline int kgsl_mmu_enable_clk(struct kgsl_mmu *mmu,
 		return 0;
 }
 
+static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk)
+		mmu->mmu_ops->mmu_disable_clk(mmu);
+}
+
 static inline void kgsl_mmu_disable_clk_on_ts(struct kgsl_mmu *mmu,
 						unsigned int ts, bool ts_valid)
 {
@@ -330,6 +342,26 @@ static inline int kgsl_mmu_get_num_iommu_units(struct kgsl_mmu *mmu)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_num_iommu_units)
 		return mmu->mmu_ops->mmu_get_num_iommu_units(mmu);
+	else
+		return 0;
+}
+
+static inline int kgsl_mmu_sync_lock(struct kgsl_mmu *mmu,
+				unsigned int *cmds)
+{
+	if ((mmu->flags & KGSL_MMU_FLAGS_IOMMU_SYNC) &&
+		mmu->mmu_ops && mmu->mmu_ops->mmu_sync_lock)
+		return mmu->mmu_ops->mmu_sync_lock(mmu, cmds);
+	else
+		return 0;
+}
+
+static inline int kgsl_mmu_sync_unlock(struct kgsl_mmu *mmu,
+				unsigned int *cmds)
+{
+	if ((mmu->flags & KGSL_MMU_FLAGS_IOMMU_SYNC) &&
+		mmu->mmu_ops && mmu->mmu_ops->mmu_sync_unlock)
+		return mmu->mmu_ops->mmu_sync_unlock(mmu, cmds);
 	else
 		return 0;
 }
@@ -406,26 +438,6 @@ static inline unsigned int kgsl_mmu_get_ptsize(void)
 			return SZ_2G;
 	}
 	return 0;
-}
-
-static inline int kgsl_mmu_sync_lock(struct kgsl_mmu *mmu,
-				unsigned int *cmds)
-{
-	if ((mmu->flags & KGSL_MMU_FLAGS_IOMMU_SYNC) &&
-		mmu->mmu_ops && mmu->mmu_ops->mmu_sync_lock)
-		return mmu->mmu_ops->mmu_sync_lock(mmu, cmds);
-	else
-		return 0;
-}
-
-static inline int kgsl_mmu_sync_unlock(struct kgsl_mmu *mmu,
-				unsigned int *cmds)
-{
-	if ((mmu->flags & KGSL_MMU_FLAGS_IOMMU_SYNC) &&
-		mmu->mmu_ops && mmu->mmu_ops->mmu_sync_unlock)
-		return mmu->mmu_ops->mmu_sync_unlock(mmu, cmds);
-	else
-		return 0;
 }
 
 #endif /* __KGSL_MMU_H */

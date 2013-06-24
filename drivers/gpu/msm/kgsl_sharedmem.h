@@ -162,7 +162,7 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 		unsigned int physaddr, unsigned int size)
 {
 	memdesc->sg = kgsl_sg_alloc(1);
-	if (memdesc->sg == NULL)
+	if (!memdesc->sg)
 		return -ENOMEM;
 
 	kmemleak_not_leak(memdesc->sg);
@@ -300,15 +300,4 @@ kgsl_allocate_contiguous(struct kgsl_memdesc *memdesc, size_t size)
 	return ret;
 }
 
-static inline int kgsl_sg_size(struct scatterlist *sg, int sglen)
-{
-	int i, size = 0;
-	struct scatterlist *s;
-
-	for_each_sg(sg, s, sglen, i) {
-		size += s->length;
-	}
-
-	return size;
-}
 #endif /* __KGSL_SHAREDMEM_H */

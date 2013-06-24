@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +57,8 @@ static void z180_dump_regs(struct kgsl_device *device)
 {
 	unsigned int i;
 	unsigned int reg_val;
+
+	z180_idle(device);
 
 	KGSL_LOG_DUMP(device, "Z180 Register Dump\n");
 	for (i = 0; i < ARRAY_SIZE(regs_to_dump); i++) {
@@ -168,6 +170,7 @@ static void z180_dump_ib(struct kgsl_device *device)
 				KGSL_LOG_DUMP(device,
 				"Could not map IB to kernel memory, Ringbuffer Slot: %d\n",
 				rb_slot_num);
+				kgsl_mem_entry_put(entry);
 				continue;
 			}
 
@@ -190,6 +193,7 @@ static void z180_dump_ib(struct kgsl_device *device)
 						linebuf);
 			}
 			KGSL_LOG_DUMP(device, "IB Dump Finished\n");
+			kgsl_mem_entry_put(entry);
 		}
 	}
 }

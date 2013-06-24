@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2008-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,7 +123,6 @@ KGSL_DEBUGFS_LOG(cmd_log);
 KGSL_DEBUGFS_LOG(ctxt_log);
 KGSL_DEBUGFS_LOG(mem_log);
 KGSL_DEBUGFS_LOG(pwr_log);
-KGSL_DEBUGFS_LOG(ft_log);
 
 static int memfree_hist_print(struct seq_file *s, void *unused)
 {
@@ -185,7 +184,6 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 	device->drv_log = KGSL_LOG_LEVEL_DEFAULT;
 	device->mem_log = KGSL_LOG_LEVEL_DEFAULT;
 	device->pwr_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->ft_log = KGSL_LOG_LEVEL_DEFAULT;
 
 	debugfs_create_file("log_level_cmd", 0644, device->d_debugfs, device,
 			    &cmd_log_fops);

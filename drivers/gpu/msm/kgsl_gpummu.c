@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,7 +161,7 @@ err:
 }
 
 static void *
-_kgsl_ptpool_get_entry(struct kgsl_ptpool *pool, phys_addr_t *physaddr)
+_kgsl_ptpool_get_entry(struct kgsl_ptpool *pool, unsigned int *physaddr)
 {
 	struct kgsl_ptpool_chunk *chunk;
 
@@ -227,7 +227,7 @@ kgsl_ptpool_add(struct kgsl_ptpool *pool, int count)
  */
 
 static void *kgsl_ptpool_alloc(struct kgsl_ptpool *pool,
-				phys_addr_t *physaddr)
+				unsigned int *physaddr)
 {
 	void *addr = NULL;
 	int ret;
@@ -465,12 +465,12 @@ err_free_gpummu:
 	return NULL;
 }
 
-static void kgsl_gpummu_default_setstate(struct kgsl_mmu *mmu,
+static int kgsl_gpummu_default_setstate(struct kgsl_mmu *mmu,
 					uint32_t flags)
 {
 	struct kgsl_gpummu_pt *gpummu_pt;
 	if (!kgsl_mmu_enabled())
-		return;
+		return 0;
 
 	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
 		kgsl_idle(mmu->device);
@@ -483,12 +483,16 @@ static void kgsl_gpummu_default_setstate(struct kgsl_mmu *mmu,
 		/* Invalidate all and tc */
 		kgsl_regwrite(mmu->device, MH_MMU_INVALIDATE,  0x00000003);
 	}
+
+	return 0;
 }
 
-static void kgsl_gpummu_setstate(struct kgsl_mmu *mmu,
+static int kgsl_gpummu_setstate(struct kgsl_mmu *mmu,
 				struct kgsl_pagetable *pagetable,
 				unsigned int context_id)
 {
+	int ret = 0;
+
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
 		/* page table not current, then setup mmu to use new
 		 *  specified page table
@@ -501,10 +505,13 @@ static void kgsl_gpummu_setstate(struct kgsl_mmu *mmu,
 			kgsl_mmu_pt_get_flags(pagetable, mmu->device->id);
 
 			/* call device specific set page table */
-			kgsl_setstate(mmu, context_id, KGSL_MMUFLAGS_TLBFLUSH |
+			ret = kgsl_setstate(mmu, context_id,
+				KGSL_MMUFLAGS_TLBFLUSH |
 				KGSL_MMUFLAGS_PTUPDATE);
 		}
 	}
+
+	return ret;
 }
 
 static int kgsl_gpummu_init(struct kgsl_mmu *mmu)
@@ -541,6 +548,7 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 
 	struct kgsl_device *device = mmu->device;
 	struct kgsl_gpummu_pt *gpummu_pt;
+	int ret;
 
 	if (mmu->flags & KGSL_FLAGS_STARTED)
 		return 0;
@@ -551,9 +559,6 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 
 	/* setup MMU and sub-client behavior */
 	kgsl_regwrite(device, MH_MMU_CONFIG, mmu->config);
-
-	/* idle device */
-	kgsl_idle(device);
 
 	/* enable axi interrupts */
 	kgsl_regwrite(device, MH_INTERRUPT_MASK,
@@ -585,10 +590,12 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 	kgsl_regwrite(mmu->device, MH_MMU_VA_RANGE,
 		      (KGSL_PAGETABLE_BASE |
 		      (CONFIG_MSM_KGSL_PAGE_TABLE_SIZE >> 16)));
-	kgsl_setstate(mmu, KGSL_MEMSTORE_GLOBAL, KGSL_MMUFLAGS_TLBFLUSH);
-	mmu->flags |= KGSL_FLAGS_STARTED;
 
-	return 0;
+	ret = kgsl_setstate(mmu, KGSL_MEMSTORE_GLOBAL, KGSL_MMUFLAGS_TLBFLUSH);
+	if (!ret)
+		mmu->flags |= KGSL_FLAGS_STARTED;
+
+	return ret;
 }
 
 static int
@@ -598,7 +605,7 @@ kgsl_gpummu_unmap(void *mmu_specific_pt,
 {
 	unsigned int numpages;
 	unsigned int pte, ptefirst, ptelast, superpte;
-	unsigned int range = kgsl_sg_size(memdesc->sg, memdesc->sglen);
+	unsigned int range = memdesc->size;
 	struct kgsl_gpummu_pt *gpummu_pt = mmu_specific_pt;
 
 	/* All GPU addresses as assigned are page aligned, but some
