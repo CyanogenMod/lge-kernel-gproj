@@ -1908,7 +1908,7 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Power down the device */
 	kgsl_pwrctrl_disable(device);
 
-	kgsl_cffdump_close(device->id);
+	kgsl_cffdump_close(device);
 
 	return 0;
 }
@@ -2689,7 +2689,7 @@ static void adreno_regwrite(struct kgsl_device *device,
 
 	kgsl_trace_regwrite(device, offsetwords, value);
 
-	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
+	kgsl_cffdump_regwrite(device, offsetwords << 2, value);
 	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
 
 	/*ensure previous writes post before this one,
