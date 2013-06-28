@@ -627,6 +627,7 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	msleep(20);     /* >= 17 ms */
 
 	mdp4_dtv_wait4vsync(cndx);
+	mdp4_unmap_sec_resource(mfd);
 
 	wake_up_interruptible_all(&vctrl->wait_queue);
 
