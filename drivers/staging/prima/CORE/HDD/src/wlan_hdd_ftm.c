@@ -2288,7 +2288,8 @@ int wlan_hdd_ftm_set_nv_field
          {
             nvField->fieldData.macAddr[VOS_MAC_ADDRESS_LEN - 1] =
                                                lastByteMAC + macLoop;
-            vos_mem_copy(pNVMac + (macLoop * NV_FIELD_MAC_ADDR_SIZE),
+            if ((macLoop * NV_FIELD_MAC_ADDR_SIZE) < (sizeof(pNVMac) / sizeof(int)))
+                         vos_mem_copy(pNVMac + (macLoop * NV_FIELD_MAC_ADDR_SIZE),
                          &nvField->fieldData.macAddr[0],
                          NV_FIELD_MAC_ADDR_SIZE);
          }
