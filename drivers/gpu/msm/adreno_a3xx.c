@@ -2594,10 +2594,7 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 
 		/* Clear the error */
 		kgsl_regwrite(device, A3XX_RBBM_AHB_CMD, (1 << 3));
-
-		/* Trigger a fault in the interrupt handler */
-		adreno_dispatcher_irq_fault(device);
-		return;
+		goto done;
 	}
 	case A3XX_INT_RBBM_REG_TIMEOUT:
 		err = "RBBM: AHB register timeout";
@@ -2641,12 +2638,12 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	default:
 		return;
 	}
-
-	/* Trigger a fault in the dispatcher - this will effect a restart */
-	adreno_dispatcher_irq_fault(device);
-
 	KGSL_DRV_CRIT(device, "%s\n", err);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
+
+done:
+	/* Trigger a fault in the dispatcher - this will effect a restart */
+	adreno_dispatcher_irq_fault(device);
 }
 
 static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)

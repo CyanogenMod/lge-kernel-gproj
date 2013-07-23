@@ -1007,11 +1007,11 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 
 	/* Queue the command in the ringbuffer */
-	ret = adreno_context_queue_cmd(adreno_dev, drawctxt, cmdbatch,
+	ret = adreno_dispatcher_queue_cmd(adreno_dev, drawctxt, cmdbatch,
 		timestamp);
 
 	if (ret)
-		KGSL_DRV_ERR(device, "adreno_context_queue_cmd returned %d\n",
+		KGSL_DRV_ERR(device, "adreno_dispatcher_queue_cmd returned %d\n",
 				ret);
 
 	return ret;
@@ -1030,6 +1030,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct kgsl_context *context;
 	struct adreno_context *drawctxt;
 	unsigned int start_index = 0;
+	int flags = KGSL_CMD_FLAGS_NONE;
 	int ret;
 
 	context = cmdbatch->context;
@@ -1043,7 +1044,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if a context switch hasn't occured */
 
 	if ((drawctxt->flags & CTXT_FLAGS_PREAMBLE) &&
-		!(cmdbatch->priv & CMDBATCH_FLAG_FORCE_PREAMBLE) &&
+		!test_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv) &&
 		(adreno_dev->drawctxt_active == drawctxt))
 		start_index = 1;
 
@@ -1054,7 +1055,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	 * generate the start and end markers and skip everything else
 	 */
 
-	if (cmdbatch->priv & CMDBATCH_FLAG_SKIP) {
+	if (test_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv)) {
 		start_index = 0;
 		numibs = 0;
 	}
@@ -1111,9 +1112,12 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if (ret)
 		goto done;
 
+	if (test_bit(CMDBATCH_FLAG_WFI, &cmdbatch->priv))
+		flags = KGSL_CMD_FLAGS_WFI;
+
 	ret = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
 					drawctxt,
-					cmdbatch->flags,
+					flags,
 					&link[0], (cmds - link),
 					cmdbatch->timestamp);
 
