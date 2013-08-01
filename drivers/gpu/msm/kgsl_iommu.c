@@ -588,17 +588,16 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 		return status;
 
 	/* Map Lock variables to GPU pagetable */
-	iommu->sync_lock_desc.priv |= KGSL_MEMFLAGS_GLOBAL;
+	iommu->sync_lock_desc.priv |= KGSL_MEMDESC_GLOBAL;
 
 	pagetable = mmu->priv_bank_table ? mmu->priv_bank_table :
 				mmu->defaultpagetable;
 
-	status = kgsl_mmu_map(pagetable, &iommu->sync_lock_desc,
-				     GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+	status = kgsl_mmu_map(pagetable, &iommu->sync_lock_desc);
 
 	if (status) {
 		kgsl_mmu_unmap(pagetable, &iommu->sync_lock_desc);
-		iommu->sync_lock_desc.priv &= ~KGSL_MEMFLAGS_GLOBAL;
+		iommu->sync_lock_desc.priv &= ~KGSL_MEMDESC_GLOBAL;
 		return status;
 	}
 
@@ -874,6 +873,69 @@ static void kgsl_iommu_setstate(struct kgsl_mmu *mmu,
 	}
 }
 
+/*
+ * kgsl_iommu_setup_regs - map iommu registers into a pagetable
+ * @mmu: Pointer to mmu structure
+ * @pt: the pagetable
+ *
+ * To do pagetable switches from the GPU command stream, the IOMMU
+ * registers need to be mapped into the GPU's pagetable. This function
+ * is used differently on different targets. On 8960, the registers
+ * are mapped into every pagetable during kgsl_setup_pt(). On
+ * all other targets, the registers are mapped only into the second
+ * context bank.
+ *
+ * Return - 0 on success else error code
+ */
+static int kgsl_iommu_setup_regs(struct kgsl_mmu *mmu,
+				    struct kgsl_pagetable *pt)
+{
+	int status;
+	int i = 0;
+	struct kgsl_iommu *iommu = mmu->priv;
+
+	if (!msm_soc_version_supports_iommu_v1())
+		return 0;
+
+	for (i = 0; i < iommu->unit_count; i++) {
+		iommu->iommu_units[i].reg_map.priv |= KGSL_MEMDESC_GLOBAL;
+		status = kgsl_mmu_map(pt,
+				&(iommu->iommu_units[i].reg_map));
+		if (status) {
+			iommu->iommu_units[i].reg_map.priv &=
+				~KGSL_MEMDESC_GLOBAL;
+			goto err;
+		}
+	}
+	return 0;
+err:
+	for (i--; i >= 0; i--) {
+		kgsl_mmu_unmap(pt,
+				&(iommu->iommu_units[i].reg_map));
+		iommu->iommu_units[i].reg_map.priv &= ~KGSL_MEMDESC_GLOBAL;
+	}
+	return status;
+}
+
+/*
+ * kgsl_iommu_cleanup_regs - unmap iommu registers from a pagetable
+ * @mmu: Pointer to mmu structure
+ * @pt: the pagetable
+ *
+ * Removes mappings created by kgsl_iommu_setup_regs().
+ *
+ * Return - 0 on success else error code
+ */
+static void kgsl_iommu_cleanup_regs(struct kgsl_mmu *mmu,
+					struct kgsl_pagetable *pt)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
+	int i;
+	for (i = 0; i < iommu->unit_count; i++)
+		kgsl_mmu_unmap(pt, &(iommu->iommu_units[i].reg_map));
+}
+
+
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 {
 	/*
@@ -916,6 +978,15 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 				cp_nop_packet(1));
 
+	if (cpu_is_msm8960()) {
+		/*
+		 * 8960 doesn't have a second context bank, so the IOMMU
+		 * registers must be mapped into every pagetable.
+		 */
+		iommu_ops.mmu_setup_pt = kgsl_iommu_setup_regs;
+		iommu_ops.mmu_cleanup_pt = kgsl_iommu_cleanup_regs;
+	}
+
 	dev_info(mmu->device->dev, "|%s| MMU type set for device is IOMMU\n",
 			__func__);
 done:
@@ -938,9 +1009,6 @@ done:
 static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 {
 	int status = 0;
-	int i = 0;
-	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_pagetable *pagetable = NULL;
 
 	/* If chip is not 8960 then we use the 2nd context bank for pagetable
 	 * switching on the 3D side for which a separate table is allocated */
@@ -951,6 +1019,9 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 			status = -ENOMEM;
 			goto err;
 		}
+		status = kgsl_iommu_setup_regs(mmu, mmu->priv_bank_table);
+		if (status)
+			goto err;
 	}
 	mmu->defaultpagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
 	/* Return error if the default pagetable doesn't exist */
@@ -958,31 +1029,10 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 		status = -ENOMEM;
 		goto err;
 	}
-	pagetable = mmu->priv_bank_table ? mmu->priv_bank_table :
-				mmu->defaultpagetable;
-	/* Map the IOMMU regsiters to only defaultpagetable */
-	if (msm_soc_version_supports_iommu_v1()) {
-		for (i = 0; i < iommu->unit_count; i++) {
-			iommu->iommu_units[i].reg_map.priv |=
-						KGSL_MEMFLAGS_GLOBAL;
-			status = kgsl_mmu_map(pagetable,
-				&(iommu->iommu_units[i].reg_map),
-				GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
-			if (status) {
-				iommu->iommu_units[i].reg_map.priv &=
-							~KGSL_MEMFLAGS_GLOBAL;
-				goto err;
-			}
-		}
-	}
 	return status;
 err:
-	for (i--; i >= 0; i--) {
-		kgsl_mmu_unmap(pagetable,
-				&(iommu->iommu_units[i].reg_map));
-		iommu->iommu_units[i].reg_map.priv &= ~KGSL_MEMFLAGS_GLOBAL;
-	}
 	if (mmu->priv_bank_table) {
+		kgsl_iommu_cleanup_regs(mmu, mmu->priv_bank_table);
 		kgsl_mmu_putpagetable(mmu->priv_bank_table);
 		mmu->priv_bank_table = NULL;
 	}
@@ -1018,10 +1068,12 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	 * a225, hence we still keep the MMU active on 8960 */
 	if (cpu_is_msm8960()) {
 		struct kgsl_mh *mh = &(mmu->device->mh);
+		BUG_ON(iommu->iommu_units[0].reg_map.gpuaddr != 0 &&
+			mh->mpu_base > iommu->iommu_units[0].reg_map.gpuaddr);
 		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000001);
+
 		kgsl_regwrite(mmu->device, MH_MMU_MPU_END,
-			mh->mpu_base +
-			iommu->iommu_units[0].reg_map.gpuaddr);
+			mh->mpu_base + mh->mpu_range);
 	} else {
 		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
 	}
@@ -1093,14 +1145,12 @@ kgsl_iommu_unmap(void *mmu_specific_pt,
 			"with err: %d\n", iommu_pt->domain, gpuaddr,
 			range, ret);
 
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	/*
 	 * Flushing only required if per process pagetables are used. With
 	 * global case, flushing will happen inside iommu_map function
 	 */
-	if (!ret && msm_soc_version_supports_iommu_v1())
+	if (!ret && kgsl_mmu_is_perprocess())
 		*tlb_flags = UINT_MAX;
-#endif
 	return 0;
 }
 
@@ -1121,12 +1171,12 @@ kgsl_iommu_map(void *mmu_specific_pt,
 	iommu_virt_addr = memdesc->gpuaddr;
 
 	ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr, memdesc->sg,
-				size, (IOMMU_READ | IOMMU_WRITE));
+				size, protflags);
 	if (ret) {
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %d, %d) "
 				"failed with err: %d\n", iommu_pt->domain,
 				iommu_virt_addr, memdesc->sg, size,
-				(IOMMU_READ | IOMMU_WRITE), ret);
+				protflags, ret);
 		return ret;
 	}
 
@@ -1160,22 +1210,23 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i;
-	for (i = 0; i < iommu->unit_count; i++) {
-		struct kgsl_pagetable *pagetable = (mmu->priv_bank_table ?
-			mmu->priv_bank_table : mmu->defaultpagetable);
-		if (iommu->iommu_units[i].reg_map.gpuaddr)
-			kgsl_mmu_unmap(pagetable,
-			&(iommu->iommu_units[i].reg_map));
-		if (iommu->iommu_units[i].reg_map.hostptr)
-			iounmap(iommu->iommu_units[i].reg_map.hostptr);
-		kgsl_sg_free(iommu->iommu_units[i].reg_map.sg,
-				iommu->iommu_units[i].reg_map.sglen);
+
+	if (mmu->priv_bank_table != NULL) {
+		kgsl_iommu_cleanup_regs(mmu, mmu->priv_bank_table);
+		kgsl_mmu_putpagetable(mmu->priv_bank_table);
 	}
 
-	if (mmu->priv_bank_table)
-		kgsl_mmu_putpagetable(mmu->priv_bank_table);
-	if (mmu->defaultpagetable)
+	if (mmu->defaultpagetable != NULL)
 		kgsl_mmu_putpagetable(mmu->defaultpagetable);
+
+	for (i = 0; i < iommu->unit_count; i++) {
+		struct kgsl_memdesc *reg_map = &iommu->iommu_units[i].reg_map;
+
+		if (reg_map->hostptr)
+			iounmap(reg_map->hostptr);
+		kgsl_sg_free(reg_map->sg, reg_map->sglen);
+	}
+
 	kfree(iommu);
 
 	return 0;
@@ -1322,6 +1373,9 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_get_num_iommu_units = kgsl_iommu_get_num_iommu_units,
 	.mmu_pt_equal = kgsl_iommu_pt_equal,
 	.mmu_get_pt_base_addr = kgsl_iommu_get_pt_base_addr,
+	/* These callbacks will be set on some chipsets */
+	.mmu_setup_pt = NULL,
+	.mmu_cleanup_pt = NULL,
 	.mmu_sync_lock = kgsl_iommu_sync_lock,
 	.mmu_sync_unlock = kgsl_iommu_sync_unlock,
 };

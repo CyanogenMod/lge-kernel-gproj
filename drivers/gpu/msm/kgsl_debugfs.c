@@ -16,6 +16,7 @@
 
 #include "kgsl.h"
 #include "kgsl_device.h"
+#include "kgsl_sharedmem.h"
 
 /*default log levels is error for everything*/
 #define KGSL_LOG_LEVEL_DEFAULT 3
@@ -23,6 +24,7 @@
 
 struct dentry *kgsl_debugfs_dir;
 static struct dentry *pm_d_debugfs;
+struct dentry *proc_d_debugfs;
 
 static int pm_dump_set(void *data, u64 val)
 {
@@ -104,6 +106,52 @@ KGSL_DEBUGFS_LOG(ctxt_log);
 KGSL_DEBUGFS_LOG(mem_log);
 KGSL_DEBUGFS_LOG(pwr_log);
 
+static int memfree_hist_print(struct seq_file *s, void *unused)
+{
+	void *base = kgsl_driver.memfree_hist.base_hist_rb;
+
+	struct kgsl_memfree_hist_elem *wptr = kgsl_driver.memfree_hist.wptr;
+	struct kgsl_memfree_hist_elem *p;
+	char str[16];
+
+	seq_printf(s, "%8s %8s %8s %11s\n",
+			"pid", "gpuaddr", "size", "flags");
+
+	mutex_lock(&kgsl_driver.memfree_hist_mutex);
+	p = wptr;
+	for (;;) {
+		kgsl_get_memory_usage(str, sizeof(str), p->flags);
+		/*
+		 * if the ring buffer is not filled up yet
+		 * all its empty elems have size==0
+		 * just skip them ...
+		*/
+		if (p->size)
+			seq_printf(s, "%8d %08x %8d %11s\n",
+				p->pid, p->gpuaddr, p->size, str);
+		p++;
+		if ((void *)p >= base + kgsl_driver.memfree_hist.size)
+			p = (struct kgsl_memfree_hist_elem *) base;
+
+		if (p == kgsl_driver.memfree_hist.wptr)
+			break;
+	}
+	mutex_unlock(&kgsl_driver.memfree_hist_mutex);
+	return 0;
+}
+
+static int memfree_hist_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, memfree_hist_print, inode->i_private);
+}
+
+static const struct file_operations memfree_hist_fops = {
+	.open = memfree_hist_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 void kgsl_device_debugfs_init(struct kgsl_device *device)
 {
 	if (kgsl_debugfs_dir && !IS_ERR(kgsl_debugfs_dir))
@@ -129,6 +177,8 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 				&mem_log_fops);
 	debugfs_create_file("log_level_pwr", 0644, device->d_debugfs, device,
 				&pwr_log_fops);
+	debugfs_create_file("memfree_history", 0444, device->d_debugfs, device,
+				&memfree_hist_fops);
 
 	/* Create postmortem dump control files */
 
@@ -146,9 +196,126 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 
 }
 
+static const char * const memtype_strings[] = {
+	"gpumem",
+	"pmem",
+	"ashmem",
+	"usermap",
+	"ion",
+};
+
+static const char *memtype_str(int memtype)
+{
+	if (memtype < ARRAY_SIZE(memtype_strings))
+		return memtype_strings[memtype];
+	return "unknown";
+}
+
+static char get_alignflag(const struct kgsl_memdesc *m)
+{
+	int align = kgsl_memdesc_get_align(m);
+	if (align >= ilog2(SZ_1M))
+		return 'L';
+	else if (align >= ilog2(SZ_64K))
+		return 'l';
+	return '-';
+}
+
+static char get_cacheflag(const struct kgsl_memdesc *m)
+{
+	static const char table[] = {
+		[KGSL_CACHEMODE_WRITECOMBINE] = '-',
+		[KGSL_CACHEMODE_UNCACHED] = 'u',
+		[KGSL_CACHEMODE_WRITEBACK] = 'b',
+		[KGSL_CACHEMODE_WRITETHROUGH] = 't',
+	};
+	return table[kgsl_memdesc_get_cachemode(m)];
+}
+
+static void print_mem_entry(struct seq_file *s, struct kgsl_mem_entry *entry)
+{
+	char flags[6];
+	char usage[16];
+	struct kgsl_memdesc *m = &entry->memdesc;
+
+	flags[0] = kgsl_memdesc_is_global(m) ?  'g' : '-';
+	flags[1] = m->flags & KGSL_MEMFLAGS_GPUREADONLY ? 'r' : '-';
+	flags[2] = get_alignflag(m);
+	flags[3] = get_cacheflag(m);
+	flags[4] = kgsl_memdesc_use_cpu_map(m) ? 'p' : '-';
+	flags[5] = '\0';
+
+	kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
+
+	seq_printf(s, "%08x %8d %5d %5s %10s %16s %5d\n",
+			m->gpuaddr, m->size, entry->id, flags,
+			memtype_str(entry->memtype), usage, m->sglen);
+}
+
+static int process_mem_print(struct seq_file *s, void *unused)
+{
+	struct kgsl_mem_entry *entry;
+	struct rb_node *node;
+	struct kgsl_process_private *private = s->private;
+	int next = 0;
+
+	seq_printf(s, "%8s %8s %5s %5s %10s %16s %5s\n",
+		   "gpuaddr", "size", "id", "flags", "type", "usage", "sglen");
+
+	/* print all entries with a GPU address */
+	spin_lock(&private->mem_lock);
+
+	for (node = rb_first(&private->mem_rb); node; node = rb_next(node)) {
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+		print_mem_entry(s, entry);
+	}
+
+	spin_unlock(&private->mem_lock);
+
+	/* now print all the unbound entries */
+	while (1) {
+		rcu_read_lock();
+		entry = idr_get_next(&private->mem_idr, &next);
+		rcu_read_unlock();
+
+		if (entry == NULL)
+			break;
+		if (entry->memdesc.gpuaddr == 0)
+			print_mem_entry(s, entry);
+		next++;
+	}
+
+	return 0;
+}
+
+static int process_mem_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, process_mem_print, inode->i_private);
+}
+
+static const struct file_operations process_mem_fops = {
+	.open = process_mem_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+void
+kgsl_process_init_debugfs(struct kgsl_process_private *private)
+{
+	unsigned char name[16];
+
+	snprintf(name, sizeof(name), "%d", private->pid);
+
+	private->debug_root = debugfs_create_dir(name, proc_d_debugfs);
+	debugfs_create_file("mem", 0400, private->debug_root, private,
+			    &process_mem_fops);
+}
+
 void kgsl_core_debugfs_init(void)
 {
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", 0);
+	proc_d_debugfs = debugfs_create_dir("proc", kgsl_debugfs_dir);
 }
 
 void kgsl_core_debugfs_close(void)
