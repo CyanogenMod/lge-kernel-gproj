@@ -160,6 +160,7 @@ static void event_handler(uint32_t opcode,
 		else
 			prtd->out_head =
 				(prtd->out_head + 1) & (runtime->periods - 1);
+                        atomic_set(&prtd->pending_buffer, 0);
 		break;
 	}
 	case ASM_DATA_CMDRSP_EOS:
