@@ -1614,7 +1614,9 @@ int iw_softap_get_channel_list(struct net_device *dev,
     v_U8_t bandEndChannel = RF_CHAN_165;
     v_U32_t temp_num_channels = 0;
     hdd_adapter_t *pHostapdAdapter = (netdev_priv(dev));
+#ifdef WLAN_DEBUG
     hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pHostapdAdapter);
+#endif
     tHalHandle hHal = WLAN_HDD_GET_HAL_CTX(pHostapdAdapter);
     v_REGDOMAIN_t domainIdCurrentSoftap;
     tpChannelListInfo channel_list = (tpChannelListInfo) extra;

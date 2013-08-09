@@ -114,6 +114,7 @@ when           who        what, where, why
   *-------------------------------------------------------------------------*/
 /* This is temp, someone have to allocate for me, and must be part of global context */
 static WLANDXE_CtrlBlkType    *tempDxeCtrlBlk;
+#ifdef WLAN_DEBUG
 static char                   *channelType[WDTS_CHANNEL_MAX] =
    {
       "TX_LOW_PRI",
@@ -126,6 +127,7 @@ static char                   *channelType[WDTS_CHANNEL_MAX] =
       "H2H_TEST_RX"
 #endif /* WLANDXE_TEST_CHANNEL_ENABLE */
    };
+#endif
 static  wpt_packet               *rx_reaped_buf[WLANDXE_MAX_REAPED_RX_FRAMES];
 
 /*-------------------------------------------------------------------------

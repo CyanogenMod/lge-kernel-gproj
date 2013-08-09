@@ -108,9 +108,10 @@ void wpalDump( wpt_moduleid module, wpt_tracelevel level,
     } while (0)
 #else //WLAN_DEBUG
 
-#define WPAL_TRACE
-#define WPAL_DUMP
-#define WPAL_ASSERT
+#define wpalTrace(p,...) { }
+#define WPAL_TRACE(p,...) { }
+#define WPAL_DUMP(p,...) { }
+#define WPAL_ASSERT(p,...) { }
 
 #endif //WLAN_DEBUG
 
