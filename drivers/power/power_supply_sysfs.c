@@ -480,7 +480,7 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 		return ret;
 	}
 
-	dev_info(dev, "POWER_SUPPLY_NAME=%s\n", psy->name);
+	dev_dbg(dev, "POWER_SUPPLY_NAME=%s\n", psy->name);
 
 	ret = add_uevent_var(env, "POWER_SUPPLY_NAME=%s", psy->name);
 	if (ret)

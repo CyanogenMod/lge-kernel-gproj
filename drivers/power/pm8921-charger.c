@@ -61,7 +61,7 @@
 #include <linux/reboot.h>
 #endif
 
-#define ChgLog(x, ...) printk(x, ##__VA_ARGS__)
+#define ChgLog(x, ...) //printk(x, ##__VA_ARGS__)
 
 #ifdef CONFIG_LGE_PM_ADP_CHG
 /* Adapive USB draw current limit */
@@ -4915,7 +4915,7 @@ static void eoc_worker(struct work_struct *work)
 #endif
 	} else {
                 adjust_vdd_max_for_fastchg(chip, vbat_batt_terminal_uv);
-		pr_info("EOC count = %d\n", count);
+		pr_debug("EOC count = %d\n", count);
 		schedule_delayed_work(&chip->eoc_work,
 			      round_jiffies_relative(msecs_to_jiffies
 						     (EOC_CHECK_PERIOD_MS)));
