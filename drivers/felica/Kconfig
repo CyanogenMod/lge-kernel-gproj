@@ -13,3 +13,8 @@ config LGE_FELICA_NFC
 	default n
 	---help---
 	LGE Felica related change
+config LGE_FELICA_ONLY
+	bool "Felica only driver"
+	default n
+	---help---
+	LGE Felica related change

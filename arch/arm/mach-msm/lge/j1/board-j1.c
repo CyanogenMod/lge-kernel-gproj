@@ -890,20 +890,18 @@ static int get_factory_cable(void)
     int res = 0;
 
     switch(lge_pm_get_cable_type()) {
-	/* It is factory cable */
-	case CABLE_56K:
-	    res = LGEUSB_FACTORY_56K;
-	    break;
-	case CABLE_130K:
-	    res = LGEUSB_FACTORY_130K;
-	    break;
-	case CABLE_910K:
-	    res = LGEUSB_FACTORY_910K;
-	    break;
-	    /* It is normal cable */
-	default:
-	    res = 0;
-	    break;
+    /* It is factory cable */
+    case CABLE_56K:
+        return LGEUSB_FACTORY_56K;
+    case CABLE_130K:
+        return LGEUSB_FACTORY_130K;
+    case CABLE_910K:
+        return LGEUSB_FACTORY_910K;
+
+    /* It is normal cable */
+    default:
+        res = 0;
+        break;
     }
 
     /* if boot mode is factory,
@@ -911,15 +909,14 @@ static int get_factory_cable(void)
      */
     boot_mode = lge_get_boot_mode();
     switch(boot_mode) {
-	case LGE_BOOT_MODE_FACTORY:
-	    res = LGEUSB_FACTORY_130K;
-	    break;
-	case LGE_BOOT_MODE_FACTORY2:
-	//case LGE_BOOT_MODE_PIFBOOT:
-	    res = LGEUSB_FACTORY_56K;
-	    break;
-	default:
-	    break;
+    case LGE_BOOT_MODE_FACTORY:
+        res = LGEUSB_FACTORY_130K;
+        break;
+    case LGE_BOOT_MODE_FACTORY2:
+        res = LGEUSB_FACTORY_56K;
+        break;
+    default:
+        break;
     }
 
     return res;
@@ -2182,13 +2179,6 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 	},
 
 	{
-		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
-		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
-		true,
-		1300, 228, 1200000, 2000,
-	},
-
-	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(ON, GDHS, MAX, ACTIVE),
 		false,
@@ -2282,6 +2272,21 @@ static uint8_t spm_power_collapse_with_rpm[] __initdata = {
 	0x00, 0x24, 0x54, 0x10,
 	0x09, 0x07, 0x01, 0x0B,
 	0x10, 0x54, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
+/* 8064AB has a different command to assert apc_pdn */
+static uint8_t spm_power_collapse_without_rpm_krait_v3[] __initdata = {
+	0x00, 0x24, 0x84, 0x10,
+	0x09, 0x03, 0x01,
+	0x10, 0x84, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_with_rpm_krait_v3[] __initdata = {
+	0x00, 0x24, 0x84, 0x10,
+	0x09, 0x07, 0x01, 0x0B,
+	0x10, 0x84, 0x30, 0x0C,
 	0x24, 0x30, 0x0f,
 };
 
@@ -2436,6 +2441,27 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.modes = msm_spm_nonboot_cpu_seq_list,
 	},
 };
+
+static void __init apq8064ab_update_krait_spm(void)
+{
+	int i;
+
+	/* Update the SPM sequences for SPC and PC */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+			if (pdata->modes[j].cmd ==
+					spm_power_collapse_without_rpm)
+				pdata->modes[j].cmd =
+				spm_power_collapse_without_rpm_krait_v3;
+			else if (pdata->modes[j].cmd ==
+					spm_power_collapse_with_rpm)
+				pdata->modes[j].cmd =
+				spm_power_collapse_with_rpm_krait_v3;
+		}
+	}
+}
 
 #define GSBI_I2C_MODE_CODE	0x20
 #define GSBI_DUAL_MODE_CODE	0x60
@@ -3812,6 +3838,8 @@ static void __init apq8064_common_init(void)
 		apq8064_init_dsps();
 		platform_device_register(&msm_8960_riva);
 	}
+	if (cpu_is_apq8064ab())
+		apq8064ab_update_krait_spm();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE

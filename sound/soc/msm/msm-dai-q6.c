@@ -56,6 +56,13 @@ static struct clk *pcm_clk;
 static struct clk *sec_pcm_clk;
 static DEFINE_MUTEX(aux_pcm_mutex);
 static int aux_pcm_count;
+/* LGE_CHANGE_S - QCT patch (case #01013176)
+*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
+*  2012-11-10, donggyun.kim@lge.com
+*/
+static int aux_tx;
+static int aux_rx;
+/* LGE_CHANGE_E */  
 static struct msm_dai_auxpcm_pdata *auxpcm_plat_data;
 static struct msm_dai_auxpcm_pdata *sec_auxpcm_plat_data;
 
@@ -723,6 +730,26 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 
 	mutex_lock(&aux_pcm_mutex);
 
+	/* LGE_CHANGE_S - QCT patch (case #01013176)
+	*	add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
+	*	2012-11-10, donggyun.kim@lge.com
+	*/
+	if (dai->id == PCM_RX)
+		aux_rx--;
+	else if (dai->id == PCM_TX)
+		aux_tx--;
+
+	if (aux_rx < 0) {
+		aux_rx = 0;
+		mutex_unlock(&aux_pcm_mutex);
+		return;
+	} else if (aux_tx < 0) {
+		aux_tx = 0;
+		mutex_unlock(&aux_pcm_mutex);
+		return;
+	}
+	 /* LGE_CHANGE_E */
+
 	if (aux_pcm_count == 0) {
 		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. Just"
 				" return\n", __func__, dai->id);
@@ -757,6 +784,14 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	rc = afe_close(PCM_TX);
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close AUX PCM TX port\n");
+
+	/* LGE_CHANGE_S - QCT patch (case #01013176)
+	*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
+	*  2012-11-10, donggyun.kim@lge.com
+	*/
+	aux_rx = 0;
+	aux_tx = 0;
+	/* LGE_CHANGE_E */
 
 	mutex_unlock(&aux_pcm_mutex);
 }
@@ -844,6 +879,16 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	unsigned long pcm_clk_rate;
 
 	mutex_lock(&aux_pcm_mutex);
+
+	/* LGE_CHANGE_S - QCT patch (case #01013176)
+	*  add "aux_tx, aux_rx" to prevent unexpected close of AUX-AFE and clock disable
+	*  2012-11-10, donggyun.kim@lge.com
+	*/
+	if (dai->id == PCM_RX)
+		aux_rx++;
+	else if (dai->id == PCM_TX)
+		aux_tx++;
+	/* LGE_CHANGE_E */
 
 	if (aux_pcm_count == 2) {
 		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 2. Just"

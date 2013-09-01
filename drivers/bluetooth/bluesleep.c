@@ -399,6 +399,9 @@ static void bluesleep_tx_timer_expire(unsigned long data)
 {
 	unsigned long irq_flags;
 
+	//LG_BTUI] Add timer modifier [minwoo2.kim@lge.com]
+	int host_wake;
+
 	spin_lock_irqsave(&rw_lock, irq_flags);
 
 	BT_DBG("Tx timer expired");
@@ -413,7 +416,21 @@ static void bluesleep_tx_timer_expire(unsigned long data)
 		return;
 	}
 
-	bluesleep_tx_idle();
+	//[LG_BTUI] Add timer modifier [s]
+	//If HOST_WAKE is retained in low state after 5sec timer expired, We can't go to sleep.
+	//origns : bluesleep_tx_idle();
+
+	host_wake = gpio_get_value(bsi->host_wake);
+	BT_DBG("check host_wake status :%d", host_wake);
+
+	if(host_wake == 0) {
+		BT_DBG("Tx timer re set");
+		mod_timer(&tx_timer, jiffies + (TX_TIMER_INTERVAL*HZ));
+	}
+	else
+		bluesleep_tx_idle();
+//[minwoo2.kim@lge.com, 2013/01/23] [e]
+
 #else/*FEATURE_USE_BTLA*/
 	/* were we silent during the last timeout? */
 	if (!test_bit(BT_TXDATA, &flags)) {

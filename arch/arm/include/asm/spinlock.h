@@ -226,11 +226,24 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 	return !tmp;
 }
 
+static inline int arch_spin_is_already_unlocked(arch_spinlock_t *lock)
+{
+	unsigned long tmp = ACCESS_ONCE(lock->lock);
+	long now_serving = (tmp >> TICKET_SHIFT) & TICKET_MASK;
+	long next_ticket = tmp & TICKET_MASK;
+	return (now_serving == next_ticket) ? 1 : 0;
+}
+
 static inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
 	unsigned long ticket, tmp;
 
 	smp_mb();
+
+	if (arch_spin_is_already_unlocked (lock)) {
+		printk (KERN_ERR "arch_spin_unlock: LOCK_ERR lock already freed lock 0x%p, val 0x%x\n", lock, lock->lock);
+		return;
+	}
 
 	/* Bump now_serving by 1 */
 	__asm__ __volatile__(

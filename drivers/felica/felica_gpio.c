@@ -104,6 +104,9 @@ int felica_gpio_read(int gpionum)
 */
 int felica_get_rfs_gpio_num(void)
 {
+#if defined(CONFIG_LGE_FELICA_ONLY)
+	return GPIO_FELICA_RFS;
+#else
   int gpionum = GPIO_FELICA_RFS;
 
   if (lge_get_board_revno() > HW_REV_B)
@@ -116,6 +119,7 @@ int felica_get_rfs_gpio_num(void)
   }
 
 	return gpionum;
+#endif
 }
 
 /*
@@ -125,6 +129,9 @@ int felica_get_rfs_gpio_num(void)
 */
 int felica_get_int_gpio_num(void)
 {
+#if defined(CONFIG_LGE_FELICA_ONLY)
+	return GPIO_FELICA_INT;
+#else
   int gpionum = GPIO_FELICA_INT;
 
   if (lge_get_board_revno() > HW_REV_B)
@@ -137,4 +144,5 @@ int felica_get_int_gpio_num(void)
   }
 
 	return gpionum;
+#endif
 }

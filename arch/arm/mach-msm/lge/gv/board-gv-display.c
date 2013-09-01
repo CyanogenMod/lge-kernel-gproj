@@ -254,8 +254,8 @@ static struct msm_bus_vectors mdp_ui_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,    // 602603520 * 2,
-		.ib = 2000000000,    // 753254400 * 2,
+		.ab = 577474560 * 2,//.ab = 2000000000,    // 602603520 * 2,
+		.ib = 866211840 * 2,//.ib = 2000000000,    // 753254400 * 2,
 	},
 };
 
@@ -264,8 +264,8 @@ static struct msm_bus_vectors mdp_vga_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,    // 602603520 * 2,
-		.ib = 2000000000,    // 753254400 * 2,
+		.ab = 605122560 * 2,//.ab = 2000000000,    // 602603520 * 2,
+		.ib = 756403200 * 2,//.ib = 2000000000,    // 753254400 * 2,
 	},
 };
 
@@ -274,8 +274,8 @@ static struct msm_bus_vectors mdp_720p_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,    // 602603520 * 2,
-		.ib = 2000000000,    // 753254400 * 2,
+		.ab = 660418560 * 2,//.ab = 2000000000,    // 602603520 * 2,
+		.ib = 825523200 * 2,//.ib = 2000000000,    // 753254400 * 2,
 	},
 };
 
@@ -284,8 +284,8 @@ static struct msm_bus_vectors mdp_1080p_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,    // 602603520 * 2,
-		.ib = 2000000000,    // 753254400 * 2,
+		.ab = 764098560 * 2,//.ab = 2000000000,    // 602603520 * 2,
+		.ib = 955123200 * 2,//.ib = 2000000000,    // 753254400 * 2,
 	},
 };
 
@@ -595,15 +595,6 @@ static int mipi_dsi_panel_power(int on)
 	
 	return 0;
 }
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
-void mipi_dsi_panel_power_off_shutdown(void)
-{
-    printk("[LCD][DEBUG] mipi_dsi_panel_power_off_shutdown started\n");
-	mipi_dsi_panel_power(0);
-    printk("[LCD][DEBUG] mipi_dsi_panel_power_off_shutdown ended\n");
-}
-EXPORT_SYMBOL(mipi_dsi_panel_power_off_shutdown);
-#endif 
 
 static char mipi_dsi_splash_is_enabled(void)
 {
@@ -1209,23 +1200,23 @@ static char display_setting_2           [8] = {
 
 static char source_timing_setting      [23] = {
 					0xC4,
-					0x70, 0x00, 0x00, 0x00, 0x00,
-					0x04, 0x00, 0x00, 0x00, 0x11,
+					0x70, 0x00, 0x00, 0x00, 0x07,
+					0x05, 0x05, 0x09, 0x09, 0x0C,
 					0x06, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x04, 0x00, 0x00, 0x00,
-					0x11, 0x06
+					0x07, 0x05, 0x05, 0x09, 0x09,
+					0x0C, 0x06
 					};
 
 static char ltps_timing_setting        [41] = {
 					0xC6,
-					0x06, 0x6D, 0x06, 0x6D, 0x06,
-					0x6D, 0x00, 0x00, 0x00, 0x00,
-					0x06, 0x6D, 0x06, 0x6D, 0x06,
-					0x6D, 0x15, 0x19, 0x07, 0x00,
-					0x01, 0x06, 0x6D, 0x06, 0x6D,
-					0x06, 0x6D, 0x00, 0x00, 0x00,
-					0x00, 0x06, 0x6D, 0x06, 0x6D,
-					0x06, 0x6D, 0x15, 0x19, 0x07
+					0x00, 0x69, 0x00, 0x69, 0x00,
+					0x69, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x69, 0x00, 0x69, 0x00,
+					0x69, 0x10, 0x19, 0x07, 0x00,
+					0x01, 0x00, 0x69, 0x00, 0x69,
+					0x00, 0x69, 0x00, 0x00, 0x00,
+					0x00, 0x00, 0x69, 0x00, 0x69,
+					0x00, 0x69, 0x10, 0x19, 0x07
 					};
 
 static char gamma_setting_a_old            [25] = {
@@ -1297,17 +1288,24 @@ static char pwr_setting_internal_pwr   [27] = {
 					0x02, 0x37, 0x03, 0x3D, 0xBF,
 					0x00
 					};
-					
+
 static char vcom_setting                [8] = {
 					0xD5,
 					0x06, 0x00, 0x00, 0x01, 0x39,
 					0x01, 0x39
 					};
+
 static char vcom_setting_old            [8] = {
 					0xD5,
 					0x06, 0x00, 0x00, 0x01, 0x4A,
 					0x01, 0x4A
 					};
+
+static char vcom_setting_for_suspend    [8] = {
+                    0xD5,
+                    0x06, 0x00, 0x00, 0x00, 0x48,
+                    0x00, 0x48
+};
 
 static char display_on                  [2] = {0x29,0x00};
 
@@ -1322,12 +1320,12 @@ static char deep_standby_mode           [2] = {0xB1,0x01};
 #if defined(CONFIG_LGE_R63311_COLOR_ENGINE)
 static char color_enhancement          [33] = {
                                    0xCA,
-                                   0x01, 0x70, 0xB0, 0xFF, 0xFF,
-                                   0xB0, 0x98, 0x78, 0x3F, 0x3F,
-                                   0x80, 0x88, 0x08, 0x38, 0x08,
+                                   0x01, 0x70, 0x90, 0xA0, 0xB0,
+                                   0x98, 0x90, 0x90, 0x3F, 0x3F,
+                                   0x80, 0x78, 0x08, 0x38, 0x08,
                                    0x3F, 0x08, 0x90, 0x0C, 0x0C,
                                    0x0A, 0x06, 0x04, 0x04, 0x00,
-                                   0xC0, 0x10, 0x10, 0x3F, 0x3F,
+                                   0xC8, 0x10, 0x10, 0x3F, 0x3F,
                                    0x3F, 0x3F
                                    };
 static char color_enhancement_off      [33] = {
@@ -1353,7 +1351,7 @@ static char auto_contrast_off           [7] = {
                                    0x55
                                    };
 
-static char sharpening_control          [3] = {0xDD, 0x21, 0x45};
+static char sharpening_control          [3] = {0xDD, 0x01, 0x95};
 
 static char sharpening_control_off      [3] = {0xDD, 0x20, 0x45};
 #endif // color engine apply
@@ -1374,7 +1372,7 @@ static char write_cabc_still_on      [2] = {0x55, 0x02};
 static char write_cabc_off           [2] = {0x55, 0x00};
 
 static char backlight_ctrl_ui          [8] = {0xBA, 0x00, 0x3F, 0x04, 0x40, 0x9F, 0x1F, 0xD7};
-static char backlight_ctrl_movie_still [8] = {0xB9, 0x00, 0x3F, 0x18, 0x18, 0x9F, 0x1F, 0x80};
+static char backlight_ctrl_movie_still [8] = {0xB9, 0x00, 0x02, 0x18, 0x18, 0x9F, 0x1F, 0x80};
 static char backlight_ctrl_common      [26]= {0xB8,
                                        0x18, 0x80, 0x18, 0x18,
                                        0xCF, 0x1F, 0x00, 0x0C,
@@ -1406,21 +1404,20 @@ static struct dsi_cmd_desc lgit_power_on_set_1_old[] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pwr_setting_internal_pwr), pwr_setting_internal_pwr},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_old), vcom_setting_old},
        {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_old), vcom_setting_old},
-
 #if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 20, sizeof(set_address_mode),set_address_mode},
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-    {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pwm_set), pwm_set},
-    {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_ctrl_display), write_ctrl_display},
-    {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_still_on), write_cabc_still_on},
-    {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_minimum_brightness), write_cabc_minimum_brightness},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pwm_set), pwm_set},
+       {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_ctrl_display), write_ctrl_display},
+       {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_still_on), write_cabc_still_on},
+       {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_minimum_brightness), write_cabc_minimum_brightness},
 #endif // CABC apply
 #endif /* CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT */
 #if defined(CONFIG_LGE_R63311_COLOR_ENGINE)
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-    {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_movie_still), backlight_ctrl_movie_still},
-    {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_ui), backlight_ctrl_ui},
-    {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_common), backlight_ctrl_common},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_movie_still), backlight_ctrl_movie_still},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_ui), backlight_ctrl_ui},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_common), backlight_ctrl_common},
 #endif // CABC apply
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(color_enhancement), color_enhancement},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(auto_contrast), auto_contrast},
@@ -1447,21 +1444,20 @@ static struct dsi_cmd_desc lgit_power_on_set_1[] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pwr_setting_internal_pwr), pwr_setting_internal_pwr},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting), vcom_setting},
        {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting), vcom_setting},
-
 #if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 20, sizeof(set_address_mode),set_address_mode},
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-    {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pwm_set), pwm_set},
-    {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_ctrl_display), write_ctrl_display},
-    {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_still_on), write_cabc_still_on},
-    {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_minimum_brightness), write_cabc_minimum_brightness},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pwm_set), pwm_set},
+       {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_ctrl_display), write_ctrl_display},
+       {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_still_on), write_cabc_still_on},
+       {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_minimum_brightness), write_cabc_minimum_brightness},
 #endif // CABC apply
 #endif /* CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT */
 #if defined(CONFIG_LGE_R63311_COLOR_ENGINE)
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-    {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_movie_still), backlight_ctrl_movie_still},
-    {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_ui), backlight_ctrl_ui},
-    {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_common), backlight_ctrl_common},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_movie_still), backlight_ctrl_movie_still},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_ui), backlight_ctrl_ui},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(backlight_ctrl_common), backlight_ctrl_common},
 #endif // CABC apply
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(color_enhancement), color_enhancement},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(auto_contrast), auto_contrast},
@@ -1491,23 +1487,29 @@ static struct dsi_cmd_desc lgit_color_engine_off[3] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(sharpening_control_off), sharpening_control_off},
 };
 #endif //CONFIG_LGIT_COLOR_ENGINE_SWITCH
-#if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-static struct dsi_cmd_desc lgit_cabc_off[] = {
-      {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_off), write_cabc_off},
-};
-#endif // CABC apply
 
 static struct dsi_cmd_desc lgit_power_off_set[] = {
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_for_suspend), vcom_setting_for_suspend},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 20, sizeof(vcom_setting_for_suspend), vcom_setting_for_suspend},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 20, sizeof(display_off), display_off},
+#if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
+       {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_off), write_cabc_off},
+#endif // CABC apply
 	{DTYPE_DCS_WRITE, 1, 0, 0, 100, sizeof(enter_sleep_mode), enter_sleep_mode},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 40, sizeof(deep_standby_mode), deep_standby_mode}
 };
 /* LGE_CHANGE_E */
 
+static struct dsi_cmd_desc lgit_shutdown_set[] = {
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_for_suspend), vcom_setting_for_suspend},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_for_suspend), vcom_setting_for_suspend},
+       {DTYPE_DCS_WRITE, 1, 0, 0, 0,  sizeof(display_off), display_off},
+};
+
 static struct msm_panel_common_pdata mipi_lgit_pdata = {
 	.backlight_level = mipi_lgit_backlight_level,
-    .power_on_set_1_old = lgit_power_on_set_1_old,
-    .power_on_set_size_1_old = ARRAY_SIZE(lgit_power_on_set_1_old),
+       .power_on_set_1_old = lgit_power_on_set_1_old,
+       .power_on_set_size_1_old = ARRAY_SIZE(lgit_power_on_set_1_old),
 	.power_on_set_1 = lgit_power_on_set_1,
 	.power_on_set_size_1 = ARRAY_SIZE(lgit_power_on_set_1),
 	.power_on_set_2 = lgit_power_on_set_2,
@@ -1515,20 +1517,17 @@ static struct msm_panel_common_pdata mipi_lgit_pdata = {
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
 	.power_on_set_3 = lgit_power_on_set_3,
 	.power_on_set_size_3 = ARRAY_SIZE(lgit_power_on_set_3),
-#endif
+#endif //CABC apply
 #if defined(CONFIG_LGIT_COLOR_ENGINE_SWITCH)
 	.color_engine_on = lgit_color_engine_on,
 	.color_engine_on_size = ARRAY_SIZE(lgit_color_engine_on),
 	.color_engine_off = lgit_color_engine_off,
 	.color_engine_off_size = ARRAY_SIZE(lgit_color_engine_off),
 #endif //CONFIG_LGIT_COLOR_ENGINE_SWITCH
-#if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-	.cabc_off = lgit_cabc_off,
-	.cabc_off_size = ARRAY_SIZE(lgit_cabc_off),
-#endif // CABC apply
-	.power_off_set_1 = lgit_power_off_set,
-	.power_off_set_size_1 = ARRAY_SIZE(lgit_power_off_set),
-
+       .power_off_set_1 = lgit_power_off_set,
+       .power_off_set_size_1 = ARRAY_SIZE(lgit_power_off_set),
+       .power_off_set_2 = lgit_shutdown_set,
+       .power_off_set_size_2 = ARRAY_SIZE(lgit_shutdown_set),
 };
 
 static struct platform_device mipi_dsi_lgit_panel_device = {

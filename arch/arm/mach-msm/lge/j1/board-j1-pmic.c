@@ -653,7 +653,7 @@ static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdat
 	 */
 #if defined(CONFIG_MACH_APQ8064_J1D)||defined(CONFIG_MACH_APQ8064_J1KD)
 	.max_bat_chg_current	= 1500,
-#elif defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
+#elif defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	.max_bat_chg_current	= 1800,
 #else
 	.max_bat_chg_current	= 1350,
@@ -750,7 +750,7 @@ static unsigned int keymap[] = {
 	KEY(0, 1, KEY_VOLUMEDOWN),
 	//KEY(0, 2, KEY_CAMERA_SNAPSHOT),
 	//KEY(0, 3, KEY_CAMERA_FOCUS),
-#if defined(CONFIG_MACH_APQ8064_GKKT)||defined(CONFIG_MACH_APQ8064_GKSK)||defined(CONFIG_MACH_APQ8064_GKU)||defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT)||defined(CONFIG_MACH_APQ8064_GKSK)||defined(CONFIG_MACH_APQ8064_GKU)||defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	KEY(1, 1, KEY_HOMEPAGE),
 	KEY(1, 0, KEY_BACK), //KEY_QUICK_CLIP - > 2012-07-16 temp code for touch fw
 #endif
@@ -764,7 +764,7 @@ static struct matrix_keymap_data keymap_data = {
 static struct pm8xxx_keypad_platform_data keypad_data = {
 	.input_name             = "keypad_8064",
 	.input_phys_device      = "keypad_8064/input0",
-#if defined(CONFIG_MACH_APQ8064_GKKT)||defined(CONFIG_MACH_APQ8064_GKSK)||defined(CONFIG_MACH_APQ8064_GKU)||defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT)||defined(CONFIG_MACH_APQ8064_GKSK)||defined(CONFIG_MACH_APQ8064_GKU)||defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	.num_rows				= 2,
 	.num_cols				= 5,
 #else

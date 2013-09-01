@@ -1221,6 +1221,18 @@ config USB_G_LGE_ANDROID_DTF
 
 	default n
 
+config USB_G_LGE_ANDROID_DTF_GJD
+	boolean "Aladin IC data transfer support in LGE Android"
+	depends on USB_G_LGE_ANDROID
+	help
+	  Aladin IC data transfer feature is used in user data transfering
+	  between old phone and new phone. For this, dedicated USB function
+	  gadget is needed. It is only for NTT-docomo device.
+
+	  Say y if this feature must be used.
+
+	default n
+
 config USB_G_LGE_ANDROID_CDROM_MAC_SUPPORT
 	boolean "USB CDROM support patch of LGE Android on Mac OS-X"
 	depends on USB_G_LGE_ANDROID

@@ -125,6 +125,7 @@ static int snfc_avail_poll_release (struct inode *inode, struct file *fp)
  * Input:
  * Output:
  */
+extern int koto_abnormal;
 static ssize_t snfc_avail_poll_read(struct file *pf, char *pbuf, size_t size, loff_t *pos)
 {
 	//unsigned char read_buf = 0x00;
@@ -157,6 +158,8 @@ static ssize_t snfc_avail_poll_read(struct file *pf, char *pbuf, size_t size, lo
 			loop_cnt = 0;
 		}
 		if(rfs_status == GPIO_HIGH_VALUE && cen_status == GPIO_HIGH_VALUE && uart_status != UART_STATUS_FOR_FELICA)
+			break;
+		if(koto_abnormal == 10)
 			break;
 		msleep(1);
 	}while(loop);

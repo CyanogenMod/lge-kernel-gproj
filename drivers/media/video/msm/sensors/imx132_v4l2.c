@@ -384,7 +384,7 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	rc = gpio_request(MSM_VT_PWR_EN, "VT_PWR_EN");
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
 		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN);
 		rc = gpio_request(MSM_CAM2_RST_EN, "VTCAM_RST_EN");
@@ -414,7 +414,7 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	rc =pm8xxx_gpio_config(MSM_VT_PWR_EN, &gpio35_param);
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
 		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
 		rc =pm8xxx_gpio_config(MSM_CAM2_RST_EN, &gpio28_param);
@@ -454,7 +454,7 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 	usleep(10);
 
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
 		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
 		rc = gpio_direction_output(MSM_CAM2_RST_EN, 1);
@@ -494,7 +494,7 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	return rc;
 
 enable_clk_failed:
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
 		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
 		rc = gpio_direction_output(MSM_CAM2_RST_EN, 0);
@@ -564,7 +564,7 @@ sub_cam_id_for_keep_screen_on = -1;
     usleep(5);
 /* LGE_CHANGE_E, increase timing margin, 2012.06.19, yt.jeon@lge.com */
 
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
 		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
 		rc = gpio_direction_output(MSM_CAM2_RST_EN, 0 );
@@ -579,6 +579,8 @@ sub_cam_id_for_keep_screen_on = -1;
 		msm_camera_config_gpio_table(data, 0);
 	}
 
+/* LGE_CHANGE_S, Avoid Kernel Panic, 2012.11.12, jungki.kim[Start] */
+	if(s_ctrl->reg_ptr != NULL) {
 	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
 		s_ctrl->sensordata->sensor_platform_info->num_vreg,
@@ -591,6 +593,13 @@ sub_cam_id_for_keep_screen_on = -1;
 		s_ctrl->vreg_seq,
 		s_ctrl->num_vreg_seq,
 		s_ctrl->reg_ptr, 0);
+		kfree(s_ctrl->reg_ptr);
+	}
+	else {
+		// NULL!
+		LDBGE("%s: No Regulator Pointer!\n", __func__);
+	}
+/* LGE_CHANGE_E, Avoid Kernel Panic, 2012.11.12, jungki.kim[End] */
 
 	rc = gpio_direction_output(MSM_VT_PWR_EN, 0);
 	if (rc) {
@@ -598,10 +607,9 @@ sub_cam_id_for_keep_screen_on = -1;
 	}
 
 	msm_camera_request_gpio_table(data, 0);
-	kfree(s_ctrl->reg_ptr);
 
 	gpio_free(MSM_VT_PWR_EN);
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
 		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
 		gpio_free(MSM_CAM2_RST_EN);

@@ -172,7 +172,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8921_GPIO_OUTPUT(13, 0, HIGH),               /* PCIE_CLK_PWR_EN */
 	PM8921_GPIO_INPUT(12, PM_GPIO_PULL_UP_30),     /* PCIE_WAKE_N */
 #if defined(CONFIG_LGE_IRDA)
-	PM8921_GPIO_OUTPUT(17, 0, HIGH), /* APQ_IRDA_PWDN */
+	PM8921_GPIO_OUTPUT(17,1,HIGH),
 #endif
 #if defined(CONFIG_LGE_IRRC)
 	PM8921_GPIO_OUTPUT(18, 0, HIGH), /* Vreg_3p0_IrDA_EN */
@@ -252,7 +252,7 @@ static struct pm8xxx_gpio_init pm8921_mpq_gpios[] __initdata = {
 
 /* Initial PM8XXX MPP configurations */
 static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
-	PM8921_MPP_INIT(3, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_LOW),
+	//PM8921_MPP_INIT(3, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_LOW),
 	PM8921_MPP_INIT(8, D_OUTPUT, PM8921_MPP_DIG_LEVEL_S4, DOUT_CTRL_LOW),
 #ifndef CONFIG_SWITCH_MAX1462X
 	/*MPP9 is used to detect docking station connection/removal on Liquid*/
@@ -261,6 +261,36 @@ static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
 	PM8921_MPP_INIT(1, D_OUTPUT, PM8921_MPP_DIG_LEVEL_VPH, DOUT_CTRL_HIGH),
 #endif
 };
+
+#if defined(CONFIG_MACH_LGE)
+static struct pm8xxx_gpio_init pm8921_disabled_gpios[] __initdata= {
+	PM8921_GPIO_DISABLE(3),
+	PM8921_GPIO_DISABLE(4),
+	PM8921_GPIO_DISABLE(5),
+	PM8921_GPIO_DISABLE(6),
+	PM8921_GPIO_DISABLE(7),
+	PM8921_GPIO_DISABLE(8),
+	PM8921_GPIO_DISABLE(12),
+	PM8921_GPIO_DISABLE(14),
+	PM8921_GPIO_DISABLE(15),
+	PM8921_GPIO_DISABLE(16),
+	PM8921_GPIO_DISABLE(23),
+	PM8921_GPIO_DISABLE(25),
+	PM8921_GPIO_DISABLE(30),
+	PM8921_GPIO_DISABLE(32),
+	PM8921_GPIO_DISABLE(36),
+	PM8921_GPIO_DISABLE(38),
+	PM8921_GPIO_DISABLE(40),
+	PM8921_GPIO_DISABLE(41),
+	PM8921_GPIO_DISABLE(44),
+
+};
+
+static struct pm8xxx_mpp_init pm8xxx_disabled_mpps[] __initdata = {
+		PM8921_MPP_INIT(2, SINK, PM8XXX_MPP_CS_OUT_5MA, CS_CTRL_DISABLE),
+		PM8921_MPP_INIT(11, SINK, PM8XXX_MPP_CS_OUT_5MA, CS_CTRL_DISABLE),
+};
+#endif
 
 #ifdef CONFIG_SWITCH_MAX1462X
 static struct pm8xxx_mpp_init pm8xxx_max1462x_mpps[] __initdata = {
@@ -364,6 +394,21 @@ void __init apq8064_pm8xxx_gpio_mpp_init(void)
 				break;
 			}
 		}
+	}
+#endif
+
+#if defined(CONFIG_MACH_LGE)
+	if(lge_get_board_revno() >= HW_REV_D){
+		apq8064_configure_gpios(pm8921_disabled_gpios, ARRAY_SIZE(pm8921_disabled_gpios));
+
+		for (i = 0; i < ARRAY_SIZE(pm8xxx_disabled_mpps); i++) {
+			rc = pm8xxx_mpp_config(pm8xxx_disabled_mpps[i].mpp,
+						&pm8xxx_disabled_mpps[i].config);
+			if (rc) {
+				pr_err("%s: pm8xxx_mpp_config: rc=%d\n", __func__, rc);
+				break;
+			}
+		}	
 	}
 #endif
 
@@ -667,8 +712,8 @@ static int apq8064_pm8921_therm_mitigation[] = {
  * Battery/VDD voltage programmable range, 20mV steps.
  * it will be changed in future
  */
-#define MAX_VOLTAGE_MV		4360
-#define CHG_TERM_MA		100
+#define MAX_VOLTAGE_MV		4350
+#define CHG_TERM_MA		150
 static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdata = {
 
 	/* max charging time in minutes incl. fast and trkl. it will be changed in future  */
@@ -680,7 +725,7 @@ static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdat
 	 * This is also the minimum voltage the system operates at */
 	.min_voltage		= 3200,
 	/* the (mV) drop to wait for before resume charging after the battery has been fully charged */
-	.resume_voltage_delta	= 100, //50,
+	.resume_voltage_delta	= 50, 
 	.resume_charge_percent	= 99,
 	.term_current		= CHG_TERM_MA,
 
@@ -693,7 +738,7 @@ static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdat
 	.warm_temp		= 0, /* 40 */	/* 40 degree celsius */
 	.cool_bat_chg_current	= 350,	/* 350 mA (max value = 2A) */
 	.warm_bat_chg_current	= 350,
-	.temp_level_1		= 550,
+	.temp_level_1		= 510,
 	.temp_level_2		= 450,
 	.temp_level_3		= 420,
 	.temp_level_4		= -50,
@@ -730,7 +775,7 @@ static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdat
 	/* for led on, off control */
 	.led_src_config		= LED_SRC_MIN_VPH_5V,
 /* Be omitted OCT code */
-	.rconn_mohm    = 18,
+	.rconn_mohm    = 10,
 };
 #else /* qualcomm original code */
 #define MAX_VOLTAGE_MV          4200

@@ -457,6 +457,17 @@ static int rmnet_ctl_open(struct inode *inode, struct file *file)
 					msecs_to_jiffies(dev->mdm_wait_timeout *
 									1000));
 		if (retval == 0) {
+#ifdef CONFIG_USB_G_LGE_ANDROID
+			if(!dev->intf){
+				dev_err(dev->devicep, "%s: dev->intf is NULL %s \n",__func__, dev->name);
+				return -ETIMEDOUT;				
+			}
+			if(!dev->intf->altsetting){
+				dev_err(dev->devicep, "%s: dev->intf->altsetting is NULL %s \n",__func__, dev->name);
+				return -ETIMEDOUT;
+			}
+#endif /* CONFIG_USB_G_LGE_ANDROID */
+
 			dev_err(dev->devicep, "%s: Timeout opening %s %d\n",
 						__func__, dev->name, dev->intf->altsetting->desc.bInterfaceNumber);
 			return -ETIMEDOUT;

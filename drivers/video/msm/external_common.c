@@ -912,14 +912,28 @@ static ssize_t hdmi_common_wta_external_block(struct device *dev,
 	} else if (!strncmp(buf, "unblock", strlen("unblock"))) {
 		DEV_DBG("%s: external unblock\n", __func__);
 		sprintf(mbuf, "EXTERNAL_DISPLAY action=on");
-	} else if (!strncmp(buf, "internal_block", strlen("internal_block"))) {
-		DEV_DBG("%s: internal block\n", __func__);
-		sprintf(mbuf, "EXTERNAL_DISPLAY action=internal_off");
+	} else {
+		DEV_ERR("%s: unknown command\n", __func__);
+		return count;
 	}
 
 	hdmi_common_send_uevent(mbuf);
 
 	return count;
+}
+static ssize_t hdmi_common_rda_hdmi_vga(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	int cable_type = 0;
+#ifdef CONFIG_SLIMPORT_ANX7808
+	cable_type = slimport_is_vga_mode();
+#elif defined(CONFIG_SII8334_MHL_TX)
+	cable_type = hdmi_msm_is_dvi_mode();
+#endif
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", cable_type);
+	DEV_INFO("%s: '%d'\n", __func__, cable_type);
+	return ret;
 }
 #endif
 
@@ -957,6 +971,7 @@ static DEVICE_ATTR(hdmi_primary, S_IRUGO, hdmi_common_rda_hdmi_primary, NULL);
 #ifdef CONFIG_MACH_LGE
 static DEVICE_ATTR(hdmi_boot_completed, S_IWUGO, NULL, hdmi_common_wta_boot_completed);
 static DEVICE_ATTR(hdmi_external_block, S_IWUGO, NULL, hdmi_common_wta_external_block);
+static DEVICE_ATTR(hdmi_vga, S_IRUGO, hdmi_common_rda_hdmi_vga, NULL);
 #endif
 
 static struct attribute *external_common_fs_attrs[] = {
@@ -989,6 +1004,7 @@ static struct attribute *external_common_fs_attrs[] = {
 #ifdef CONFIG_MACH_LGE
 	&dev_attr_hdmi_boot_completed.attr,
 	&dev_attr_hdmi_external_block.attr,
+	&dev_attr_hdmi_vga.attr,
 #endif
 	NULL,
 };
@@ -1506,34 +1522,83 @@ static void hdmi_edid_detail_desc(const uint8 *data_buf, uint32 *disp_mode)
 		DEV_INFO("%s: *no mode* found\n", __func__);
 }
 
+
+#ifdef CONFIG_SLIMPORT_ANX7808
+extern unchar sp_get_link_bw(void);
+void limit_supported_video_format(uint32 *video_format)
+{
+	switch(sp_get_link_bw()){
+		DEV_INFO("%s: slimport link bandwidth= %.2x\n", __func__, sp_get_link_bw());
+	case 0x0a:
+		if((*video_format == HDMI_VFRMT_1920x1080p60_16_9) ||
+			(*video_format == HDMI_VFRMT_2880x480p60_4_3)||
+			(*video_format == HDMI_VFRMT_2880x480p60_16_9) ||
+			(*video_format == HDMI_VFRMT_1280x720p120_16_9))
+
+			*video_format = HDMI_VFRMT_1280x720p60_16_9;
+		else if((*video_format == HDMI_VFRMT_1920x1080p50_16_9) ||
+			(*video_format == HDMI_VFRMT_2880x576p50_4_3)||
+			(*video_format == HDMI_VFRMT_2880x576p50_16_9) ||
+			(*video_format == HDMI_VFRMT_1280x720p100_16_9))
+
+			*video_format = HDMI_VFRMT_1280x720p50_16_9;
+		else if (*video_format == HDMI_VFRMT_1920x1080i100_16_9)
+			*video_format = HDMI_VFRMT_1920x1080i50_16_9;
+
+		else if (*video_format == HDMI_VFRMT_1920x1080i120_16_9)
+			*video_format = HDMI_VFRMT_1920x1080i60_16_9;
+		break;
+	case 0x06:
+		if(*video_format != HDMI_VFRMT_640x480p60_4_3)
+			*video_format = HDMI_VFRMT_640x480p60_4_3;
+		break;
+	case 0x14:
+	default:
+		break;
+	}
+
+	DEV_INFO("%s: the final video format= %d\n", __func__, *video_format);
+}
+
+#endif
 static void add_supported_video_format(
 	struct hdmi_disp_mode_list_type *disp_mode_list,
 	uint32 video_format)
 {
-	const struct hdmi_disp_mode_timing_type *timing =
-		hdmi_common_get_supported_mode(video_format);
-	boolean supported = timing != NULL;
+	const struct hdmi_disp_mode_timing_type *timing;
+	boolean supported = false;
+	boolean mhl_supported = true;
 
 	if (video_format >= HDMI_VFRMT_MAX)
 		return;
 
+	timing = hdmi_common_get_supported_mode(video_format);
+	supported = timing != NULL;
 	DEV_DBG("EDID: format: %d [%s], %s\n",
 		video_format, video_format_2string(video_format),
 		supported ? "Supported" : "Not-Supported");
-	if (supported) {
-		if (mhl_is_enabled()) {
-			const struct hdmi_disp_mode_timing_type *mhl_timing =
-				hdmi_mhl_get_supported_mode(video_format);
-			boolean mhl_supported = mhl_timing != NULL;
-			DEV_DBG("EDID: format: %d [%s], %s by MHL\n",
+
+#ifdef CONFIG_SLIMPORT_ANX7808
+		limit_supported_video_format(&video_format);
+#endif
+	if (mhl_is_enabled()) {
+		const struct hdmi_disp_mode_timing_type *mhl_timing =
+			hdmi_mhl_get_supported_mode(video_format);
+		mhl_supported = mhl_timing != NULL;
+		DEV_DBG("EDID: format: %d [%s], %s by MHL\n",
 			video_format, video_format_2string(video_format),
-				mhl_supported ? "Supported" : "Not-Supported");
-			if (mhl_supported)
-				disp_mode_list->disp_mode_list[
+			mhl_supported ? "Supported" : "Not-Supported");
+	}
+
+	if (supported && mhl_supported) {
+		disp_mode_list->disp_mode_list[
 			disp_mode_list->num_of_elements++] = video_format;
-		} else
-			disp_mode_list->disp_mode_list[
-			disp_mode_list->num_of_elements++] = video_format;
+		if (video_format == external_common_state->video_resolution) {
+			DEV_DBG("%s: Default resolution %d [%s] supported\n",
+					__func__, video_format,
+					video_format_2string(video_format));
+			external_common_state->default_res_supported = true;
+		}
 	}
 }
 
@@ -1969,6 +2034,7 @@ int hdmi_common_read_edid(void)
 	memset(&external_common_state->disp_mode_list, 0,
 		sizeof(external_common_state->disp_mode_list));
 	memset(edid_buf, 0, sizeof(edid_buf));
+	external_common_state->default_res_supported = false;
 
 	status = hdmi_common_read_edid_block(0, edid_buf);
 	if (status || !check_edid_header(edid_buf)) {

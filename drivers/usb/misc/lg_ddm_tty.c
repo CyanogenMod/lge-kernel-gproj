@@ -143,12 +143,13 @@ static int lge_ddm_tty_write(struct tty_struct *tty, const unsigned char *buf,
 	}
 
 	if (!ddm_drv->in_busy_hsic_write) {
-		pr_info("called ddm_bridge_write\n");
 		ddm_drv->in_busy_hsic_write = 1;
 		result = ddm_bridge_write((char *)buf, count);
 		if (result) {
 			pr_err(" Error HSIC read from MDM , err : %d \n", result);
 		}
+	} else {
+		count = 0;
 	}
 
 	return count;

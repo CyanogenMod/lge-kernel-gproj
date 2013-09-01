@@ -35,14 +35,14 @@ extern int LimitFile[30][46*2];
 //#define NoiseMitigation 0x1B1	// TM2000 (E027~)
 //#define NoiseMitigation 0x0196	// TM2145
 //#define NoiseMitigation 0x15E	// TM2370, TM2371, PLG137, PLG122
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #define NoiseMitigation 0x155	// PLG124 E008
 #else
 #define NoiseMitigation 0x157	// TM2000 E095
 #endif
 //#define F54_CBCPolarity 0x1B6	// TM2000 (E027~)
 //#define F54_CBCPolarity 0x163	// TM2370, TM2371, PLG137, PLG122
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GV_KR)  || defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #define F54_CBCPolarity 0x16E	// PLG124 E008
 #else
 #define F54_CBCPolarity 0x170	// TM2000 E095

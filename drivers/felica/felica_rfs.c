@@ -29,7 +29,11 @@ enum{
  *   INTERNAL DEFINITION
  */
 #ifdef FELICA_LED_SUPPORT
+#if defined(CONFIG_LGE_FELICA_ONLY)
+#define FELICA_LED_INTENT "com.nttdocomo.android.felicaremotelock/.LEDService"
+#else
 #define FELICA_LED_INTENT "com.lge.felicaservice/.LEDService"
+#endif
 #endif
 
 /*
@@ -81,10 +85,12 @@ static int invoke_led_service(void)
 		isFelicaUsed =0;
 	}
 	else	{
-		FELICA_DEBUG_MSG("[FELICA_RFS] Felica LED ERROR case so LED Off ... \n");
 		unlock_felica_rfs_wake_lock();
+#if defined(CONFIG_LGE_FELICA_ONLY)
+		FELICA_DEBUG_MSG("[FELICA_RFS] Felica LED ERROR case so LED Off ... \n");
 		rc = call_usermodehelper( argv_off[0], argv_off, envp, UMH_WAIT_PROC );
 		isFelicaUsed =0;
+#endif
 	}
 
 	FELICA_DEBUG_MSG("[FELICA_RFS] invoke_led_service: %d \n", rc);

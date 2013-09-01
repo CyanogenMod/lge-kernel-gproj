@@ -158,7 +158,7 @@ static int cal_value;
 * to backlilght driver value.
 * 2012-02-28, baryun.hwang@lge.com
 */
-#if defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKDDI)
+#if defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKDDI) || defined(CONFIG_MACH_APQ8064_GVKT)
 static char mapped_value[256] = {
 	  3,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  4,  4,   // 14
 	  4,  4,  4,  4,  4,  4,  4,  5,  5,  5,  5,  5,  5,  5,  5,   // 29
@@ -180,7 +180,7 @@ static char mapped_value[256] = {
 	255
 };
 #elif defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKKT) \
-       || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKATT)
+       || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 static char mapped_value[256] = {
 	  3,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  4,  4,   // 14
 	  4,  4,  4,  4,  4,  4,  4,  5,  5,  5,  5,  5,  5,  5,  5,   // 29
@@ -264,7 +264,7 @@ void lm3630_backlight_on(int level)
 
 		lm3630_hw_reset();
 
-#if defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKDDI)
+#if defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKDDI) || defined(CONFIG_MACH_APQ8064_GVKT)
 		lm3630_write_reg(main_lm3630_dev->client, 0x02, 0x30);	/*  OVP(24V),OCP(1.0A) , Boost Frequency(500khz) */
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
 	    lm3630_write_reg(main_lm3630_dev->client, 0x01, 0x09);	/* eble Feedback , disable  PWM for BANK A,B */
@@ -275,7 +275,7 @@ void lm3630_backlight_on(int level)
 		lm3630_write_reg(main_lm3630_dev->client, 0x05, 0x14);	/* Full-Scale Current (20mA) of BANK A for GVDCM*/
 		lm3630_write_reg(main_lm3630_dev->client, 0x00, 0x15);	/* Enable LED A to Exponential, LED2 is connected to BANK_A */
 #elif defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKKT) \
-       || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKATT)
+       || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 		lm3630_write_reg(main_lm3630_dev->client, 0x02, 0x30);	/*  OVP(24V),OCP(1.0A) , Boost Frequency(500khz) */
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
 	    lm3630_write_reg(main_lm3630_dev->client, 0x01, 0x09);	/* eble Feedback , disable  PWM for BANK A,B */

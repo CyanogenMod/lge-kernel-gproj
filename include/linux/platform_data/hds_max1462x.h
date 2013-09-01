@@ -21,18 +21,19 @@ struct max1462x_platform_data {
 
 	unsigned int key_code;	  /* key code for hook, volume up, volume down */
 
-       unsigned int gpio_mode;	   /* MODE : high, low, high-z */
-       unsigned int gpio_swd;	   /* SWD : to detect 3 pole or 4 pole | to detect among hook, volum up or down key */
-       unsigned int gpio_det;	   /* DET : to detect jack inserted or not */
+	unsigned int gpio_mode;	   /* MODE : high, low, high-z */
+	unsigned int gpio_swd;	   /* SWD : to detect 3 pole or 4 pole | to detect among hook, volum up or down key */
+	unsigned int gpio_det;	   /* DET : to detect jack inserted or not */
 
        /* callback function which is initialized while probing */
 	void (*set_headset_mic_bias)(int enable);
-       void (*gpio_set_value_func)(unsigned gpio, int value);
-       int (*gpio_get_value_func)(unsigned gpio);
+	void (*gpio_set_value_func)(unsigned gpio, int value);
+	int (*gpio_get_value_func)(unsigned gpio);
 
-       unsigned int external_ldo_mic_bias;  /* External LDO control */
+	unsigned int external_ldo_mic_bias;  /* External LDO control */
 	/* latency for pole (3 or 4)detection (in ms) */
 	unsigned int latency_for_detection;
+	unsigned int latency_for_key;
 };
 
 #endif /* __HDS_MAX1462X_H__ */

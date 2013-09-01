@@ -27,7 +27,7 @@
 #define ADC_NO_INIT_CABLE   0
 #define ADC_CABLE_MHL_1K    30000
 #define ADC_CABLE_U_28P7K   60000
-#define ADC_CABLE_28P7K     110000
+#define ADC_CABLE_28P7K     100000
 #define ADC_CABLE_56K       185000
 #define ADC_CABLE_100K      265000
 #define ADC_CABLE_130K      340000

@@ -432,10 +432,6 @@ struct msm_panel_common_pdata {
 	void *color_engine_off;
 	ssize_t color_engine_off_size;
 #endif //CONFIG_LGIT_COLOR_ENGINE_SWITCH
-#if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-    void *cabc_off;
-    ssize_t cabc_off_size;
-#endif // CABC apply
 #endif
 	void *power_off_set_1;
 	void *power_off_set_2;

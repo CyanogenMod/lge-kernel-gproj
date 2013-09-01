@@ -214,6 +214,9 @@ static void snfc_intu_exit(void)
 {
 	SNFC_DEBUG_MSG_LOW("[snfc_intu_poll] snfc_intu_poll_exit - start \n");
 
+	disable_irq_nosync(gpio_to_irq(GPIO_SNFC_INTU));
+	disable_irq_wake(gpio_to_irq(GPIO_SNFC_INTU));  
+
 	/* deregister the device file */
 	misc_deregister(&snfc_intu_device);
 

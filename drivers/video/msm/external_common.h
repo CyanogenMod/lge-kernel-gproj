@@ -210,8 +210,10 @@ struct external_common_state_type {
 	boolean hpd_state;
 	struct kobject *uevent_kobj;
 	uint32 video_resolution;
+	boolean default_res_supported;
 	struct device *dev;
 	struct switch_dev sdev;
+	struct switch_dev audio_sdev;
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	boolean format_3d;
 	void (*switch_3d)(boolean on);
@@ -273,5 +275,7 @@ ssize_t video_3d_format_2string(uint32 format, char *buf);
 
 int external_common_state_create(struct platform_device *pdev);
 void external_common_state_remove(void);
-
+#ifdef CONFIG_SLIMPORT_ANX7808
+bool slimport_is_vga_mode(void);
+#endif 
 #endif /* __EXTERNAL_COMMON_H__ */

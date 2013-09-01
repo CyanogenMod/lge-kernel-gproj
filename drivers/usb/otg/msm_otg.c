@@ -101,6 +101,27 @@ static struct regulator *mhl_usb_hs_switch;
 static struct power_supply *psy;
 
 static bool aca_id_turned_on;
+#ifdef CONFIG_USB_G_LGE_ANDROID
+static enum lge_boot_mode_type boot_mode;
+#endif
+
+#ifdef CONFIG_LGE_PM
+static struct delayed_work check_ta_work;
+
+enum check_ta_state_type {
+	CHECK_TA_STATE_UNDEFINED = 0,
+	CHECK_TA_STATE_FIRST_RETRY,
+	CHECK_TA_STATE_SECOND_RETRY,
+	CHECK_TA_STATE_TA_DETECTED,
+	CHECK_TA_STATE_DONE,
+};
+
+enum check_ta_state_type check_ta_state = CHECK_TA_STATE_UNDEFINED;
+#endif
+
+
+static bool first_boot;
+static bool otg_detect=false;
 static inline bool aca_enabled(void)
 {
 #ifdef CONFIG_USB_MSM_ACA
@@ -130,9 +151,9 @@ static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
 static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 {
 	int rc = 0;
-#ifdef CONFIG_USB_G_LGE_ANDROID
-	enum lge_boot_mode_type boot_mode;
-#endif
+//#ifdef CONFIG_USB_G_LGE_ANDROID
+//	enum lge_boot_mode_type boot_mode;
+//#endif
 
 	if (init) {
 		hsusb_3p3 = devm_regulator_get(motg->phy.dev, "HSUSB_3p3");
@@ -565,8 +586,31 @@ static int msm_otg_reset(struct usb_phy *phy)
 
 #if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG) // jaegeun.jung for detecting slimport, usb device, usb otg
 		/* Disable PMIC pull-up */
-		pm8xxx_usb_id_pullup(0);
-		pr_info("%s: pm usb id pull_up(0)\n",__func__);
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+		// Fix new minimum current failure issue in Factory Flight sleep mode
+		// Set no pull state regardless of hw revision; except Factory2 mode
+		if(boot_mode != LGE_BOOT_MODE_FACTORY2)
+		{
+			pm8xxx_usb_id_pullup(0);
+			pr_info("%s: pm usb id pull_up(0)\n",__func__);
+		}
+		else
+		{
+			pm8xxx_usb_id_pullup(1);
+			pr_info("%s: pm usb id pull_up(1) in boot_mode(%d) to fix noise signal\n",__func__, boot_mode);
+		}
+#else
+		if((boot_mode != LGE_BOOT_MODE_FACTORY2) && (lge_get_board_revno()==HW_REV_C || lge_get_board_revno() >= HW_REV_1_0))
+		{
+			pm8xxx_usb_id_pullup(0);
+			pr_info("%s: pm usb id pull_up(0)\n",__func__);
+		}
+		else
+		{
+			pm8xxx_usb_id_pullup(1);
+			pr_info("%s: pm usb id pull_up(1) in boot_mode(%d) to fix noise signal\n",__func__, boot_mode);
+		}
+#endif
 #else 
 	    /* Enable PMIC pull-up */
 		pm8xxx_usb_id_pullup(1);
@@ -1190,7 +1234,12 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 		if((lge_pm_get_cable_type() == CABLE_56K || lge_pm_get_cable_type() == CABLE_910K) && pm8921_is_real_battery_present() == 1)
 		{
 			mA = 1100;
-			pr_info("CABLE_910K && pm8921_is_battery_present( ) 1100mA\n");
+			pr_info("CABLE_910K or 56K && pm8921_is_battery_present( ) 1100mA\n");
+		}
+		if( boot_mode == LGE_BOOT_MODE_FACTORY2 && pm8921_is_real_battery_present() == 1)
+		{
+			mA = 1100;
+			pr_info("LGE_BOOT_MODE_FACTORY2 && pm8921_is_battery_present( ) 1100mA\n");
 		}
 		/*LGE_E jungwoo.yun@lge.com 2012-08-07 iusbmax set to 1100mA in 910K cable and battery present*/
 		else if(motg->chg_type == USB_SDP_CHARGER)
@@ -1557,6 +1606,26 @@ static int msm_otg_set_peripheral(struct usb_otg *otg,
 	return 0;
 }
 
+static bool msm_otg_read_pmic_id_state(struct msm_otg *motg)
+{
+	unsigned long flags;
+	int id;
+
+	if (!motg->pdata->pmic_id_irq)
+		return -ENODEV;
+
+	local_irq_save(flags);
+	id = irq_read_line(motg->pdata->pmic_id_irq);
+	local_irq_restore(flags);
+
+	/*
+	 * If we can not read ID line state for some reason, treat
+	 * it as float. This would prevent MHL discovery and kicking
+	 * host mode unnecessarily.
+	 */
+	return !!id;
+}
+
 static int msm_otg_mhl_register_callback(struct msm_otg *motg,
 						void (*callback)(int on))
 {
@@ -1639,14 +1708,11 @@ static bool msm_otg_is_mhl(struct msm_otg *motg)
 static bool msm_chg_mhl_detect(struct msm_otg *motg)
 {
 	bool ret, id;
-	unsigned long flags;
 
 	if (!motg->mhl_enabled)
 		return false;
 
-	local_irq_save(flags);
-	id = irq_read_line(motg->pdata->pmic_id_irq);
-	local_irq_restore(flags);
+	id = msm_otg_read_pmic_id_state(motg);
 
 	if (id)
 		return false;
@@ -2093,9 +2159,76 @@ static const char *chg_to_string(enum usb_chg_type chg_type)
 #define MSM_CHG_SECONDARY_DET_TIME	(50 * HZ/1000) /* TVDMSRC_ON */
 
 #ifdef CONFIG_LGE_PM
+#if defined(CONFIG_USB_G_LGE_ANDROID) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GK_KR) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 static int firstboot_check = 1;
+#endif
 extern struct chg_cable_info lge_cable_info;
 #endif
+
+#ifdef CONFIG_LGE_PM
+#define MSM_CHECK_TA_DELAY (2*HZ)
+#define MSM_CHECK_TA_DELAY2 (10 *HZ)
+#define PORTSC_LS  (3 << 10) /* Read - Port's Line status */
+static void msm_ta_detect_work(struct work_struct *w){
+	struct msm_otg *motg = the_msm_otg;
+	struct usb_otg *otg = motg->phy.otg;
+
+	unsigned long delay = MSM_CHECK_TA_DELAY;
+
+	switch (check_ta_state) {
+		case CHECK_TA_STATE_UNDEFINED:
+			pr_info("msm_ta_detect_work: ta detection work\n");
+			if ((readl(USB_PORTSC) & PORTSC_LS) == PORTSC_LS) {
+				check_ta_state = CHECK_TA_STATE_TA_DETECTED;
+				delay = 0;
+			}
+			else {
+				check_ta_state = CHECK_TA_STATE_FIRST_RETRY;
+				delay = MSM_CHECK_TA_DELAY;
+			}
+			break;
+		case CHECK_TA_STATE_FIRST_RETRY:
+			pr_info("msm_ta_detect_work: ta detection first retry\n");
+			if ((readl(USB_PORTSC) & PORTSC_LS) == PORTSC_LS) {
+				check_ta_state = CHECK_TA_STATE_TA_DETECTED;
+				delay = 0;
+			}
+			else {
+				check_ta_state = CHECK_TA_STATE_SECOND_RETRY;
+				delay = MSM_CHECK_TA_DELAY2;
+			}
+			break;
+		case CHECK_TA_STATE_SECOND_RETRY:
+			pr_info("msm_ta_detect_work: ta detection second retry\n");
+			if ((readl(USB_PORTSC) & PORTSC_LS) == PORTSC_LS)
+				check_ta_state = CHECK_TA_STATE_TA_DETECTED;
+			else
+				check_ta_state = CHECK_TA_STATE_DONE;
+			delay = 0;
+			break;
+		case CHECK_TA_STATE_TA_DETECTED:
+			pr_info("msm_ta_detect_work: ta dectection detected\n");		/* inform to user space that SDP is no longer detected */
+			msm_otg_notify_charger(motg, 0);
+			motg->chg_state = USB_CHG_STATE_DETECTED;
+			motg->chg_type = USB_DCP_CHARGER;
+			motg->cur_power = 0;
+			msm_otg_start_peripheral(otg, 0);
+			otg->phy->state = OTG_STATE_B_IDLE;
+			queue_delayed_work(system_nrt_wq, &check_ta_work, delay);
+			return;
+		case CHECK_TA_STATE_DONE:
+		/* Fall through */
+		default:
+			pr_info("msm_ta_detect_work: ta detection done\n");
+			return;
+		}
+
+		queue_delayed_work(system_nrt_wq, &check_ta_work, delay);
+}
+#endif
+
+
+
 static void msm_chg_detect_work(struct work_struct *w)
 {
 	struct msm_otg *motg = container_of(w, struct msm_otg, chg_work.work);
@@ -2162,6 +2295,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 		vout = msm_chg_check_primary_det(motg);
 		line_state = readl_relaxed(USB_PORTSC) & PORTSC_LS;
 		dm_vlgc = line_state & PORTSC_LS_DM;
+
 		if (vout && !dm_vlgc) { /* VDAT_REF < DM < VLGC */
 			if (test_bit(ID_A, &motg->inputs)) {
 				motg->chg_type = USB_ACA_DOCK_CHARGER;
@@ -2187,9 +2321,13 @@ static void msm_chg_detect_work(struct work_struct *w)
 			}
 
 			if (line_state) /* DP > VLGC or/and DM > VLGC */
+			{
 				motg->chg_type = USB_PROPRIETARY_CHARGER;
+			}
 			else
+			{
 				motg->chg_type = USB_SDP_CHARGER;
+			}
 
 			motg->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
@@ -2197,21 +2335,29 @@ static void msm_chg_detect_work(struct work_struct *w)
 #ifdef CONFIG_LGE_PM
 		/* read adc and store cable infomation */
 		lge_pm_read_cable_info();
+#if defined(CONFIG_USB_G_LGE_ANDROID) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GK_KR) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 //thoon81.kim [START] enter download mode after 910K cable is pluged
-	if (lge_cable_info.cable_type == CABLE_910K && (lge_get_boot_cable_type() == LGE_BOOT_NO_INIT_CABLE || !firstboot_check)){
-		msm_set_restart_mode(RESTART_DLOAD);
-		kernel_restart(NULL);	
-	}
-	firstboot_check = 0;
+		if (lge_cable_info.cable_type == CABLE_910K 
+		&& (lge_get_boot_cable_type() == LGE_BOOT_NO_INIT_CABLE || !firstboot_check)
+		&& pm8921_is_usb_chg_plugged_in() ) {
+			msm_set_restart_mode(RESTART_DLOAD);
+			kernel_restart(NULL);	
+		}
+		firstboot_check = 0;
 //thoon81.kim [END]
+#endif
 #endif
 		break;
 	case USB_CHG_STATE_PRIMARY_DONE:
 		vout = msm_chg_check_secondary_det(motg);
 		if (vout)
+		{
 			motg->chg_type = USB_DCP_CHARGER;
+		}
 		else
+		{
 			motg->chg_type = USB_CDP_CHARGER;
+		}
 		motg->chg_state = USB_CHG_STATE_SECONDARY_DONE;
 		/* fall through */
 	case USB_CHG_STATE_SECONDARY_DONE:
@@ -2226,8 +2372,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 		 */
 		udelay(100);
 		msm_chg_enable_aca_intr(motg);
-		dev_dbg(phy->dev, "chg_type = %s\n",
-			chg_to_string(motg->chg_type));
+		dev_dbg(phy->dev, "chg_type = %s\n",chg_to_string(motg->chg_type));
 		queue_work(system_nrt_wq, &motg->sm_work);
 		return;
 	default:
@@ -2274,13 +2419,10 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 				clear_bit(B_SESS_VLD, &motg->inputs);
 		} else if (pdata->otg_control == OTG_PMIC_CONTROL) {
 			if (pdata->pmic_id_irq) {
-				unsigned long flags;
-				local_irq_save(flags);
-				if (irq_read_line(pdata->pmic_id_irq))
+				if (msm_otg_read_pmic_id_state(motg))
 					set_bit(ID, &motg->inputs);
 				else
 					clear_bit(ID, &motg->inputs);
-				local_irq_restore(flags);
 			}
 			/*
 			 * VBUS initial state is reported after PMIC
@@ -2312,7 +2454,7 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 	}
 }
 
-#if 1 //to know usb state on touch driver
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 //to know usb state on touch driver
 extern void trigger_baseline_state_machine(int plug_in, int type);
 #endif
 static void msm_otg_sm_work(struct work_struct *w)
@@ -2322,7 +2464,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 	bool work = 0, srp_reqd;
 
 	pm_runtime_resume(otg->phy->dev);
-	pr_debug("%s work\n", otg_state_string(otg->phy->state));
+	pr_info("%s work\n", otg_state_string(otg->phy->state));
 	switch (otg->phy->state) {
 	case OTG_STATE_UNDEFINED:
 		msm_otg_reset(otg->phy);
@@ -2348,8 +2490,67 @@ static void msm_otg_sm_work(struct work_struct *w)
 			pr_debug("!id || id_A\n");
 #if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG) && defined(CONFIG_SLIMPORT_ANX7808)
 			if (slimport_is_connected()) {
-				pr_debug("%s: slimport_is_connected() !!!\n",__func__);
-				work = 0;
+				pr_info("%s: slimport_is_connected() !!!\n",__func__);
+				clear_bit(A_BUS_REQ, &motg->inputs);
+
+				if(test_bit(B_SESS_VLD, &motg->inputs)){
+					pr_info("b_sess_vld with SLIMPORT\n");
+					switch (motg->chg_state) {
+					case USB_CHG_STATE_UNDEFINED:
+						msm_chg_detect_work(&motg->chg_work.work);
+						break;
+					case USB_CHG_STATE_DETECTED:
+						pr_info("msm_otg: detected charger type=%d\n",motg->chg_type);
+						switch (motg->chg_type) {
+						case USB_DCP_CHARGER:
+
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 //to know usb state on touch driver
+			                trigger_baseline_state_machine(1,0);
+#endif
+
+							/* Enable VDP_SRC */
+							ulpi_write(otg->phy, 0x2, 0x85);
+							/* fall through */
+						case USB_PROPRIETARY_CHARGER:
+							msm_otg_notify_charger(motg,
+									IDEV_CHG_MAX);
+							pm_runtime_put_noidle(otg->phy->dev);
+							pm_runtime_suspend(otg->phy->dev);
+							break;
+						case USB_CDP_CHARGER:
+							msm_otg_notify_charger(motg,
+									IDEV_CHG_MAX);
+//							msm_otg_start_peripheral(otg, 1);
+//							otg->phy->state =
+//								OTG_STATE_B_PERIPHERAL;
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 //to know usb state on touch driver
+			                trigger_baseline_state_machine(1,1);
+#endif
+							break;
+						case USB_SDP_CHARGER:
+#ifdef CONFIG_LGE_PM
+							msm_otg_notify_charger(motg,
+									IDEV_CHG_MIN);
+#endif
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 //to know usb state on touch driver
+			                trigger_baseline_state_machine(1,1);
+#endif
+//							msm_otg_start_peripheral(otg, 1);
+//							otg->phy->state =
+//								OTG_STATE_B_PERIPHERAL;
+							break;
+						default:
+							pr_info("chg type is unknown\n");
+							break;
+						}
+						break;
+					default:
+						break;
+					}					
+					
+				}
+				
+			    work = 0;			    
 				break;
 			}
 #endif
@@ -2379,8 +2580,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 					tabla_codec_hph_pa_ctl(TABLA_EVENT_CHARGER_CONNECT);
 #endif /*CONFIG_LGE_AUX_NOISE*/
 
-#if 1 //to know usb state on touch driver
-                    trigger_baseline_state_machine(1, 0);
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 //to know usb state on touch driver
+                    trigger_baseline_state_machine(1,0);
 #endif
 
 					/* Enable VDP_SRC */
@@ -2406,7 +2607,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 					msm_otg_start_peripheral(otg, 1);
 					otg->phy->state =
 						OTG_STATE_B_PERIPHERAL;
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 //to know usb state on touch driver
                     trigger_baseline_state_machine(1,1);
+#endif
 					break;
 				case USB_ACA_C_CHARGER:
 					msm_otg_notify_charger(motg,
@@ -2420,12 +2623,19 @@ static void msm_otg_sm_work(struct work_struct *w)
 					msm_otg_notify_charger(motg,
 							IDEV_CHG_MIN);
 #endif
-#if 1 //to know usb state on touch driver
-                    trigger_baseline_state_machine(1, 1);
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 //to know usb state on touch driver
+                    trigger_baseline_state_machine(1,1);
 #endif
 					msm_otg_start_peripheral(otg, 1);
-					otg->phy->state =
-						OTG_STATE_B_PERIPHERAL;
+					otg->phy->state = OTG_STATE_B_PERIPHERAL;
+#ifdef CONFIG_LGE_PM
+					if((boot_mode != LGE_BOOT_MODE_FACTORY) &&
+					(boot_mode != LGE_BOOT_MODE_FACTORY2) &&
+					(boot_mode != LGE_BOOT_MODE_PIFBOOT)) {
+						pr_info("%s: schedule_delayed_work(check_ta_work)\n",__func__);
+						queue_delayed_work(system_nrt_wq, &check_ta_work, MSM_CHECK_TA_DELAY);
+					}
+#endif
 					break;
 				default:
 					break;
@@ -2447,6 +2657,10 @@ static void msm_otg_sm_work(struct work_struct *w)
 		} else {
 			pr_debug("chg_work cancel");
 			cancel_delayed_work_sync(&motg->chg_work);
+#ifdef CONFIG_LGE_PM
+			cancel_delayed_work_sync(&check_ta_work);
+			check_ta_state = CHECK_TA_STATE_UNDEFINED;
+#endif
 			motg->chg_state = USB_CHG_STATE_UNDEFINED;
 			motg->chg_type = USB_INVALID_CHARGER;
 			
@@ -2457,11 +2671,61 @@ static void msm_otg_sm_work(struct work_struct *w)
 			 */
 			tabla_codec_hph_pa_ctl(TABLA_EVENT_CHARGER_DISCONNECT);
 #endif /*CONFIG_LGE_AUX_NOISE*/
-#if 1 //to know usb state on touch driver
-            trigger_baseline_state_machine(0, -1);
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 //to know usb state on touch driver
+            trigger_baseline_state_machine(0,-1);
 #endif
 			msm_otg_notify_charger(motg, 0);
 			msm_otg_reset(otg->phy);
+			
+			/*
+			 * There is a small window where ID interrupt
+			 * is not monitored during ID detection circuit
+			 * switch from ACA to PMIC.  Check ID state
+			 * before entering into low power mode.
+			 */
+	
+#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)			 
+			/*
+			 * 2013-01-21, seokjeong.hong@lge.com
+			 * To prevent abnormal behaviors, Inserting unauthorized cable w/180K or 200K ohm resistor
+			 * value on their ID pin. Do not check ID state before entering into low power mode.
+			 */
+			if(lge_cable_info.cable_type == CABLE_180K || lge_cable_info.cable_type == CABLE_200K || lge_cable_info.cable_type == CABLE_220K
+				|| lge_cable_info.cable_type == CABLE_620K
+				|| lge_cable_info.cable_type == CABLE_330K)
+			{
+				pr_info("%s: cable_type (%d). Don't process missed ID intr [%s]\n",__func__, lge_cable_info.cable_type,__TIME__);
+				if(!msm_otg_read_pmic_id_state(motg))
+				{
+					pr_info("ABNORMAL USB - Dettached PC or TA-side connector\n");
+				}
+				else // to reset cable type value here for REAL OTG CABLE referenced by msm_pmic_id_w().
+				{
+					pr_info("ABNORMAL USB - Dettached Phone-side connector\n");
+					lge_cable_info.cable_type = CABLE_NONE;
+				}
+			}
+			else
+			{
+				pr_info("%s: cable_type (%d). Process missed ID intr\n",__func__, lge_cable_info.cable_type);
+				if (!msm_otg_read_pmic_id_state(motg)) {
+					pr_info("process missed ID intr\n");
+					clear_bit(ID, &motg->inputs);
+					work = 1;
+					break;
+				}
+
+			}
+			
+#else
+			 if (!msm_otg_read_pmic_id_state(motg)) {
+				pr_debug("process missed ID intr\n");
+				clear_bit(ID, &motg->inputs);
+				work = 1;
+				break;
+			}
+#endif			
+			
 			pm_runtime_put_noidle(otg->phy->dev);
 			pm_runtime_suspend(otg->phy->dev);
 		}
@@ -2621,6 +2885,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 			msm_chg_enable_aca_intr(motg);
 			msm_otg_notify_charger(motg, 0);
 			work = 1;
+			otg_detect = false;
 		} else if (!test_bit(A_BUS_DROP, &motg->inputs) &&
 				(test_bit(A_SRP_DET, &motg->inputs) ||
 				 test_bit(A_BUS_REQ, &motg->inputs))) {
@@ -2664,6 +2929,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 		}
 		break;
 	case OTG_STATE_A_WAIT_VRISE:
+		otg_detect = true;
 		if ((test_bit(ID, &motg->inputs) &&
 				!test_bit(ID_A, &motg->inputs)) ||
 				test_bit(A_BUS_DROP, &motg->inputs) ||
@@ -3073,16 +3339,12 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 
 
 #if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
-static int usb_id_sel_enable(int on)
+int usb_id_sel_enable(int on)
 {
 	struct msm_otg *motg = the_msm_otg;
 	static struct regulator *_usb_id_sel;
 	int rc;
 	int ret_cnt_enabled;
-	int ret_voltage;
-
-	ret_voltage = regulator_get_voltage(hsusb_3p3);
-	pr_info("regulator_get_voltage (hsusb_3p3) = %d\n",ret_voltage);
 
 	if (!_usb_id_sel) 
 	{
@@ -3128,6 +3390,9 @@ static int usb_id_sel_enable(int on)
 	return 0;
 }
 #endif
+
+#define MSM_PMIC_ID_STATUS_DELAY	5 /* 5msec */
+
 static void msm_otg_set_vbus_state(int online)
 {
 	static bool init;
@@ -3139,42 +3404,16 @@ static void msm_otg_set_vbus_state(int online)
 		return;
 
 	if (online) {
-		pr_info("PMIC: BSV set\n");
-#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)// jaegeun.jung for detecting slimport, usb device, usb otg
-#if !defined(CONFIG_MACH_APQ8064_GVDCM)
-#if !defined(CONFIG_MACH_APQ8064_GKATT) // leechangjun 20121211 for GKATT HW REV_D add 
-        if(lge_get_board_revno()==HW_REV_C || lge_get_board_revno() >= HW_REV_1_0)
-			usb_id_sel_enable(0);
-#else
-        if(lge_get_board_revno()==HW_REV_C ||
-           lge_get_board_revno()==HW_REV_D ||
-           lge_get_board_revno() >= HW_REV_1_0)
-			usb_id_sel_enable(0);	
-#endif 
-#else
-		usb_id_sel_enable(0);
-#endif
-#endif        
+		pr_info("PMIC: BSV set\n");		
 		set_bit(B_SESS_VLD, &motg->inputs);
 	} else {
 		pr_info("PMIC: BSV clear\n");
-#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)// jaegeun.jung for detecting slimport, usb device, usb otg
-#if !defined(CONFIG_MACH_APQ8064_GVDCM)
-#if !defined(CONFIG_MACH_APQ8064_GKATT) // leechangjun 20121211 for GKATT HW REV_D add 
-        if(lge_get_board_revno()==HW_REV_C || lge_get_board_revno() >= HW_REV_1_0)
-		    usb_id_sel_enable(1);
-#else
-        if(lge_get_board_revno()==HW_REV_C ||
-           lge_get_board_revno()==HW_REV_D ||
-           lge_get_board_revno() >= HW_REV_1_0)
-			usb_id_sel_enable(1);
-#endif 
-#else
-		usb_id_sel_enable(1);
-#endif
-#endif		
 		clear_bit(B_SESS_VLD, &motg->inputs);
 	}
+
+#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
+	queue_delayed_work(system_nrt_wq, &motg->usb_id_sel_work, msecs_to_jiffies(0));
+#endif// 20130128 for Avoiding the MutexLock api use while running IRQ Handler jaegeun.jung@lge.com
 
 	if (!init) {
 		init = true;
@@ -3200,10 +3439,8 @@ static void msm_pmic_id_status_w(struct work_struct *w)
 	struct msm_otg *motg = container_of(w, struct msm_otg,
 						pmic_id_status_work.work);
 	int work = 0;
-	unsigned long flags;
 
-	local_irq_save(flags);
-	if (irq_read_line(motg->pdata->pmic_id_irq)) {
+	if (msm_otg_read_pmic_id_state(motg)) {
 		if (!test_and_set_bit(ID, &motg->inputs)) {
 			pr_info("PMIC: ID set\n");
 			work = 1;
@@ -3222,11 +3459,12 @@ static void msm_pmic_id_status_w(struct work_struct *w)
 		else
 			queue_work(system_nrt_wq, &motg->sm_work);
 	}
-	local_irq_restore(flags);
+	else
+	{
+		pr_info("PMIC: work=%d state=%d pending=%d\n",work, motg->phy.state, motg->sm_work_pending );
+	}
 
 }
-
-#define MSM_PMIC_ID_STATUS_DELAY	5 /* 5msec */
 
 #if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
 #define MSM_PMIC_ID_DELAY	500 /* 500msec */
@@ -3241,13 +3479,60 @@ static void msm_pmic_id_w(struct work_struct *w)
 		pr_debug("PMIC: Id interrupt ignored in MHL\n");
 		return;
 	}
+
+	pr_info("%s: INTERRUPT !\n",__func__);
 	
     tempret = pm8921_is_usb_chg_plugged_in();
 
     if(tempret){
-	    pr_info("%s: pmic_usbin is 1, Ignore pmic id irq\n",__func__);
+	    pr_info("%s: pmic_usbin (%d), Dismiss pmic_id_irq\n",__func__, tempret);
 		return;
     }
+	
+	/*
+	 * 2013-01-21, seokjeong.hong@lge.com
+	 * To prevent abnormal behaviors, Inserting unauthorized cable w/180K or 200K ohm resistor
+	 * value on their ID pin.
+	 */
+
+	if(lge_cable_info.cable_type == CABLE_180K || lge_cable_info.cable_type == CABLE_200K || lge_cable_info.cable_type == CABLE_220K
+		|| lge_cable_info.cable_type == CABLE_620K
+		|| lge_cable_info.cable_type == CABLE_330K) {
+	    pr_info("%s: cable_type (%d), Dismiss pmic_id_irq\n",__func__, lge_cable_info.cable_type);
+		lge_cable_info.cable_type = CABLE_NONE;
+		return;
+	}
+
+	/*
+	 * 2013-02-04, seokjeong.hong@lge.com
+	 * To prevent abnormal pmic_id_irq interrupt by noise or glitch signal case.
+	 * otg_detect flags is set at OTG_STATE_A_WAIT_VRISE and clear at OTG_STATE_A_WAIT_VFALL.
+	 */
+
+#if 1
+	if(boot_mode != LGE_BOOT_MODE_FACTORY2)
+	{
+			//1. USB_ID pull-up(1) again
+			pm8xxx_usb_id_pullup(1);
+			//2. Check USB_ID status
+			if (msm_otg_read_pmic_id_state(motg)) {
+					//3. If fake pmic_id_irq, USB_ID pull-up(0) and return irq
+					if(!otg_detect)
+					{
+						pr_info("msm_pmic_id_w: ignore abnormal usb_id_irq\n");
+						pm8xxx_usb_id_pullup(0);
+						return;
+					}
+					else
+						pr_info("otg_cable is removed\n");
+			} else {
+					pr_info("msm_pmic_id_w: ID clear - otg cable is inserted\n");
+					pm8xxx_usb_id_pullup(0);
+
+				}
+	}
+#endif
+
    
 	if (!aca_id_turned_on)
 		/*schedule delayed work for 5msec for ID line state to settle*/
@@ -3256,11 +3541,94 @@ static void msm_pmic_id_w(struct work_struct *w)
 }
 #endif
 
+#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
+static void usb_id_sel_w(struct work_struct *w)
+{
+	struct msm_otg *motg = container_of(w, struct msm_otg,
+						usb_id_sel_work.work);
+
+	pr_info("%s: VBUS State Change !\n",__func__);
+
+    /* 2013-02-15, seokjeong.hong@lge.com
+     * to read adc and store cable infomation on booting process  to prevent abnormal OTG interrupt,
+     * inserting abnormal usb cable(id pin resisor value : 180K, 200K or 220K) to only device side connector at powering on.
+     */
+
+	if(first_boot) {
+		lge_pm_read_cable_info();
+		pr_info("%s: lge_pm_read_cable_info() on booting process !\n",__func__);
+	}
+
+	if(test_bit(B_SESS_VLD, &motg->inputs))
+	{
+#if !defined(CONFIG_MACH_APQ8064_GVDCM)
+#if !(defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL))  // leechangjun 20121211 for GKATT HW REV_D add 
+        if((boot_mode != LGE_BOOT_MODE_FACTORY2) && (lge_get_board_revno()==HW_REV_C || lge_get_board_revno() >= HW_REV_1_0))
+			//if(!slimport_is_connected())
+				usb_id_sel_enable(0);
+#else
+        if((boot_mode != LGE_BOOT_MODE_FACTORY2) && (lge_get_board_revno()==HW_REV_C ||
+           lge_get_board_revno()==HW_REV_D ||
+           lge_get_board_revno() >= HW_REV_1_0))
+		   //if(!slimport_is_connected())
+				usb_id_sel_enable(0);	
+#endif 	  
+#else
+        usb_id_sel_enable(0);
+#endif
+	}
+	else
+	{
+#if !defined(CONFIG_MACH_APQ8064_GVDCM)
+#if !(defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL))// leechangjun 20121211 for GKATT HW REV_D add 
+        if((boot_mode != LGE_BOOT_MODE_FACTORY2) && (lge_get_board_revno()==HW_REV_C || lge_get_board_revno() >= HW_REV_1_0))
+			//if(!slimport_is_connected()){
+				usb_id_sel_enable(1);
+				if ((!aca_id_turned_on) && first_boot){
+                /*schedule delayed work for 5msec for ID line state to settle*/
+				   pr_info("first boot time, check the OTG Cable is connected or not\n"); 
+				   first_boot = false;
+				   if(!(lge_cable_info.cable_type == CABLE_180K || lge_cable_info.cable_type == CABLE_200K || lge_cable_info.cable_type == CABLE_220K))
+	                   queue_delayed_work(system_nrt_wq, &motg->pmic_id_status_work, msecs_to_jiffies(MSM_PMIC_ID_STATUS_DELAY));				\
+				}
+			//}
+#else
+        if((boot_mode != LGE_BOOT_MODE_FACTORY2) && (lge_get_board_revno()==HW_REV_C ||
+           lge_get_board_revno()==HW_REV_D ||
+           lge_get_board_revno() >= HW_REV_1_0))
+		   //if(!slimport_is_connected()){
+				usb_id_sel_enable(1);
+				if ((!aca_id_turned_on) && first_boot){
+                /*schedule delayed work for 5msec for ID line state to settle*/
+				   pr_info("first boot time, check the OTG Cable is connected or not\n"); 
+				   first_boot = false;
+				   if(!(lge_cable_info.cable_type == CABLE_180K || lge_cable_info.cable_type == CABLE_200K || lge_cable_info.cable_type == CABLE_220K))
+	                   queue_delayed_work(system_nrt_wq, &motg->pmic_id_status_work, msecs_to_jiffies(MSM_PMIC_ID_STATUS_DELAY));				\
+				}
+			//}
+#endif 
+#else
+        usb_id_sel_enable(1);
+		if ((!aca_id_turned_on) && first_boot){
+		/*schedule delayed work for 5msec for ID line state to settle*/
+		   pr_info("first boot time, check the OTG Cable is connected or not\n"); 
+		   first_boot = false;
+		   if(!(lge_cable_info.cable_type == CABLE_180K || lge_cable_info.cable_type == CABLE_200K || lge_cable_info.cable_type == CABLE_220K))
+			   queue_delayed_work(system_nrt_wq, &motg->pmic_id_status_work, msecs_to_jiffies(MSM_PMIC_ID_STATUS_DELAY));				\
+		}
+#endif
+	}
+}
+
+#endif// 20130128 for Avoiding the MutexLock api use while running IRQ Handler jaegeun.jung@lge.com
+
 static irqreturn_t msm_pmic_id_irq(int irq, void *data)
 {
 	struct msm_otg *motg = data;
 
 #if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
+	pr_info("%s: INTERRUPT !\n",__func__);
+
 	queue_delayed_work(system_nrt_wq, &motg->pmic_id_work,
 		msecs_to_jiffies(MSM_PMIC_ID_DELAY));
 #else
@@ -3912,7 +4280,12 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&motg->pmic_id_status_work, msm_pmic_id_status_w);
 #if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
 	INIT_DELAYED_WORK(&motg->pmic_id_work, msm_pmic_id_w);
+	INIT_DELAYED_WORK(&motg->usb_id_sel_work, usb_id_sel_w);// 20130128 for Avoiding the MutexLock api use while running IRQ Handler jaegeun.jung@lge.com 
 #endif
+#ifdef CONFIG_LGE_PM
+	INIT_DELAYED_WORK(&check_ta_work, msm_ta_detect_work);
+#endif
+
 
 	setup_timer(&motg->id_timer, msm_otg_id_timer_func,
 				(unsigned long) motg);
@@ -3974,6 +4347,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	}
 
 	msm_hsusb_mhl_switch_enable(motg, 1);
+
+	first_boot = true; 
 
 	platform_set_drvdata(pdev, motg);
 	device_init_wakeup(&pdev->dev, 1);
@@ -4078,7 +4453,9 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	cancel_delayed_work_sync(&motg->pmic_id_status_work);
 #if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
 	cancel_delayed_work_sync(&motg->pmic_id_work);
+    cancel_delayed_work_sync(&motg->usb_id_sel_work);// 20130128 for Avoiding the MutexLock api use while running IRQ Handler jaegeun.jung@lge.com 
 #endif
+
 
 	cancel_work_sync(&motg->sm_work);
 

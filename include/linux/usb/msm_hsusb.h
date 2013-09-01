@@ -334,6 +334,7 @@ struct msm_otg {
 	struct delayed_work pmic_id_status_work;
 #if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_USB_OTG)
 	struct delayed_work pmic_id_work;
+    struct delayed_work usb_id_sel_work;
 #endif
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;

@@ -189,7 +189,7 @@ VREG_CONSUMERS(L28) = {
 };
 VREG_CONSUMERS(L29) = {
 	REGULATOR_SUPPLY("8921_l29",		NULL),
-/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver, 2012.08.15, gayoung85.lee@lge.com */	
+/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver, 2012.08.15, gayoung85.lee@lge.com */
 	REGULATOR_SUPPLY("cam1_isp_host",	"4-0078"), /* GSBI4, Slave Addr: 0x78, ce1702 */
 	REGULATOR_SUPPLY("cam2_vio",	"4-006c"), /* GSBI4, Slave Addr: 0x6c, imx132 */
 /* LGE_CHANGE_E, For GV/GK 13M & 2.4M camera driver, 2012.08.15, gayoung85.lee@lge.com */
@@ -645,8 +645,8 @@ apq8064_gpio_regulator_pdata[] __devinitdata = {
 #ifdef CONFIG_USB_OTG
 	GPIO_VREG(EXT_5V, "ext_5v", "ext_5v_en", PM8921_MPP_PM_TO_SYS(7), NULL),
 	GPIO_VREG(EXT_MPP8, "ext_mpp8", "ext_mpp8_en",
-			PM8921_MPP_PM_TO_SYS(8), NULL),	
-#endif /* CONFIG_USB_OTG */	
+			PM8921_MPP_PM_TO_SYS(8), NULL),
+#endif /* CONFIG_USB_OTG */
 #if !defined(CONFIG_MACH_LGE)
 	GPIO_VREG(EXT_3P3V, "ext_3p3v", "ext_3p3v_en",
 		  APQ8064_EXT_3P3V_REG_EN_GPIO, NULL),
@@ -695,7 +695,7 @@ msm8064_pm8921_regulator_pdata[] __devinitdata = {
 #ifdef CONFIG_USB_OTG
 	/*           ID        name     always_on pd       en_t supply reg_ID */
 	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 0,         0, "ext_5v", 2),
-#endif /* CONFIG_USB_OTG */	
+#endif /* CONFIG_USB_OTG */
 #ifdef CONFIG_HDMI_MVS
 	PM8XXX_VS300(HDMI_MVS, "8921_hdmi_mvs", 0, 1,         0, "ext_5v", 3),
 #endif
@@ -748,7 +748,7 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
     RPM_SMPS(S7, 0, 0, 0, 1300000, 1300000, NULL, 100000, 3p20, NONE, NONE),
 #endif
 #if defined(CONFIG_MACH_LGE)
-/* LGE_CHANGE_S, For GV/GK 13M camera driver, 2012.08.15, gayoung85.lee@lge.com */	
+/* LGE_CHANGE_S, For GV/GK 13M camera driver, 2012.08.15, gayoung85.lee@lge.com */
 	RPM_SMPS(S8, 0, 1, 0, 1150000, 1150000, NULL, 100000, 1p60, NONE, NONE),
 /* LGE_CHANGE_E, For GV/GK 13M camera driver, 2012.08.15, gayoung85.lee@lge.com */
 #else
@@ -778,7 +778,7 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L10, 0, 1, 0, 2900000, 2900000, NULL,          0,     0),
 #if defined(CONFIG_MACH_LGE)
 /* LGE_CHANGE_S, For GV/GK 13M camera driver, 2012.08.15, gayoung85.lee@lge.com */
-	RPM_LDO(L11, 0, 1, 0, 2800000, 2800000, NULL,          0,     0),
+	RPM_LDO(L11, 0, 1, 0, 2850000, 2850000, NULL,          0,     0),
 /* LGE_CHANGE_E, For GV/GK 13M camera driver, 2012.08.15, gayoung85.lee@lge.com */
 #else
 	RPM_LDO(L11, 0, 1, 0, 3000000, 3000000, NULL,          0,     0),

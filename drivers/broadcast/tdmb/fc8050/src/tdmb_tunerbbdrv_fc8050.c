@@ -569,7 +569,6 @@ int8	tunerbb_drv_fc8050_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 
 	//fc8050_isr_control(0);
 
-	printk("is_tdmb_probe = %d in tunerbb_drv_fc8050_get_ber() \n", is_tdmb_probe);
 	if(is_tdmb_probe == 0)
 	{
 		dmb_bb_info->msc_ber = 20000;

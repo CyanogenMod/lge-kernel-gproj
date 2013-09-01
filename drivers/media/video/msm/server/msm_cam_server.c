@@ -35,6 +35,16 @@ static long msm_server_send_v4l2_evt(void *evt);
 static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	unsigned int notification, void *arg);
 
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.16, jungki.kim[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+static int task_free_notify_func(struct notifier_block *self, unsigned long val, void *data);
+static int wait_for_exit_prev_task(void);
+static struct notifier_block task_free_nb = {
+	.notifier_call  = task_free_notify_func,
+};
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.16, jungki.kim[End] */
+
 void msm_queue_init(struct msm_device_queue *queue, const char *name)
 {
 	D("%s\n", __func__);
@@ -481,6 +491,11 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 		rc = wait_event_interruptible_timeout(queue->wait,
 			!list_empty_careful(&queue->list),
 			msecs_to_jiffies(out->timeout_ms));
+//Start LGE_BSP_CAMERA : mediaserver recovery patch from QCT - jonghwan.ko@lge.com
+#if !(defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)  || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)) 
+		if(out->type != MSM_V4L2_CLOSE) 
+#endif			
+//End  LGE_BSP_CAMERA : mediaserver recovery patch from QCT - jonghwan.ko@lge.com
 		wait_count--;
 		if (rc != -ERESTARTSYS)
 			break;
@@ -516,19 +531,26 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 			//msm_cam_stop_hardware(pcam);
 			if (pcam) {
 //				mutex_lock(&pcam->vid_lock);
-				pr_err("%s: %d: Calling msm_cam_stop_hardware.\n", __func__, __LINE__); 
-/* LGE_CHANGE_S, To block kernel crash on GK/GV camera, 2012.12.16, elin.lee@lge.com */    
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)
+				pr_err("%s: %d: Calling msm_cam_stop_hardware.\n", __func__, __LINE__);
+/* LGE_CHANGE_S, To block kernel crash on GK/GV camera, 2012.12.16, elin.lee@lge.com */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #else
 				msm_cam_stop_hardware(pcam);
 #endif
-/* LGE_CHANGE_E, To block kernel crash on GK/GV camera, 2012.12.16, elin.lee@lge.com */    
+/* LGE_CHANGE_E, To block kernel crash on GK/GV camera, 2012.12.16, elin.lee@lge.com */
 
 //				mutex_unlock(&pcam->vid_lock);
 			}else{
-				pr_err("%s: %d: pcam instanstance was NULL.\n", __func__, __LINE__); 
+				pr_err("%s: %d: pcam instanstance was NULL.\n", __func__, __LINE__);
 			}
 			// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 handle server daemon crash elegantly
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.16, jungki.kim[Start] */
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+			//kill camera daemon client aka mediaserver
+			if (!(current->flags & PF_EXITING))
+				send_sig(SIGKILL, current, 0);
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.16, jungki.kim[End] */
 			return rc;
 		}
 	}
@@ -971,7 +993,7 @@ int msm_server_s_ctrl(struct msm_cam_v4l2_device *pcam,
 	ctrlcmd.value = (void *)ctrl_data;
 	memcpy(ctrlcmd.value, ctrl, ctrlcmd.length);
 /* LGE_CHANGE_S, Increase Waiting Time, 2012.11.27, jungki.kim[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM)
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	ctrlcmd.timeout_ms = 3000;
 #else
 	ctrlcmd.timeout_ms = 1000;
@@ -1507,8 +1529,17 @@ static int msm_open_server(struct file *fp)
 {
 	int rc = 0;
 	D("%s: open %s\n", __func__, fp->f_path.dentry->d_name.name);
+
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.16, jungki.kim[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(wait_for_exit_prev_task() != 0)
+		return -EBUSY;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.16, jungki.kim[End] */
+
 	mutex_lock(&g_server_dev.server_lock);
 	g_server_dev.use_count++;
+
 	if (g_server_dev.use_count == 1)
 		fp->private_data =
 			&g_server_dev.server_command_queue.eventHandle;
@@ -1534,11 +1565,10 @@ static int msm_close_server(struct file *fp)
 	mutex_lock(&g_server_dev.server_lock);
 	if (g_server_dev.use_count > 0)
 		g_server_dev.use_count--;
-	mutex_unlock(&g_server_dev.server_lock);
-
+	//mutex_unlock(&g_server_dev.server_lock);	/* LGE_CHANGE, Patch for bad declation, 2013.1.19, jungki.kim@lge.com */
 	if (g_server_dev.use_count == 0) {
 		int i;
-		mutex_lock(&g_server_dev.server_lock);
+		//mutex_lock(&g_server_dev.server_lock);	/* LGE_CHANGE, Patch for bad declation, 2013.1.19, jungki.kim@lge.com */
 		for (i = 0; i < MAX_NUM_ACTIVE_CAMERA; i++) {
 			if (g_server_dev.pcam_active[i]) {
 				struct msm_cam_media_controller *pmctl = NULL;
@@ -1558,8 +1588,8 @@ static int msm_close_server(struct file *fp)
 		sub.type = V4L2_EVENT_ALL;
 		msm_server_v4l2_unsubscribe_event(
 			&g_server_dev.server_command_queue.eventHandle, &sub);
-		mutex_unlock(&g_server_dev.server_lock);
 	}
+	mutex_unlock(&g_server_dev.server_lock);	/* LGE_CHANGE, Patch for bad declation, 2013.1.19, jungki.kim@lge.com */
 	return 0;
 }
 
@@ -2641,11 +2671,13 @@ int msm_cam_server_close_mctl_session(struct msm_cam_v4l2_device *pcam)
 
 	if (pmctl->mctl_release)
 		pmctl->mctl_release(pmctl);
-
+/* LGE_CHANGE_S, Patch for ION free, 2013.1.8, gayoung85.lee[Start] */
+#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GVDCM) && !defined(CONFIG_MACH_APQ8064_GVKT) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	kref_put(&pmctl->refcount, msm_release_ion_client);
 #endif
-
+#endif
+/* LGE_CHANGE_E, Patch for ION free, 2013.1.8, gayoung85.lee[End] */
 	rc = msm_cam_server_close_session(&g_server_dev, pcam);
 	if (rc < 0)
 		pr_err("msm_cam_server_close_session fails %d\n", rc);
@@ -2864,7 +2896,14 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 
 	config_cam->p_mctl->config_device = config_cam;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+/* LGE_CHANGE_S, Patch for ION free, 2013.1.8, gayoung85.lee[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	config_cam->pcam = g_server_dev.pcam_active[config_cam->dev_num];
+	msm_camera_v4l2_get_ion_client(config_cam->pcam);
+#else
 	kref_get(&config_cam->p_mctl->refcount);
+#endif
+/* LGE_CHANGE_E, Patch for ION free, 2013.1.8, gayoung85.lee[End] */
 #endif
 	fp->private_data = config_cam;
 	return rc;
@@ -3155,7 +3194,13 @@ static int msm_close_config(struct inode *node, struct file *f)
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	D("%s Decrementing ref count of config node ", __func__);
+/* LGE_CHANGE_S, Patch for ION free, 2013.1.8, gayoung85.lee[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	msm_camera_v4l2_put_ion_client(config_cam->pcam);
+#else
 	kref_put(&config_cam->p_mctl->refcount, msm_release_ion_client);
+#endif
+/* LGE_CHANGE_E, Patch for ION free, 2013.1.8, gayoung85.lee[End] */
 #endif
 	sub.type = V4L2_EVENT_ALL;
 	msm_server_v4l2_unsubscribe_event(
@@ -3297,7 +3342,14 @@ static int __devinit msm_camera_probe(struct platform_device *pdev)
 			return rc;
 		}
 	}
-
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.16, jungki.kim[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	task_free_register(&task_free_nb);
+	init_waitqueue_head(&g_server_dev.ft_wq);
+	g_server_dev.wait_ft_timeout = msecs_to_jiffies(2500); //2500ms
+	spin_lock_init(&g_server_dev.ft_spin);
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.16, jungki.kim[End] */
 	return rc;
 }
 
@@ -3305,6 +3357,89 @@ static int __exit msm_camera_exit(struct platform_device *pdev)
 {
 	return 0;
 }
+
+/* LGE_CHANGE_S, camera recovery patch, 2013.1.16, jungki.kim[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+static struct task_struct *get_server_prev_task(void)
+{
+	struct task_struct *prev_task;
+	unsigned long flags = 0;
+	spin_lock_irqsave(&g_server_dev.ft_spin, flags);
+	prev_task = g_server_dev.prev_task;
+	spin_unlock_irqrestore(&g_server_dev.ft_spin, flags);
+	return prev_task;
+}
+
+static void set_server_prev_task(struct task_struct *prev_task)
+{
+	unsigned long flags = 0;
+	spin_lock_irqsave(&g_server_dev.ft_spin, flags);
+	g_server_dev.prev_task = prev_task;
+	spin_unlock_irqrestore(&g_server_dev.ft_spin, flags);
+}
+
+static int task_free_notify_func(struct notifier_block *self, unsigned long val, void *data)
+{
+	struct task_struct *task = data;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&g_server_dev.ft_spin, flags);
+
+	if (task == g_server_dev.prev_task)
+	{
+		g_server_dev.prev_task = NULL;
+		wake_up_interruptible(&g_server_dev.ft_wq);
+	}
+	spin_unlock_irqrestore(&g_server_dev.ft_spin, flags);
+	return NOTIFY_OK;
+}
+
+static int wait_for_exit_prev_task(void)
+{
+	int loop_count = 0, rc = -ETIMEDOUT;
+
+	if(get_server_prev_task() == current->group_leader)
+		return 0;
+	else
+	{
+		do{
+			if((rc = wait_event_interruptible_timeout(g_server_dev.ft_wq,
+				(get_server_prev_task() == NULL),
+				g_server_dev.wait_ft_timeout)) > 0)
+				break;
+			if (rc == 0)
+				printk(KERN_DEBUG "%s (%d): fail to wait for task free - count : %d, %s, pid = %d\n",
+					__func__, __LINE__,
+					g_server_dev.use_count,
+					current->comm,
+					current->pid);
+			else
+				return -EBUSY; //signal
+		}while(++loop_count < 12); //30secs
+	}
+
+	if(get_server_prev_task() == NULL)
+	{
+		loop_count = 0;
+		do{
+			if(get_server_use_count() == 0)
+			{
+				set_server_prev_task(current->group_leader);
+				return 0;
+			}
+			printk(KERN_DEBUG "%s (%d): fail to wait for task free - count : %d, %s, pid = %d\n",
+				__func__, __LINE__,
+				g_server_dev.use_count,
+				current->comm,
+				current->pid);
+			msleep(g_server_dev.wait_ft_timeout);
+		}while(++loop_count < 12); //30secs
+	}
+
+	return -EBUSY;
+}
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.1.16, jungki.kim[End] */
 
 static const struct of_device_id msm_cam_server_dt_match[] = {
 	{.compatible = "qcom,cam_server"},

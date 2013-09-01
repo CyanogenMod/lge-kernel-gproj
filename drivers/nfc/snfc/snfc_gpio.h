@@ -43,8 +43,11 @@ enum{
 #define GPIO_SNFC_INTU   	23		//IMA_INTU
 
 /* snfc_hsel */
+#ifdef CONFIG_CXD2235AGG_GJ_KDDI
+#define GPIO_SNFC_HSEL		57		//NFC_HSEL
+#else
 #define GPIO_SNFC_HSEL		69		//NFC_HSEL
-
+#endif
 
 #define SNFC_GPIO_CFG(gpio, func, dir, pull, drvstr) \
     ((((gpio) & 0x3FF) << 4)        |   \

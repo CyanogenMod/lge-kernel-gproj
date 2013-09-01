@@ -99,4 +99,6 @@ config LGE_NFC_SONY_CXD2235AGG
 	  To compile this driver as a module, choose m here. The module will
 	  be called CDX2235AGG.
 
+source "drivers/nfc/snfc/Kconfig"
+
 endif # NFC_DEVICES

@@ -656,6 +656,7 @@ static int msm_fb_suspend_sub(struct msm_fb_data_type *mfd)
 	mfd->suspend.sw_refreshing_enable = mfd->sw_refreshing_enable;
 	mfd->suspend.op_enable = mfd->op_enable;
 	mfd->suspend.panel_power_on = mfd->panel_power_on;
+	mfd->suspend.op_suspend = true;
 
 	if (mfd->op_enable) {
 		ret =
@@ -726,6 +727,8 @@ static int msm_fb_resume_sub(struct msm_fb_data_type *mfd)
 #if defined(CONFIG_LGE_QC_LCDC_LUT)
        lge_set_qlut();
 #endif
+
+	mfd->suspend.op_suspend = false;
 
 	return ret;
 }
@@ -930,7 +933,11 @@ static int bl_level_old = -1; /* LGE_CHANGE */
 static int default_bl_value = -1;
 #elif defined(CONFIG_BACKLIGHT_LM3630)//daewoo.kwak
 static int bl_level_old = 0xF0;
+#if defined(CONFIG_MACH_APQ8064_GVDCM)
+static int default_bl_value = 144;
+#else
 static int default_bl_value = 164;
+#endif // CONFIG_MACH_APQ8064_GVDCM
 #else
 static int bl_level_old;
 #endif
@@ -1363,7 +1370,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 #elif defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) \
        || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT_PANEL)
 #if defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKKT) \
-       || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKATT)
+       || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	var->height = 121,      /* height of picture in mm */
 	var->width = 68,        /* width of picture in mm */
 #elif defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKDDI)

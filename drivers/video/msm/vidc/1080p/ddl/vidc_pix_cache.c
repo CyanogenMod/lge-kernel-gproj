@@ -213,9 +213,11 @@ void vidc_pix_cache_set_ram(u32 ram_select)
 
 	VIDC_HWIO_IN(REG_261029, &dmi_cfg_reg);
 	dmi_cfg_reg &= (~HWIO_REG_261029_DMI_RAM_SEL_BMSK);
+	//QCT_PATCH_S
 	dmi_cfg_reg |= VIDC_SETFIELD(ram_select,
-			HWIO_REG_261029_AUTO_INC_EN_SHFT,
+			HWIO_REG_261029_DMI_RAM_SEL_SHFT,
 			HWIO_REG_261029_DMI_RAM_SEL_BMSK);
+	//QCT_PATCH_E
 	VIDC_HWIO_OUT(REG_261029, dmi_cfg_reg);
 }
 

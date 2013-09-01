@@ -11,6 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/*=======================================================================================
+
+                   		 WARNING !!
+
+ If you modify this file, it may give rise to serious Factory mass-production problem,
+ Sure please contact us security team. [lg-security@lge.com]
+
+=======================================================================================*/
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
@@ -64,7 +72,7 @@
 /* secondary hw key status flag */
 #define SEC_HW_KEY_BLOWN  0x00000002
 #define PRIM_HW_KEY_BLOWN 0x00000001
-#define HW_KEYS_BLOCKED   0x00000003
+#define HW_KEYS_BLOCKED   0x00000004
 
 #define HW_KEY_LSB_FEC_MASK 0xC1FF83FF
 #define HW_KEY_MSB_FEC_MASK 0x007FE0FF
@@ -467,7 +475,7 @@ static ssize_t qfprom_read_store(struct device *dev,
 	p_buf = kmalloc(sizeof(u32) * 2, GFP_KERNEL);
 	if (!p_buf) {
 		printk("%s : buffer memory alloc fail\n", __func__);
-		ret = -ENOMEM;
+		return -ENOMEM; //ret = -ENOMEM; fixed WBT TD 472500 (Null Pointer)
 	}
 	memset(p_buf, 0, sizeof(u32) * 2);
 	ret = qfuse_read_single_row(qfprom_address, 0, p_buf);

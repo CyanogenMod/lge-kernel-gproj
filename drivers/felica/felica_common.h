@@ -62,9 +62,11 @@ typedef enum _e_snfc_i2c_status {
 //#ifdef CONFIG_LGE_FELICA_DCM
 #define FELICA_LED_SUPPORT
 //#endif
-
+#if defined(CONFIG_LGE_FELICA_ONLY)
+//#define FELICA_NFC_INTERFACE
+#else
 #define FELICA_NFC_INTERFACE
-
+#endif
 /* debug message */
 //#define FEATURE_DEBUG_LOW
 #define FELICA_DEBUG_MSG printk

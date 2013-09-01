@@ -59,10 +59,6 @@
 #define CONFIG_SLIMBUS_DEVICE_UP_COND // Qualcomm, Fusion3
 #define SPLIT_ROUTE_AND_ALGO_PRESET
 
-
-#define ES325_SLIM_CH_RX_OFFSET		152
-#define ES325_SLIM_CH_TX_OFFSET		156
-// #define ES325_SLIM_RX_PORTS		10
 #define ES325_SLIM_RX_PORTS		6
 #define ES325_SLIM_TX_PORTS		6
 
@@ -72,13 +68,6 @@
 #define ES325_SLIM_2_CAP	4
 #define ES325_SLIM_3_PB		5
 #define ES325_SLIM_3_CAP	6
-
-#define ES325_SLIM_1_PB_MAX_CHANS	2
-#define ES325_SLIM_1_CAP_MAX_CHANS	2
-#define ES325_SLIM_2_PB_MAX_CHANS	2
-#define ES325_SLIM_2_CAP_MAX_CHANS	2
-#define ES325_SLIM_3_PB_MAX_CHANS	2
-#define ES325_SLIM_3_CAP_MAX_CHANS	2
 
 #define ES325_SLIM_1_PB_OFFSET	0
 #define ES325_SLIM_2_PB_OFFSET	2
@@ -139,8 +128,9 @@ struct es325_priv {
 	enum es325_power_state power_state;
 #if !defined(CONFIG_HRTIMER_SLEEP_DELAYED)
 	struct delayed_work sleep_work;
-	struct mutex power_lock;
 #endif /* CONFIG_HRTIMER_SLEEP_DELAYED */
+	struct mutex power_lock;
+
 	char fw_version[256];
 } es325_priv = {
 	.codec = NULL,
@@ -178,6 +168,9 @@ static unsigned int es325_rx1_route_ena = 0;
 // 1 is MDM --> es325 --> WCD9310, 0 is MDM --> WCD9310
 static unsigned int es325_rx2_route_ena = 0;
 
+#define WAKEUP_PIN_DETECT_TIME 5000 // 5ms
+#define WAKEUP_PIN_DETECT_MAX_CNT 20 // max 100ms
+
 #if defined(CONFIG_HRTIMER_SLEEP_DELAYED)
 static struct hrtimer sleep_delay_timer;
 static struct work_struct work_es325_sleep;
@@ -210,12 +203,30 @@ enum {
 	ES325_ONE_MIC_ASR,
 	ES325_TWO_MIC_VOIP_CT,
 	ES325_TWO_MIC_VOIP_FT,
+	ES325_TWO_MIC_CT_LOW_NS,
+	ES325_ONE_MIC_DV_LOW_NS,
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL) 	
+	ES325_TWO_MIC_CT_WB,
+	ES325_TWO_MIC_FT_WB,
+	ES325_TWO_MIC_CT_LOW_NS_WB,
+	ES325_ONE_MIC_DV_LOW_NS_WB,
+#endif	
+	ES325_BOTTOM_MIC_SEALED,
+	ES325_TOP_MIC_SEALED,
 	ES325_DUMMY,
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL)	
+	ES325_NB,
+	ES325_WB,
+#endif	
 	ES325_STOP
 };
 
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL)	
+static bool is_wideband = false;
+static long route_num_old = ES325_STOP;
+#endif
 static long es325_internal_route_num = ES325_STOP+1;
-static u8 es325_internal_route_configs[ES325_STOP+1][15] = {
+static u8 es325_internal_route_configs[ES325_STOP+1][60] = {
 	{ // 1-Mic Close Talk
 	0x90, 0x31, 0x00, 0x00, /* Route Preset */
 #if defined(SPLIT_ROUTE_AND_ALGO_PRESET)
@@ -308,16 +319,94 @@ static u8 es325_internal_route_configs[ES325_STOP+1][15] = {
 	0xff					/* End of Command */
 	},
 	{ // VoIP Speaker, 16KHz(APQ - eS325 - Codec)
-	0x90, 0x31, 0x00, 0x0C, /* Route Preset */
+	0x90, 0x31, 0x00, 0x0D, /* Route Preset */
 #if defined(SPLIT_ROUTE_AND_ALGO_PRESET)
 	0x90, 0x31, 0x00, 0x29, /* Algo Preset */
 #endif /* SPLIT_ROUTE_AND_ALGO_PRESET */
+	0xff					/* End of Command */
+	},
+	{ // 2-mic CT Low NS (TX VQOS:1, RX VQOS:2)
+	0x90, 0x31, 0x00, 0x01, /* Route Preset */
+#if defined(SPLIT_ROUTE_AND_ALGO_PRESET)
+	0x90, 0x31, 0x00, 0x2A, /* Algo Preset */
+#endif /* SPLIT_ROUTE_AND_ALGO_PRESET */
+	0xff					/* End of Command */
+	},
+	{ // 1-mic DV Low NS (TX VQOS:4, RX VQOS:2)
+	0x90, 0x31, 0x00, 0x02, /* Route Preset */
+#if defined(SPLIT_ROUTE_AND_ALGO_PRESET)
+	0x90, 0x31, 0x00, 0x2B, /* Algo Preset */
+#endif /* SPLIT_ROUTE_AND_ALGO_PRESET */
+	0xff					/* End of Command */
+	},
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL) 		
+	{ // WB 2-mic CT High
+	0x90, 0x31, 0x00, 0x01, /* Route Preset */
+#if defined(SPLIT_ROUTE_AND_ALGO_PRESET)
+	0x90, 0x31, 0x00, 0x2C, /* Algo Preset */
+#endif /* SPLIT_ROUTE_AND_ALGO_PRESET */
+	0xff					/* End of Command */
+	},	
+	{ // WB 2-mic FT High
+	0x90, 0x31, 0x00, 0x03, /* Route Preset */
+#if defined(SPLIT_ROUTE_AND_ALGO_PRESET)
+	0x90, 0x31, 0x00, 0x2D, /* Algo Preset */
+#endif /* SPLIT_ROUTE_AND_ALGO_PRESET */
+	0xff					/* End of Command */	
+	},	
+	{ // WB 2-mic CT Low NS
+	0x90, 0x31, 0x00, 0x01, /* Route Preset */
+#if defined(SPLIT_ROUTE_AND_ALGO_PRESET)
+	0x90, 0x31, 0x00, 0x2E, /* Algo Preset */
+#endif /* SPLIT_ROUTE_AND_ALGO_PRESET */
+	0xff					/* End of Command */	
+	},	
+	{ // WB 1-mic DV Low NS
+	0x90, 0x31, 0x00, 0x02, /* Route Preset */
+#if defined(SPLIT_ROUTE_AND_ALGO_PRESET)
+	0x90, 0x31, 0x00, 0x2F, /* Algo Preset */
+#endif /* SPLIT_ROUTE_AND_ALGO_PRESET */
+	0xff					/* End of Command */	
+	},	
+#endif	
+	{ // Bottom MIC Sealed Test
+	0xb0, 0x5c, 0x00, 0x01,
+	0xb0, 0x5a, 0x28, 0xa0,
+	0xb0, 0x5a, 0x14, 0xa2,
+	0xb0, 0x5a, 0x04, 0xa4,
+	0xb0, 0x5a, 0x40, 0xaa,
+	0xb0, 0x5a, 0x44, 0xae,
+	0xb0, 0x17, 0x00, 0x02,
+	0xb0, 0x18, 0x00, 0x02,
+	0x90, 0x1c, 0x00, 0x00, /* algo processing = off */
+	0xff					/* End of Command */
+	},
+	{ // Top MIC Sealed Test
+	0xb0, 0x5c, 0x00, 0x01,
+	0xb0, 0x5a, 0x28, 0xa0,
+	0xb0, 0x5a, 0x14, 0xa2,
+	0xb0, 0x5a, 0x04, 0xa5,
+	0xb0, 0x5a, 0x40, 0xaa,
+	0xb0, 0x5a, 0x44, 0xae,
+	0xb0, 0x17, 0x00, 0x02,
+	0xb0, 0x18, 0x00, 0x02,
+	0x90, 0x1c, 0x00, 0x00, /* algo processing = off */
 	0xff					/* End of Command */
 	},
 	{ // Dummy
 	0x90, 0x31, 0x00, 0x0E, /* Route Preset */
 	0xff					/* End of Command */
 	},
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL) 	
+	{ // NB
+	0x90, 0x31, 0x00, 0x0E, /* Route Preset */
+	0xff					/* End of Command */
+	},
+	{ // WB
+	0x90, 0x31, 0x00, 0x0E, /* Route Preset */
+	0xff					/* End of Command */
+	},
+#endif	
 	{ // Clearing Route(STOP)
 	0x90, 0x31, 0x00, 0x0F, /* Route Preset */
 	0xff					/* End of Command */
@@ -1244,6 +1333,12 @@ static int es325_build_cmd_write_msg(char *msg, int *msg_len,
 	memcpy(msg, &cmd_access->write_msg, *msg_len);
 	if (reg & ES325_STAGED_CMD)
 		*msg |= (1 << 5);
+	if (cmd_access->val_max > 255) {
+		*(msg + cmd_access->write_msg_len - 2) = (value & 0xff00) >> 8;
+		*(msg + cmd_access->write_msg_len - 1) = value & 0x00ff;
+	} else {
+		*(msg + cmd_access->write_msg_len - 1) = value & 0x00ff;
+	}
 
 	return 0;
 }
@@ -1314,7 +1409,7 @@ static int es325_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int access = reg & ES325_ACCESS_MASK;
 	char msg[16];
 	char *msg_ptr;
-	int msg_len;
+	int msg_len = 0;
 	int i;
 	int rc;
 
@@ -1557,12 +1652,203 @@ static ssize_t es325_sleep_test_set(struct device *dev,
 	return count;
 }
 
+static ssize_t es325_mic_sealed_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	int rc;
+	struct es325_priv *es325 = &es325_priv;
+	u8 req_msg[4] = {0x80, 0x43, 0x00, 0x00};
+	u8 ack_msg[4] = {0x00, 0x00, 0x00, 0x00};
+
+	if(es325->power_state != ES325_POWER_AWAKE){
+		pr_err("%s(): Can not get mic sealed when power_state is %d\n", __func__, es325->power_state);
+		return sprintf(buf, "Can not get mic sealed when power_state is %d\n", es325->power_state);
+	}
+	else {
+		rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+								ES325_WRITE_VE_WIDTH, req_msg, 4, 1);
+		if (rc < 0) {
+			pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			return sprintf(buf, "Failed to SLIMBus Write\n");
+		}
+
+		mdelay(20);
+		rc = es325_slim_read(es325, ES325_READ_VE_OFFSET,
+								ES325_READ_VE_WIDTH, ack_msg, 4, 1);
+		if (rc < 0) {
+			pr_err("%s(): Failed to SLIMBus Read\n", __func__);
+			return sprintf(buf, "Failed to SLIMBus Read\n");
+		}
+		else {
+			pr_info("%s(): ping ack = %02x%02x%02x%02x\n", __func__,
+					ack_msg[0], ack_msg[1], ack_msg[2], ack_msg[3]);
+			return sprintf(buf, "status=0x%02x%02x%02x%02x\n",
+					ack_msg[0], ack_msg[1], ack_msg[2], ack_msg[3]);
+		}
+	}
+}
+
+
+static ssize_t es325_mic_sealed_set(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t count)
+{
+	long debug_val;
+	int rc;
+	struct es325_priv *es325 = &es325_priv;
+	u8 msg[4];
+	u8 *msg_ptr;
+	int i;
+
+	rc = kstrtol(buf, 10, &debug_val);
+	switch(debug_val)
+		{
+		case 0:
+			msg_ptr = &es325_internal_route_configs[es325_internal_route_num][0];
+			for (i = 0; ; msg_ptr +=4) {
+				if (*msg_ptr == 0xff)
+					break;
+				memcpy(msg, msg_ptr, 4);
+				rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+						ES325_WRITE_VE_WIDTH, msg, 4, 1);
+			}
+			if (rc < 0) {
+				pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			}
+			break;
+		case 1:
+			msg_ptr = &es325_internal_route_configs[ES325_BOTTOM_MIC_SEALED][0];
+			for (i = 0; ; msg_ptr +=4) {
+				if (*msg_ptr == 0xff)
+					break;
+				memcpy(msg, msg_ptr, 4);
+				rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+						ES325_WRITE_VE_WIDTH, msg, 4, 1);
+			}
+			if (rc < 0) {
+				pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			}
+			break;
+		case 2:
+			msg_ptr = &es325_internal_route_configs[ES325_TOP_MIC_SEALED][0];
+			for (i = 0; ; msg_ptr +=4) {
+				if (*msg_ptr == 0xff)
+					break;
+				memcpy(msg, msg_ptr, 4);
+				rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+						ES325_WRITE_VE_WIDTH, msg, 4, 1);
+			}
+			if (rc < 0) {
+				pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			}
+			break;
+		default:
+			break;
+		}
+
+	return count;
+}
+
+static int es325_put_mic_sealed(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	long debug_val;
+	int rc = 0;
+	struct es325_priv *es325 = &es325_priv;
+	u8 msg[4];
+	u8 *msg_ptr;
+	int i;
+
+	debug_val = ucontrol->value.integer.value[0];
+
+	switch(debug_val)
+		{
+		case 0:
+			msg_ptr = &es325_internal_route_configs[es325_internal_route_num][0];
+			for (i = 0; ; msg_ptr +=4) {
+				if (*msg_ptr == 0xff)
+					break;
+				memcpy(msg, msg_ptr, 4);
+				rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+						ES325_WRITE_VE_WIDTH, msg, 4, 1);
+			}
+			if (rc < 0) {
+				pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			}
+			break;
+		case 1:
+			msg_ptr = &es325_internal_route_configs[ES325_BOTTOM_MIC_SEALED][0];
+			for (i = 0; ; msg_ptr +=4) {
+				if (*msg_ptr == 0xff)
+					break;
+				memcpy(msg, msg_ptr, 4);
+				rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+						ES325_WRITE_VE_WIDTH, msg, 4, 1);
+			}
+			if (rc < 0) {
+				pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			}
+			break;
+		case 2:
+			msg_ptr = &es325_internal_route_configs[ES325_TOP_MIC_SEALED][0];
+			for (i = 0; ; msg_ptr +=4) {
+				if (*msg_ptr == 0xff)
+					break;
+				memcpy(msg, msg_ptr, 4);
+				rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+						ES325_WRITE_VE_WIDTH, msg, 4, 1);
+			}
+			if (rc < 0) {
+				pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			}
+			break;
+		default:
+			break;
+		}
+
+	return debug_val;
+}
+
+static int es325_put_vp_onoff(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	long debug_val;
+	int rc = 0;
+	struct es325_priv *es325 = &es325_priv;
+	u8 vp_on_req_msg[4] 	= {0x90, 0x1c, 0x00, 0x01}; // VP On
+	u8 vp_off_req_msg[4]	= {0x90, 0x1c, 0x00, 0x00}; // VP Off
+
+	debug_val = ucontrol->value.integer.value[0];
+
+	switch(debug_val)
+		{
+		case 0:
+			rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+									ES325_WRITE_VE_WIDTH, vp_off_req_msg, 4, 1);
+			if (rc < 0) {
+				pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			}
+			break;
+		case 1:
+			rc = es325_slim_write(es325, ES325_WRITE_VE_OFFSET,
+									ES325_WRITE_VE_WIDTH, vp_on_req_msg, 4, 1);
+			if (rc < 0) {
+				pr_err("%s(): Failed to SLIMBus Write\n", __func__);
+			}
+			break;
+		default:
+			break;
+		}
+
+	return debug_val;
+}
+
 /*
 	/sys/devices/platform/msm_slim_ctrl.1/es325-codec-gen0/route_status
 	/sys/devices/platform/msm_slim_ctrl.1/es325-codec-gen0/route_config
 	/sys/devices/platform/msm_slim_ctrl.1/es325-codec-gen0/power_status
 	/sys/devices/platform/msm_slim_ctrl.1/es325-codec-gen0/fw_version
 	/sys/devices/platform/msm_slim_ctrl.1/es325-codec-gen0/sleep_test
+	/sys/devices/platform/msm_slim_ctrl.1/es325-codec-gen0/mic_sealed
 */
 
 static struct device_attribute es325_device_attrs[] = {
@@ -1576,6 +1862,9 @@ static struct device_attribute es325_device_attrs[] = {
 			es325_fw_version_show,		NULL),
 	__ATTR(sleep_test,		S_IRUGO|S_IWUSR, \
 			es325_sleep_test_show,	es325_sleep_test_set),
+	__ATTR(mic_sealed,	S_IRUGO|S_IWUSR, \
+			es325_mic_sealed_show,	es325_mic_sealed_set),
+
 };
 
 
@@ -1933,6 +2222,28 @@ static int es325_defer_fw_download(struct es325_priv *priv)
 }
 #endif
 
+static void delayed_sleep(struct work_struct *w)
+{
+	int ch_tot;
+
+	/* If there are active streams we do not sleep.
+	 * Count the front end (FE) streams ONLY.
+	 */
+	ch_tot = 0;
+	ch_tot += es325_priv.dai[ES325_SLIM_1_PB - 1].ch_tot;
+	ch_tot += es325_priv.dai[ES325_SLIM_2_PB - 1].ch_tot;
+	ch_tot += es325_priv.dai[ES325_SLIM_1_CAP - 1].ch_tot;
+
+	pr_info("%s %d active channels.\n", __func__, ch_tot);
+	if ((ch_tot <= 0) && (es325_rx1_route_ena == 0) && (es325_tx1_route_ena == 0) && (es325_rx2_route_ena == 0)) {
+		pr_info("%s : call es325_codec_sleep()\n", __func__);
+		es325_codec_sleep();
+	} else {
+		pr_info("%s : restart hrtimer\n", __func__);
+		es325_codec_sleep_delay_enable(&sleep_delay, sleep_delay_time);
+	}
+}
+
 int es325_codec_sleep(void)
 {
 	unsigned int offset = ES325_WRITE_VE_OFFSET;
@@ -1945,9 +2256,8 @@ int es325_codec_sleep(void)
 	};
 	int rc = -1;
 
-#if !defined(CONFIG_HRTIMER_SLEEP_DELAYED)
 	mutex_lock(&es325->power_lock);
-#endif
+
 	if (es325->power_state == ES325_POWER_SLEEP) {
 		dev_warn(dev,
 			"%s() Sleep called while sleeping/trying to sleep. power_state=%d\n",
@@ -1976,12 +2286,14 @@ CODEC_SLEEP_EXIT:
 		es325->power_state = ES325_POWER_SLEEP;
 		dev_info(dev, "%s() Entered sleep state. power_state=%d\n",
 			__func__, es325->power_state);
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL) 					
+		is_wideband = false;
+#endif		
 	} else
 		dev_warn(dev, "%s() Failed to enter sleep state. power_state=%d  rc=%d\n",
 			__func__, es325->power_state, rc);
-#if !defined(CONFIG_HRTIMER_SLEEP_DELAYED)
+
 	mutex_unlock(&es325->power_lock);
-#endif
 
 	return rc;
 }
@@ -1994,54 +2306,44 @@ static int es325_codec_sleep_delay_get_time(struct timed_output_dev *dev)
 		struct timeval t = ktime_to_timeval(r);
 		return t.tv_sec * 1000 + t.tv_usec / 1000;
 	}
+
+	pr_info("%s(): hrtimer_active does not activated\n", __func__);
 	return 0;
 }
 
 static void es325_codec_sleep_delay_enable(struct timed_output_dev *timed_dev, int value)
 {
-	hrtimer_cancel(&sleep_delay_timer);
+	int rc;
 
-	hrtimer_start(&sleep_delay_timer,
+	rc = hrtimer_cancel(&sleep_delay_timer);
+
+	rc = hrtimer_start(&sleep_delay_timer,
 			  ktime_set(value / 1000, (value % 1000) * 1000000),
 			  HRTIMER_MODE_REL);
+	pr_info("%s(): hrtimer_start returns = %d\n", __func__, rc);
 }
 
 static void es325_sleep_work(struct work_struct *work)
 {
-	es325_codec_sleep();
+	pr_info("%s()\n", __func__);
+
+	delayed_sleep(work);
 }
 
 static void timed_es325_sleep(struct timed_output_dev *sdev)
 {
+	pr_info("%s()\n", __func__);
+
 	schedule_work(&work_es325_sleep);
 }
 
 static enum hrtimer_restart es325_codec_sleep_delay_timer_func(struct hrtimer *timer)
 {
+	pr_info("%s()\n", __func__);
+
 	timed_es325_sleep(NULL);
 
 	return HRTIMER_NORESTART;
-}
-#else
-static void delayed_sleep(struct work_struct *w)
-{
-	int ch_tot;
-
-	/* If there are active streams we do not sleep.
-	 * Count the front end (FE) streams ONLY.
-	 */
-	ch_tot = 0;
-	ch_tot += es325_priv.dai[ES325_SLIM_1_PB - 1].ch_tot;
-	ch_tot += es325_priv.dai[ES325_SLIM_2_PB - 1].ch_tot;
-	ch_tot += es325_priv.dai[ES325_SLIM_1_CAP - 1].ch_tot;
-
-	pr_info("%s %d active channels.\n", __func__, ch_tot);
-	if (ch_tot <= 0) {
-		pr_info("%s : call es325_codec_sleep()\n", __func__);
-		es325_codec_sleep();
-	} else {
-		pr_info("%s : don't call es325_codec_sleep()\n", __func__);
-	}
 }
 #endif
 
@@ -2055,10 +2357,9 @@ int es325_codec_wakeup(void)
 	struct es325_priv *es325 = &es325_priv;
 	struct device *dev = &es325->gen0_client->dev;
 	int rc = -ENXIO;
-
-#if !defined(CONFIG_HRTIMER_SLEEP_DELAYED)
+	int cnt = 0;
 	mutex_lock(&es325->power_lock);
-#endif
+
 	if (es325->power_state == ES325_POWER_AWAKE) {
 		dev_err(dev,
 			"Chip is already awake. power_state=%d\n",
@@ -2074,28 +2375,36 @@ int es325_codec_wakeup(void)
 		pr_err("%s: Failed to get the msm_xo_mode_vote(%d)\n", __func__, rc);
 		goto EXIT_WAKEUP;
 	}
-	msleep(10);
+	usleep_range(800, 1000);
 	/* Wakeup signal H -> L. */
 	gpio_direction_output(es325->pdata->wakeup_gpio, 0);
-	msleep(30);
+	usleep_range(WAKEUP_PIN_DETECT_TIME, WAKEUP_PIN_DETECT_TIME+1000);
 
 	/* Send Sync Command(0x8000, 0x0001) */
-	rc = ES325_BUS_WRITE(es325, offset, width, sync_cmd, 4, 0);
+	for (cnt = 0; cnt < WAKEUP_PIN_DETECT_MAX_CNT; cnt++) {
+		rc = ES325_BUS_WRITE(es325, offset, width, sync_cmd, 4, 0);
+		if (rc < 0) {
+			dev_err(dev, "Sync write failed. retry cnt=%d\n", cnt+1);
+			usleep_range(WAKEUP_PIN_DETECT_TIME, WAKEUP_PIN_DETECT_TIME+1000);
+		} else {
+			cnt = WAKEUP_PIN_DETECT_MAX_CNT;
+			dev_info(dev, "Sync write succeed.\n");
+		}
+	}
+
 	if (rc < 0) {
-		dev_err(dev, "Sync write failed. rc=%d\n", rc);
+		dev_err(dev, "Sync write failed. goto EXIT_WAKEUP\n");
 		goto EXIT_WAKEUP;
 	}
 
-	msleep(20);
+	usleep_range(5000, 6000);
 	memset(msg, 0, sizeof (msg));
 	rc = ES325_BUS_READ(es325, ES325_READ_VE_OFFSET, ES325_READ_VE_WIDTH,
 					msg, 4, 1);
 	if (rc == 0)
 		goto EXIT_WAKEUP;
 
-	dev_warn(dev, "First sync attempt after sleep failed. rc=%d\n", rc);
-
-	usleep_range(1500, 2000);
+	usleep_range(5000, 6000);
 	memset(msg, 0, sizeof (msg));
 	rc = ES325_BUS_READ(es325, ES325_READ_VE_OFFSET, ES325_READ_VE_WIDTH,
 					msg, 4, 1);
@@ -2116,11 +2425,10 @@ EXIT_WAKEUP_NOGPIO:
 		dev_info(dev, "Wakeup successful.\n");
 		es325->power_state = ES325_POWER_AWAKE;
 	} else
-		dev_err(dev, "Wakeup failed.\n");
+		dev_err(dev, "Wakeup FAILED.\n");
 
-#if !defined(CONFIG_HRTIMER_SLEEP_DELAYED)
 	mutex_unlock(&es325->power_lock);
-#endif
+
 	return rc;
 }
 
@@ -2288,6 +2596,16 @@ int es325_remote_route_enable(struct snd_soc_dai *dai)
 }
 EXPORT_SYMBOL_GPL(es325_remote_route_enable);
 /* GAC */
+
+int es325_get_tx1_enabled(void)
+{
+	pr_info("%s:(tx1_ena = %d)\n",
+			__func__, es325_tx1_route_ena);
+
+	return es325_tx1_route_ena;
+}
+EXPORT_SYMBOL_GPL(es325_get_tx1_enabled);
+
 static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -2304,9 +2622,76 @@ static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 
 	if(route_num > ES325_STOP)
 		return 0;
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL) 	
+
+	if (route_num == ES325_NB) {
+		is_wideband = false;
+		if (es325_rx1_route_ena == 1 && es325_rx2_route_ena == 1 && es325_tx1_route_ena == 1) {
+			if (route_num_old == ES325_TWO_MIC_CT_WB) {
+				pr_info("%s : 2-mic CT Handover WB -> NB\n", __func__);
+				route_num = ES325_TWO_MIC_CT;
+			} else if (route_num_old == ES325_TWO_MIC_CT_LOW_NS_WB) {
+				pr_info("%s : 2-mic CT LOW NS Handover WB -> NB\n", __func__);
+				route_num = ES325_TWO_MIC_CT_LOW_NS;
+			} else if (route_num_old == ES325_TWO_MIC_FT_WB) {
+				pr_info("%s : 2-mic FT Handover WB -> NB\n", __func__);
+				route_num = ES325_TWO_MIC_FT;
+			} else if (route_num_old == ES325_ONE_MIC_DV_LOW_NS_WB) {
+				pr_info("%s : 1-mic DV Handover WB -> NB\n", __func__);
+				route_num = ES325_ONE_MIC_DV_LOW_NS;
+			} else {
+				pr_info("%s : Narrowband to Narrowband case -> No Change :: sungmin test\n", __func__);
+				route_num = route_num_old;
+			}
+		} else {
+			pr_info("%s() : sungmin : AMR Codec type is changed but Voice call is NOT activated.", __func__);
+			return 0;
+		}
+	} else if (route_num == ES325_WB) {
+		is_wideband = true;
+		if (es325_rx1_route_ena == 1 && es325_rx2_route_ena == 1 && es325_tx1_route_ena == 1) {
+			if (route_num_old == ES325_TWO_MIC_CT) {
+				pr_info("%s : 2-mic CT Handover NB -> WB\n", __func__);
+				route_num = ES325_TWO_MIC_CT_WB;
+			} else if (route_num_old == ES325_TWO_MIC_CT_LOW_NS) {
+				pr_info("%s : 2-mic CT LOW NS Handover NB -> WB\n", __func__);
+				route_num = ES325_TWO_MIC_CT_LOW_NS_WB;
+			} else if (route_num_old == ES325_TWO_MIC_FT) {
+				pr_info("%s : 2-mic FT Handover NB -> WB\n", __func__);
+				route_num = ES325_TWO_MIC_FT_WB;
+			} else if (route_num_old == ES325_ONE_MIC_DV_LOW_NS) {
+				pr_info("%s : 1-mic DV Handover NB -> WB\n", __func__);
+				route_num = ES325_ONE_MIC_DV_LOW_NS_WB;
+			} else {
+				pr_info("%s : Wideband to Wideband case -> No Change :: sungmin test\n", __func__);
+				route_num = route_num_old;
+			}
+		} else {
+			pr_info("%s() : sungmin : AMR Codec type is changed but Voice call is NOT activated.", __func__);
+			return 0;
+		}
+	}
+	
+	if (is_wideband) {
+		if (route_num == ES325_TWO_MIC_CT) {
+			route_num = ES325_TWO_MIC_CT_WB;
+		} else if (route_num == ES325_TWO_MIC_CT_LOW_NS) {
+			route_num = ES325_TWO_MIC_CT_LOW_NS_WB;
+		} else if (route_num == ES325_TWO_MIC_FT) {
+			route_num = ES325_TWO_MIC_FT_WB;
+		} else if (route_num == ES325_ONE_MIC_DV_LOW_NS) {
+			route_num = ES325_ONE_MIC_DV_LOW_NS_WB;
+		}
+	} 
+#endif
 
 	if(es325_internal_route_num != route_num) {
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL) 	
+		es325_internal_route_num = route_num_old = route_num;
+#else
 		es325_internal_route_num = route_num;
+#endif
+		
 		/* Flag to setup slimbus channel for es325 */
 		/* jeremy.pi@lge.com
 		*   blocked ch mapping flag
@@ -2332,8 +2717,7 @@ static int es325_put_internal_route_config(struct snd_kcontrol *kcontrol,
 							msg[0], msg[1], msg[2], msg[3]);
 				}
 			}
-		}
-		else {
+		} else {
 			/* Flag to setup slimbus channel for without es325 */
 			// lock power lock
 			es325_rx1_route_ena = 0;
@@ -2566,7 +2950,17 @@ static const char *es325_internal_route_configs_text[ES325_STOP+1] = {
 	"ONE MIC VIDEO REC",
 	"ONE MIC ASR",
 	"TWO MIC VOIP CT",			"TWO MIC VOIP FT",
+	"TWO MIC CT LOW NS",		"ONE MIC DV LOW NS",
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL) 		
+	"TWO MIC CT WB",			"TWO MIC FT WB",
+	"TWO MIC CT LOW NS WB",			"ONE MIC DV LOW NS WB", 
+#endif	
+	"BOTTOM MIC SEALED",		"TOP MIC SEALED",
 	"DUMMY",
+#if defined(CONFIG_MACH_APQ8064_GKGLOBAL) // 2013.04.29 _change GKGlobal feature : defined(CONFIG_MACH_APQ8064_GKOPENHK) || defined (CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENEU) || defined(CONFIG_MACH_APQ8064_GKTCLMX) || defined(CONFIG_MACH_APQ8064_GKOPENBR) || defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENIL) 	
+	"NB",
+	"WB",
+#endif	
 	"STOP"
 };
 
@@ -2576,6 +2970,40 @@ static const struct soc_enum es325_internal_route_config_enum =
 			ARRAY_SIZE(es325_internal_route_configs_text),
 			es325_internal_route_configs_text);
 #endif
+
+/* digital gain */
+static int es325_put_digital_gain_value(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int reg = mc->reg;
+	unsigned int value;
+	int rc = 0;
+
+	pr_info("%s() ucontrol = %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+	value = ucontrol->value.integer.value[0];
+	rc = es325_write(NULL, reg, value);
+
+	return 0;
+}
+
+static int es325_get_digital_gain_value(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int reg = mc->reg;
+	unsigned int value;
+
+	value = es325_read(NULL, reg);
+	pr_info("%s() value = %d\n", __func__, value);
+	pr_info("%s() ucontrol = %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+
+	return 0;
+}
 
 static struct snd_kcontrol_new es325_digital_ext_snd_controls[] = {
 	/* commit controls */
@@ -2677,6 +3105,97 @@ static struct snd_kcontrol_new es325_digital_ext_snd_controls[] = {
 	SOC_SINGLE_EXT("ES325 FW Reload",
 		SND_SOC_NOPM, 0, 1, 0,
 		NULL, es325_firmware_reload),
+
+	SOC_SINGLE_EXT("ES325 VP ONOFF",
+		SND_SOC_NOPM, 0, 100, 0,
+		NULL, es325_put_vp_onoff),
+
+	SOC_SINGLE_EXT("ES325 MIC SEALED",
+		SND_SOC_NOPM, 0, 100, 0,
+		NULL, es325_put_mic_sealed),
+
+	SOC_SINGLE_EXT("Dgain PRI",
+		       ES325_DIGITAL_GAIN_PRIMARY, 0, 255, 0,
+		       es325_get_digital_gain_value,
+		       es325_put_digital_gain_value),
+	SOC_SINGLE_EXT("Dgain SEC",
+		       ES325_DIGITAL_GAIN_SECONDARY, 0, 255, 0,
+		       es325_get_digital_gain_value,
+		       es325_put_digital_gain_value),
+	SOC_SINGLE_EXT("Dgain FEIN",
+		       ES325_DIGITAL_GAIN_FEIN, 0, 255, 0,
+		       es325_get_digital_gain_value,
+		       es325_put_digital_gain_value),
+	SOC_SINGLE_EXT("Dgain CSOUT",
+		       ES325_DIGITAL_GAIN_CSOUT, 0, 255, 0,
+		       es325_get_digital_gain_value,
+		       es325_put_digital_gain_value),
+	SOC_SINGLE_EXT("Dgain FEOUT1",
+		       ES325_DIGITAL_GAIN_FEOUT1, 0, 255, 0,
+		       es325_get_digital_gain_value,
+		       es325_put_digital_gain_value),
+
+	SOC_SINGLE_EXT("TX Noise Suppress Level",
+		       ES325_TX_NOISE_SUPPRESS_LEVEL, 0, 15, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("RX Noise Suppress Level",
+		       ES325_RX_NOISE_SUPPRESS_LEVEL, 0, 15, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("TX Out Limiter Max Level",
+		       ES325_TX_OUT_LIMITER_MAX_LEVEL, 0, 65535, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("TX In Limiter Max Level",
+		       ES325_TX_IN_LIMITER_MAX_LEVEL, 0, 65535, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("RX Out Limiter Max Level",
+		       ES325_RX_OUT_LIMITER_MAX_LEVEL, 0, 65535, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("RX Post EQ",
+		       ES325_RX_POST_EQ, 0, 1, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("TX Post EQ",
+		       ES325_TX_POST_EQ, 0, 1, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("TX MBC",
+		       ES325_TX_MBC, 0, 1, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("RX MBC",
+		       ES325_RX_MBC, 0, 1, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("AEC CNG",
+		       ES325_AEC_CNG, 0, 1, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("AEC ESE",
+		       ES325_AEC_ESE, 0, 65535, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("AEC Speaker Vol",
+		       ES325_AEC_SPEAKER_VOLUME, 0, 65535, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("AEC CNG Gain",
+		       ES325_AEC_CNG_GAIN, 0, 65535, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("TX Interrupt Level",
+		       ES325_TX_INTR_LEVEL, 0, 65535, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+	SOC_SINGLE_EXT("Position Supp Tradeoff",
+		       ES325_POS_SUPP_TRADEOFF, 0, 7, 0,
+		       es325_get_control_value,
+		       es325_put_control_value),
+
 };
 
 /* GAC */
@@ -3645,7 +4164,7 @@ static int es325_i2c_probe(struct i2c_client *i2c,
 {
 	struct esxxx_platform_data *pdata = i2c->dev.platform_data;
 	struct es325_priv *es325;
-	const char *filename = "audience-es325-fw.bin";
+	const char *filename = CONFIG_EXTRA_FIRMWARE;
 	int rc;
 
 	dev_dbg(&i2c->dev, "%s(): entry\n", __func__);
@@ -3763,7 +4282,7 @@ static struct i2c_driver es325_i2c_driver = {
 static int es325_slim_probe(struct slim_device *sbdev)
 {
 	struct esxxx_platform_data *pdata = sbdev->dev.platform_data;
-	const char *filename = "audience-es325-fw.bin";
+	const char *filename = CONFIG_EXTRA_FIRMWARE;
 	int rc;
 	int cnt = 0;
 
@@ -3832,9 +4351,8 @@ static int es325_slim_probe(struct slim_device *sbdev)
 
 	pr_info("%s initalized mutex for power state management\n", __func__);
 
-#if !defined(CONFIG_HRTIMER_SLEEP_DELAYED)
 	mutex_init(&es325_priv.power_lock);
-#endif
+
 	es325_priv.pdata = pdata;
 
 	rc = request_firmware((const struct firmware **)&es325_priv.fw,
@@ -4022,4 +4540,4 @@ MODULE_DESCRIPTION("ASoC ES325 driver");
 MODULE_AUTHOR("Greg Clemson <gclemson@audience.com>");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:es325-codec");
-MODULE_FIRMWARE("audience-es325-fw.bin");
+MODULE_FIRMWARE(CONFIG_EXTRA_FIRMWARE);

@@ -213,13 +213,14 @@ static struct max1462x_platform_data lge_hs_pdata_rev_b = {
 	.gpio_det	= MAX1462X_GPIO_EAR_SENSE_N_REVB,		        // .gpio_detect = GPIO_EAR_SENSE_N,
 	.gpio_swd	= MAX1462X_GPIO_EAR_KEY_INT_REVB,		        // .gpio_key    = GPIO_EAR_KEY_INT,
 	.external_ldo_mic_bias	= MAX1462X_GPIO_MIC_BIAS_CONTROL,	// .gpio_jpole  = GPIO_EARPOL_DETECT,
-       .set_headset_mic_bias = NULL,
-       .gpio_set_value_func = gpio_set_value_cansleep,         //If gpio connect the PMIC, function use cansleep
-       .gpio_get_value_func = gpio_get_value,                  //if gpio connect the AP, function don't use cansleep      
+	.set_headset_mic_bias = NULL,
+	.gpio_set_value_func = gpio_set_value_cansleep,         //If gpio connect the PMIC, function use cansleep
+	.gpio_get_value_func = gpio_get_value,                  //if gpio connect the AP, function don't use cansleep
 	.latency_for_detection = 75,
+	.latency_for_key = 100,                                 //latency for key detect (ms)
 };
 
-static struct max1462x_platform_data lge_hs_pdata_rev_n = {
+static struct max1462x_platform_data lge_hs_pdata_rev_c = {
 	.switch_name = "h2w",
 	.keypad_name = "hs_detect",
 
@@ -229,10 +230,28 @@ static struct max1462x_platform_data lge_hs_pdata_rev_n = {
 	.gpio_det	= MAX1462X_GPIO_EAR_SENSE_N_REVC,		        // .gpio_detect = GPIO_EAR_SENSE_N,
 	.gpio_swd	= MAX1462X_GPIO_EAR_KEY_INT_REVC,		        // .gpio_key    = GPIO_EAR_KEY_INT,
 	.external_ldo_mic_bias	= MAX1462X_GPIO_MIC_BIAS_CONTROL,	// .gpio_jpole  = GPIO_EARPOL_DETECT,
-       .set_headset_mic_bias = NULL,
-       .gpio_set_value_func = gpio_set_value_cansleep,         //If gpio connect the PMIC, function use cansleep
-       .gpio_get_value_func = gpio_get_value_cansleep,         //if gpio connect the AP, function don't use cansleep
+	.set_headset_mic_bias = NULL,
+	.gpio_set_value_func = gpio_set_value_cansleep,         //If gpio connect the PMIC, function use cansleep
+	.gpio_get_value_func = gpio_get_value_cansleep,         //if gpio connect the AP, function don't use cansleep
 	.latency_for_detection = 75,
+	.latency_for_key = 100,                                 //latency for key detect (ms)
+};
+
+static struct max1462x_platform_data lge_hs_pdata_rev_1_0 = {
+	.switch_name = "h2w",
+	.keypad_name = "hs_detect",
+
+	.key_code = 0,	                                     	// KEY_MEDIA, KEY_VOLUMEUP or KEY_VOLUMEDOWN
+
+	.gpio_mode	= MAX1462X_GPIO_EAR_MIC_EN,		                // .gpio_mic_en = GPIO_EAR_MIC_EN,
+	.gpio_det	= MAX1462X_GPIO_EAR_SENSE_N_REVC,		        // .gpio_detect = GPIO_EAR_SENSE_N,
+	.gpio_swd	= MAX1462X_GPIO_EAR_KEY_INT_REVC,		        // .gpio_key    = GPIO_EAR_KEY_INT,
+	.external_ldo_mic_bias	= MAX1462X_GPIO_MIC_BIAS_CONTROL,	// .gpio_jpole  = GPIO_EARPOL_DETECT,
+	.set_headset_mic_bias = set_headset_mic_bias_l10,
+	.gpio_set_value_func = gpio_set_value_cansleep,         //If gpio connect the PMIC, function use cansleep
+	.gpio_get_value_func = gpio_get_value_cansleep,         //if gpio connect the AP, function don't use cansleep
+	.latency_for_detection = 75,
+	.latency_for_key = 100,                                 //latency for key detect (ms)
 };
 
 static struct platform_device lge_hsd_device_rev_b = {
@@ -243,11 +262,19 @@ static struct platform_device lge_hsd_device_rev_b = {
 	},
 };
 
-static struct platform_device lge_hsd_device_rev_n = {
+static struct platform_device lge_hsd_device_rev_c = {
 	.name = "max1462x",
 	.id   = -1,
 	.dev = {
-		.platform_data = &lge_hs_pdata_rev_n,
+		.platform_data = &lge_hs_pdata_rev_c,
+	},
+};
+
+static struct platform_device lge_hsd_device_rev_1_0 = {
+	.name = "max1462x",
+	.id   = -1,
+	.dev = {
+		.platform_data = &lge_hs_pdata_rev_1_0,
 	},
 };
 
@@ -260,11 +287,13 @@ static int __init lge_hsd_max1462x_init(void)
     lge_bd_rev = lge_get_board_revno();
 
 	if(lge_bd_rev == HW_REV_B){
-		gpio_tlmm_config(GPIO_CFG(MAX1462X_GPIO_EAR_KEY_INT_REVB , 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		result = platform_device_register(&lge_hsd_device_rev_b);
 	}
-	else if(lge_bd_rev > HW_REV_B){
-		result = platform_device_register(&lge_hsd_device_rev_n);
+	else if(lge_bd_rev == HW_REV_C || lge_bd_rev == HW_REV_D ){
+		result = platform_device_register(&lge_hsd_device_rev_c);
+	}
+	else if(lge_bd_rev > HW_REV_D){
+		result = platform_device_register(&lge_hsd_device_rev_1_0);
 	}
 	return result;
 }
@@ -276,8 +305,10 @@ static void __exit lge_hsd_max1462x_exit(void)
 	printk(KERN_INFO "lge_hsd_max1462x_exit board rev %d\n", lge_bd_rev);
 	if(lge_bd_rev == HW_REV_B)
 		platform_device_unregister(&lge_hsd_device_rev_b);
-	else if(lge_bd_rev > HW_REV_B)
-		platform_device_unregister(&lge_hsd_device_rev_n);
+	else if(lge_bd_rev == HW_REV_C || lge_bd_rev == HW_REV_D )
+		platform_device_unregister(&lge_hsd_device_rev_c);
+	else if(lge_bd_rev > HW_REV_D)
+		platform_device_unregister(&lge_hsd_device_rev_1_0);
 }
 
 #endif

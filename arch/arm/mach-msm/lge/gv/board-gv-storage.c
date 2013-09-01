@@ -56,6 +56,9 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		.name = "sdc_vdd",
 		.high_vol_level = 2950000,
 		.low_vol_level = 2950000,
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+        .always_on = 1,
+#endif
 		.hpm_uA = 800000, /* 800mA */
 	}
 };
@@ -147,8 +150,13 @@ static struct msm_mmc_pad_pull sdc3_pad_pull_on_cfg[] = {
 
 static struct msm_mmc_pad_pull sdc3_pad_pull_off_cfg[] = {
 	{TLMM_PULL_SDC3_CLK, GPIO_CFG_NO_PULL},
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
 	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_UP},
 	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_UP}
+#else
+	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_DOWN},
+	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_DOWN}
+#endif
 };
 
 static struct msm_mmc_pad_pull_data mmc_pad_pull_data[MAX_SDCC_CONTROLLER] = {
@@ -478,11 +486,11 @@ static unsigned wifi_config_power_on[] = {
 int bcm_wifi_set_power(int enable)
 {
 	int ret = 0;
-#ifdef CONFIG_LGE_BCM433X_PATCH
-	msmsdcc_set_mmc_enable(enable,sdc4_dev);
-#endif
 	if (enable)
 	{
+#ifdef CONFIG_LGE_BCM433X_PATCH
+		msmsdcc_set_mmc_enable(enable,sdc4_dev);
+#endif
 		ret = gpio_direction_output(WLAN_POWER, 1); 
 		if (ret) 
 		{
@@ -507,8 +515,10 @@ int bcm_wifi_set_power(int enable)
 		}
 
 		// WLAN chip down 
-		//mdelay(100);
-		mdelay(100);//for booring time save
+		// mdelay(100);//for booring time save
+#ifdef CONFIG_LGE_BCM433X_PATCH
+		msmsdcc_set_mmc_enable(enable,sdc4_dev);
+#endif
 		printk(KERN_ERR "%s: wifi power successed to pull down\n",__func__);
 	}
 

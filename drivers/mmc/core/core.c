@@ -85,7 +85,10 @@ module_param_named(removable, mmc_assume_removable, bool, 0644);
 MODULE_PARM_DESC(
 	removable,
 	"MMC/SD cards are removable and may be removed during suspend");
-
+//for bakcup of SD control parameter by KSM
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+struct mmc_ios ios_backup;
+#endif
 /*
  * Internal function. Schedule delayed work in the MMC work queue.
  */
@@ -3078,6 +3081,16 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+	if(host->index == 1)		//if(!strncmp(mmc_hostname(host),"mmc1",4))
+	{
+	    mmc_host_clk_hold(host);
+		memcpy(&ios_backup,&host->ios,sizeof(struct mmc_ios));
+		printk("\n(IOS backup)\n%s: clock %uHz busmode %u powermode %u cs %u Vdd %u width %u timing %u signal_voltage %u\n",mmc_hostname(host), ios_backup.clock, ios_backup.bus_mode,ios_backup.power_mode, ios_backup.chip_select, ios_backup.vdd,ios_backup.bus_width, ios_backup.timing, ios_backup.signal_voltage);
+		mmc_host_clk_release(host);
+	}
+#endif
+
 	if (!err && !mmc_card_keep_power(host))
 		mmc_power_off(host);
 
@@ -3108,8 +3121,25 @@ int mmc_resume_host(struct mmc_host *host)
 
 	if (host->bus_ops && !host->bus_dead) {
 		if (!mmc_card_keep_power(host)) {
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+			if(host->index==1)
+			{
+				ios_backup.power_mode = MMC_POWER_STAY_AT_RESUME;
+				mmc_host_clk_hold(host);
+				memcpy(&host->ios,&ios_backup,sizeof(struct mmc_ios));
+				mmc_set_ios(host);
+				mmc_host_clk_release(host);
+				printk("\n(IOS restore)\n%s: clock %uHz busmode %u powermode %u cs %u Vdd %u  width %u timing %u signal_vol %u\n",mmc_hostname(host), ios_backup.clock, ios_backup.bus_mode,ios_backup.power_mode, ios_backup.chip_select, ios_backup.vdd,ios_backup.bus_width, ios_backup.timing, ios_backup.signal_voltage);
+			}
+			else
+			{
+				mmc_power_up(host);
+				mmc_select_voltage(host, host->ocr);
+			}
+#else
 			mmc_power_up(host);
 			mmc_select_voltage(host, host->ocr);
+#endif
 			/*
 			 * Tell runtime PM core we just powered up the card,
 			 * since it still believes the card is powered off.

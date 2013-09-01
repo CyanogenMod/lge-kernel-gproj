@@ -143,7 +143,13 @@ void lm3559_enable_torch_mode(enum led_status state)
 
     if (state == LM3559_LED_LOW) {
 		/* 011 011 : 112.5 mA */
+/* LGE_CHANGE_S, decrease camcorder flash current for docomo heat test, 2013.02.22, jungryoul.choi@lge.com */
+#if defined(CONFIG_MACH_APQ8064_J1KD) || defined(CONFIG_MACH_APQ8064_J1D)
+		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_TORCH_BRIGHTNESS, 0x00);
+#else
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_TORCH_BRIGHTNESS, 0x1B);
+#endif
+/* LGE_CHANGE_E, decrease camcorder flash current for docomo heat test, 2013.02.22, jungryoul.choi@lge.com */
 	} else {
 		/* 111 111 : 225 mA */
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_TORCH_BRIGHTNESS, 0x3F);
@@ -175,6 +181,8 @@ void lm3559_enable_flash_mode(enum led_status state)
 
 	pr_err("%s: After - LM3559_REG_FLASH_DURATION[0x%x]\n",__func__,data);
 	lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_DURATION, data);
+
+	lm3559_write_reg(lm3559_i2c_client, LM3559_REG_GPIO, 0x09); /* LGE_CHANGE, Disable TX1, TX2 to prevent black lined image when data is comming, 2013.03.26, jungryoul.choi@lge.com */
 
 	if(state == LM3559_LED_LOW){
 		/* 0001 0001 : 112.5 mA */

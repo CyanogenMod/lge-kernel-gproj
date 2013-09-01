@@ -30,6 +30,12 @@
 #define DM_APP_MODE			10
 #endif
 
+//2012-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [START]
+#ifdef CONFIG_LGE_DM_DEV
+#define DM_DEV_MODE         20
+#endif
+//2012-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [END]
+
 /* different values that go in for diag_data_type */
 #define DATA_TYPE_EVENT         	0
 #define DATA_TYPE_F3            	1

@@ -26,6 +26,7 @@ obj-$(CONFIG_MACH_APQ8064_GKU) += gk/
 obj-$(CONFIG_MACH_APQ8064_GKSK) += gk/
 obj-$(CONFIG_MACH_APQ8064_GKKT) += gk/
 obj-$(CONFIG_MACH_APQ8064_GKATT) += gk/
+obj-$(CONFIG_MACH_APQ8064_GKGLOBAL) += gk/
 
 # GV
 obj-$(CONFIG_MACH_APQ8064_GVDCM) += gv/
@@ -34,3 +35,5 @@ obj-$(CONFIG_MACH_APQ8064_GVKDDI) += gv/
 # COMMON
 obj-y += common/
 
+# GVKR
+obj-$(CONFIG_MACH_APQ8064_GVKT) += gvkr/

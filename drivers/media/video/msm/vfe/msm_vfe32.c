@@ -717,7 +717,6 @@ static void axi_disable_irq(struct vfe_share_ctrl_t *share_ctrl,
 
 static void vfe32_stop(struct vfe32_ctrl_type *vfe32_ctrl)
 {
-
 	/* in either continuous or snapshot mode, stop command can be issued
 	 * at any time. stop camif immediately. */
 	if (!vfe32_ctrl->share_ctrl->dual_enabled)
@@ -1658,7 +1657,6 @@ static int vfe32_capture(
 	}
 
 	vfe32_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
-
 	vfe32_ctrl->share_ctrl->vfe_capture_count = num_frames_capture;
 
 	vfe32_start_common(pmctl, vfe32_ctrl); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
@@ -5557,11 +5555,39 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	struct vfe_cmd_stats_buf *scfg = NULL;
 	struct vfe_cmd_stats_ack *sack = NULL;
 
+//Start LGE_BSP_CAMERA : mediaserver recovery patch from QCT - jonghwan.ko@lge.com
+#if 0
 	if (!vfe32_ctrl->share_ctrl->vfebase) {
 		pr_err("%s: base address unmapped\n", __func__);
 		return -EFAULT;
 	}
-
+#else
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if (!vfe32_ctrl->share_ctrl->vfebase) {
+		pr_err("%s: base address unmapped\n", __func__);
+		return -EFAULT;
+	}
+#else
+       if (!vfe32_ctrl->share_ctrl->vfebase ) {
+            if(arg) {
+               vfe_params = (struct msm_camvfe_params *)arg;
+               cmd = vfe_params->vfe_cfg;
+               if (cmd->cmd_type != VFE_CMD_STATS_REQBUF &&
+                   cmd->cmd_type != VFE_CMD_STATS_ENQUEUEBUF &&
+                   cmd->cmd_type != VFE_CMD_STATS_FLUSH_BUFQ &&
+                   cmd->cmd_type != VFE_CMD_STATS_UNREGBUF) {
+                   pr_err("%s: base address unmapped\n", __func__);
+                   return -EFAULT;
+               }
+            }
+       else
+                return -EFAULT;
+	   }
+#endif   	
+#endif	
+//End  LGE_BSP_CAMERA : mediaserver recovery patch from QCT - jonghwan.ko@lge.com
+	
+	   
 	CDBG("%s\n", __func__);
 	if (subdev_cmd == VIDIOC_MSM_VFE_INIT) {
 		CDBG("%s init\n", __func__);
@@ -5898,15 +5924,36 @@ void msm_axi_subdev_release(struct v4l2_subdev *sd)
 	struct msm_cam_media_controller *pmctl =
 		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
+
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+	mutex_lock(&axi_ctrl->state_mutex);
+	/*printk(KERN_DEBUG "%s : task = %s, pid = %d\n", __func__, current->comm, current->pid);*/
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
+
 	if (!axi_ctrl->share_ctrl->vfebase) {
 		pr_err("%s: base address unmapped\n", __func__);
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto release_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	}
+
 	pr_err("%s called\n", __func__); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	CDBG("%s, free_irq\n", __func__);
 	axi_ctrl->share_ctrl->axi_ref_cnt--;
 	if (axi_ctrl->share_ctrl->axi_ref_cnt > 0)
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto release_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 
 	axi_clear_all_interrupts(axi_ctrl->share_ctrl);
 	axi_ctrl->share_ctrl->dual_enabled = 0;
@@ -5929,8 +5976,14 @@ void msm_axi_subdev_release(struct v4l2_subdev *sd)
 
 	msm_camio_bus_scale_cfg(
 		pmctl->sdata->pdata->cam_bus_scale_table, S_EXIT);
-	pr_err("%s called X\n", __func__); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */		
+	pr_err("%s called X\n", __func__); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+release_ret:
+	mutex_unlock(&axi_ctrl->state_mutex);
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 }
 
 void msm_vfe_subdev_release(struct v4l2_subdev *sd)
@@ -5950,6 +6003,18 @@ void axi_abort(struct axi_ctrl_t *axi_ctrl)
 	spin_lock_irqsave(&axi_ctrl->share_ctrl->stop_flag_lock, flags);
 	axi_ctrl->share_ctrl->stop_ack_pending  = TRUE;
 	spin_unlock_irqrestore(&axi_ctrl->share_ctrl->stop_flag_lock, flags);
+
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+	mutex_lock(&axi_ctrl->state_mutex);
+	if (!axi_ctrl->share_ctrl->vfebase) {
+		pr_err("%s: base address unmapped\n", __func__);
+		goto abort_ret;
+	}
+	/*printk(KERN_DEBUG "%s : task = %s, pid = %d\n", __func__, current->comm, current->pid);*/
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
+
 	msm_camera_io_w(AXI_HALT,
 		axi_ctrl->share_ctrl->vfebase + VFE_AXI_CMD);
 	wmb();
@@ -5978,6 +6043,12 @@ void axi_abort(struct axi_ctrl_t *axi_ctrl)
 	if (axi_ctrl->share_ctrl->sync_abort)
 		wait_for_completion_interruptible(
 			&axi_ctrl->share_ctrl->reset_complete);
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+abort_ret:
+	mutex_unlock(&axi_ctrl->state_mutex);
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 }
 
 int axi_config_buffers(struct axi_ctrl_t *axi_ctrl,
@@ -6157,12 +6228,23 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 	uint32_t vfe_mode =
 		(axi_ctrl->share_ctrl->current_mode &
                ~(VFE_OUTPUTS_RDI0|VFE_OUTPUTS_RDI1|VFE_OUTPUTS_RDI2));
-       pr_err("axi start = %d\n",
-               axi_ctrl->share_ctrl->current_mode);
-
+   pr_err("axi start = %d\n",
+           axi_ctrl->share_ctrl->current_mode);
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+	mutex_lock(&axi_ctrl->state_mutex);
+	/*printk(KERN_DEBUG "%s : task = %s, pid = %d\n", __func__, current->comm, current->pid);*/
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	rc = axi_config_buffers(axi_ctrl, vfe_params);
 	if (rc < 0)
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto start_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 
 	switch (vfe_params.cmd_type) {
 	case AXI_CMD_PREVIEW:
@@ -6192,7 +6274,13 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 			msm_camio_bus_scale_cfg(
 			pmctl->sdata->pdata->cam_bus_scale_table,
 			bus_vector_idx);
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto start_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	case AXI_CMD_ZSL:
 		if (!axi_ctrl->share_ctrl->dual_enabled)
 			msm_camio_bus_scale_cfg(
@@ -6202,9 +6290,21 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 		if (!axi_ctrl->share_ctrl->dual_enabled)
 			msm_camio_bus_scale_cfg(
 			pmctl->sdata->pdata->cam_bus_scale_table, S_LIVESHOT);
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto start_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	default:
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto start_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	}
 	axi_enable_wm_irq(axi_ctrl->share_ctrl);
 
@@ -6371,11 +6471,19 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 		msm_camera_io_w((
 				0x1 << axi_ctrl->share_ctrl->outpath.out2.ch0),
 				axi_ctrl->share_ctrl->vfebase + VFE_BUS_CMD);
+/* LGE_CHANGE_S, fixed dural recording frame broken issue - 01079884, 2013.1.12, youngil.yun[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+		msm_camera_io_w(0x3, axi_ctrl->share_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[axi_ctrl->share_ctrl->
+			outpath.out2.ch0]);
+#else
 		msm_camera_io_w(0x1, axi_ctrl->share_ctrl->vfebase +
 			vfe32_AXI_WM_CFG[axi_ctrl->share_ctrl->
 			outpath.out2.ch0]);
-
+#endif
 		pr_err("%s: axi_ctrl->share_ctrl->outpath.out2.ch0 = %d\n",__func__, axi_ctrl->share_ctrl->outpath.out2.ch0);
+		pr_err("%s: Enable FrameBased for RDI0 \n",__func__);
+/* LGE_CHANGE_E, fixed dural recording frame broken issue - 01079884, 2013.1.12, youngil.yun[End] */
 	}
 	if (axi_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI1) {
 		axi_ctrl->share_ctrl->outpath.out3.capture_cnt =
@@ -6385,11 +6493,19 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 		msm_camera_io_w((
 				0x1 << axi_ctrl->share_ctrl->outpath.out3.ch0),
 				axi_ctrl->share_ctrl->vfebase + VFE_BUS_CMD);
+/* LGE_CHANGE_S, fixed dural recording frame broken issue - 01079884, 2013.1.12, youngil.yun[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+		msm_camera_io_w(0x3, axi_ctrl->share_ctrl->vfebase +
+			vfe32_AXI_WM_CFG[axi_ctrl->share_ctrl->
+			outpath.out3.ch0]);
+#else
 		msm_camera_io_w(0x1, axi_ctrl->share_ctrl->vfebase +
 			vfe32_AXI_WM_CFG[axi_ctrl->share_ctrl->
 			outpath.out3.ch0]);
-
+#endif
 		pr_err("%s: axi_ctrl->share_ctrl->outpath.out3.ch0 = %d\n",__func__, axi_ctrl->share_ctrl->outpath.out3.ch0);
+		pr_err("%s: Enable FrameBased for RDI1 \n",__func__);
+/* LGE_CHANGE_E, fixed dural recording frame broken issue - 01079884, 2013.1.12, youngil.yun[End] */
 	}
 	if (axi_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI2) {
 		axi_ctrl->share_ctrl->outpath.out4.capture_cnt =
@@ -6438,6 +6554,12 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 			VFE_REG_UPDATE_CMD);
 	axi_ctrl->share_ctrl->operation_mode |=
 		axi_ctrl->share_ctrl->current_mode;
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+start_ret:
+	mutex_unlock(&axi_ctrl->state_mutex);
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 }
 
 void axi_stop(struct msm_cam_media_controller *pmctl,
@@ -6449,6 +6571,16 @@ void axi_stop(struct msm_cam_media_controller *pmctl,
 		VFE_OUTPUTS_RDI1|VFE_OUTPUTS_RDI2);
 	int bus_vector_idx = 0;
 
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+	mutex_lock(&axi_ctrl->state_mutex);
+	if (!axi_ctrl->share_ctrl->vfebase) {
+		pr_err("%s: base address unmapped\n", __func__);
+		goto stop_ret;
+	}
+	/*printk(KERN_DEBUG "%s : task = %s, pid = %d\n", __func__, current->comm, current->pid);*/
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	switch (vfe_params.cmd_type) {
 	case AXI_CMD_PREVIEW:
 	case AXI_CMD_CAPTURE:
@@ -6457,7 +6589,13 @@ void axi_stop(struct msm_cam_media_controller *pmctl,
 		axi_ctrl->share_ctrl->cmd_type = vfe_params.cmd_type;
 		break;
 	case AXI_CMD_RECORD:
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto stop_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	case AXI_CMD_LIVESHOT:
 		if (!axi_ctrl->share_ctrl->dual_enabled) {
 			bus_vector_idx = S_VIDEO;
@@ -6469,16 +6607,34 @@ void axi_stop(struct msm_cam_media_controller *pmctl,
 			pmctl->sdata->pdata->cam_bus_scale_table,
 			bus_vector_idx);
 		}
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto stop_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	default:
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto stop_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	}
 
 	if (axi_ctrl->share_ctrl->stop_immediately) {
 		axi_disable_irq(axi_ctrl->share_ctrl,
 			axi_ctrl->share_ctrl->current_mode);
 		axi_stop_process(axi_ctrl->share_ctrl);
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+		goto stop_ret;
+#else
 		return;
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	}
 
 	if (axi_ctrl->share_ctrl->current_mode & VFE_OUTPUTS_RDI0) {
@@ -6516,6 +6672,12 @@ void axi_stop(struct msm_cam_media_controller *pmctl,
 	}
 	msm_camera_io_w_mb(reg_update,
 		axi_ctrl->share_ctrl->vfebase + VFE_REG_UPDATE_CMD);
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+stop_ret:
+	mutex_unlock(&axi_ctrl->state_mutex);
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 }
 
 static int msm_axi_config(struct v4l2_subdev *sd, void __user *arg)
@@ -7224,6 +7386,11 @@ static int __devinit vfe32_probe(struct platform_device *pdev)
 	vfe32_ctrl->pdev = pdev;
 	/*disable bayer stats by default*/
 	vfe32_ctrl->ver_num.main = 0;
+/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+#ifdef LGE_GK_CAMERA_BSP
+	mutex_init(&axi_ctrl->state_mutex);
+#endif
+/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
 	return 0;
 
 vfe32_no_resource:

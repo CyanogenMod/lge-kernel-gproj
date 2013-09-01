@@ -54,6 +54,12 @@
 #include <asm/io.h>
 #include <asm/unistd.h>
 
+#include <mach/board_lge.h>
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
+#endif
+#include <linux/delay.h>
+
 #ifndef SET_UNALIGN_CTL
 # define SET_UNALIGN_CTL(a,b)	(-EINVAL)
 #endif
@@ -320,9 +326,6 @@ EXPORT_SYMBOL_GPL(emergency_restart);
 
 #ifdef CONFIG_MACH_LGE
 #if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT)
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
-extern void mipi_dsi_panel_power_off_shutdown(void);
-#endif
 extern int mipi_lgit_lcd_off_for_shutdown(void);
 #endif
 #endif
@@ -332,12 +335,20 @@ void kernel_restart_prepare(char *cmd)
 	system_state = SYSTEM_RESTART;
 	usermodehelper_disable();
 	device_shutdown();
+
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	pr_info("%s check battery fet\n",__func__);
+	if(pm8921_chg_batfet_get_ext() > 0 && lge_get_factory_boot())
+	{
+		/* return control to PMIC FSM */
+		pm8921_chg_batfet_set_ext(0);
+		mdelay(7000);
+	}
+#endif
+	
 #ifdef CONFIG_MACH_LGE
 #if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT)
-	mipi_lgit_lcd_off_for_shutdown();
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
-	mipi_dsi_panel_power_off_shutdown();
-#endif
+       mipi_lgit_lcd_off_for_shutdown();
 #endif
 #endif
 	syscore_shutdown();
@@ -403,10 +414,7 @@ static void kernel_shutdown_prepare(enum system_states state)
 	device_shutdown();
 #ifdef CONFIG_MACH_LGE
 #if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT)
-	mipi_lgit_lcd_off_for_shutdown();
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
-	mipi_dsi_panel_power_off_shutdown();
-#endif
+       mipi_lgit_lcd_off_for_shutdown();
 #endif
 #endif
 }

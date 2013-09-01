@@ -53,7 +53,9 @@ static int ce1702_size_info = 0x1c;
 static int ce1702_deferred_af_mode;
 static int ce1702_deferred_focus_length;
 static int ce1702_deferred_af_start;
-
+static int ce1702_need_thumbnail;
+static int ce1702_asd_onoff = 0;
+static bool ce1702_just_changed_to_preview = false;	/* LGE_CHANGE, remove flashing at last, 2013.2.21, jungki.kim@lge.com */
 /* LGE_CHANGE_E, Define For CE1702 Sensor To Understand Easier, 2012.10.22, jungki.kim[End] */
 
 static int ce1702_i2c_probe(struct i2c_client *client,const struct i2c_device_id *id);
@@ -63,6 +65,7 @@ static int8_t ce1702_set_iso(struct msm_sensor_ctrl_t *s_ctrl, int32_t iso);
 uint8_t ce1702_check_af_status(bool ispolling);
 int8_t ce1702_start_af(struct msm_sensor_ctrl_t *s_ctrl);
 int32_t ce1702_stop_lens(struct msm_sensor_ctrl_t *s_ctrl);
+int8_t ce1702_set_face_detect(bool asd_onoff);
 
 
 DEFINE_MUTEX(ce1702_mut);
@@ -78,6 +81,8 @@ static int isPreviewMode = 0;
 static int isSingleCaptureMode = 0;
 static int isTMSMode = 0;
 static int isBurstMode = 0;
+static int isHDRMode = 0;
+static int isLowLightShotMode = 0;
 /* LGE_CHANGE_E, Define For CE1702 output mode, 2012.11.10, elin.lee*/
 
 /* LGE_CHANGE_S, add the changing image size for GK project, 2012.10.19 youngil.yun@lge.com */
@@ -149,15 +154,21 @@ static struct msm_camera_i2c_conf_array ce1702_confs[] = {
 	ARRAY_SIZE(ce1702_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&ce1702_prev_settings[0],
 	ARRAY_SIZE(ce1702_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
+	{&ce1702_prev_settings[0],
+	ARRAY_SIZE(ce1702_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
+	{&ce1702_prev_settings[0],
+	ARRAY_SIZE(ce1702_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
+	{&ce1702_prev_settings[0],
+	ARRAY_SIZE(ce1702_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 };
 
 static struct msm_sensor_output_info_t ce1702_dimensions[] = {
 /* LGE_CHANGE_S, Change Support Sensor Info For GK/GV, 2012.10.25, jungki.kim[Start] */
 	{
 		/* full size  15fps*/
-		.x_output = 0x1070, /* 4208 */
+		.x_output = 0x1040, /* 4160 */
 		.y_output = 0x0C30, /* 3120 */
-		.line_length_pclk = 0x1070,
+		.line_length_pclk = 0x1040,
 		.frame_length_lines = 0x0C30,
 		.vt_pixel_clk = 225600000,
 		.op_pixel_clk = 225600000,
@@ -215,10 +226,10 @@ static struct msm_sensor_output_info_t ce1702_dimensions[] = {
 	},
 	{
 		/* preview 30fps*/
-		.x_output = 0x0B0, /* 176 */
-		.y_output = 0x0090, /* 144 */
-		.line_length_pclk = 0x0B0,
-		.frame_length_lines = 0x0090,
+		.x_output = 0x160, /* 352*/
+		.y_output = 0x0120, /* 288 */
+		.line_length_pclk = 0x160,
+		.frame_length_lines = 0x0120,
 		.vt_pixel_clk = 225600000,
 		.op_pixel_clk = 225600000,
 		.binning_factor = 1,
@@ -243,6 +254,26 @@ static struct msm_sensor_output_info_t ce1702_dimensions[] = {
 		.op_pixel_clk = 225600000,
 		.binning_factor = 1,
 	},
+	{
+		/* preview 30fps*/
+		.x_output = 0x280, /* 640*/
+		.y_output = 0x01E0, /* 480 */
+		.line_length_pclk = 0x280,
+		.frame_length_lines = 0x01E0,
+		.vt_pixel_clk = 225600000,
+		.op_pixel_clk = 225600000,
+		.binning_factor = 1,
+	},
+	{
+		/* preview 30fps*/
+		.x_output = 0x140, /* 320*/
+		.y_output = 0x0F0, /* 240 */
+		.line_length_pclk = 0x140,
+		.frame_length_lines = 0x0F0,
+		.vt_pixel_clk = 225600000,
+		.op_pixel_clk = 225600000,
+		.binning_factor = 1,
+	},
 /* LGE_CHANGE_S, Add for TMC and Burst Shot ISP mode, 2012.11.10, elin.lee*/
       {
 		/* zsl*/
@@ -256,6 +287,26 @@ static struct msm_sensor_output_info_t ce1702_dimensions[] = {
 	},
 	{
 		/* burst shot*/
+		.x_output = 0x0500, /* 1280 */
+		.y_output = 0x03C0, /* 960 */
+		.line_length_pclk = 0x0500,
+		.frame_length_lines = 0x03C0,
+		.vt_pixel_clk = 225600000,
+		.op_pixel_clk = 225600000,
+		.binning_factor = 1,
+	},
+	{
+		/* HDR shot*/
+		.x_output = 0x0500, /* 1280 */
+		.y_output = 0x03C0, /* 960 */
+		.line_length_pclk = 0x0500,
+		.frame_length_lines = 0x03C0,
+		.vt_pixel_clk = 225600000,
+		.op_pixel_clk = 225600000,
+		.binning_factor = 1,
+	},
+	{
+		/* Low Light shot*/
 		.x_output = 0x0500, /* 1280 */
 		.y_output = 0x03C0, /* 960 */
 		.line_length_pclk = 0x0500,
@@ -399,6 +450,7 @@ static struct ce1702_size_type ce1702_picture_table[] = {
 static struct ce1702_size_type ce1702_postview_table[] = {
 	{1280, 960, CE1702_SIZE_1MP},
 	{1280, 720, CE1702_SIZE_HD},
+	{176, 144, CE1702_SIZE_QCIF},
 };
 
 static struct ce1702_size_type ce1702_preview_table[] = {
@@ -406,6 +458,9 @@ static struct ce1702_size_type ce1702_preview_table[] = {
 	{1920, 1080, CE1702_SIZE_FHD1},
 	{1280, 960, CE1702_SIZE_1MP},
 	{1280, 720, CE1702_SIZE_HD},
+//	{720, 480, CE1702_SIZE_D1},
+	{160, 120, CE1702_SIZE_QQCIF},
+	{144, 176, CE1702_SIZE_CIF},
 };
 
 static struct ce1702_size_type ce1702_video_table[] = {
@@ -415,6 +470,19 @@ static struct ce1702_size_type ce1702_video_table[] = {
 	{1280, 960, CE1702_SIZE_1MP},
 	{1280, 720, CE1702_SIZE_HD},
 	{720, 480, CE1702_SIZE_D1},
+	{640, 480, CE1702_SIZE_VGA},
+	{320, 240, CE1702_SIZE_QVGA},
+	{352, 288, CE1702_SIZE_CIF},
+	{176, 144, CE1702_SIZE_CIF},
+	{144, 176, CE1702_SIZE_CIF},
+//	{176, 144, CE1702_SIZE_QCIF},
+};
+
+static struct ce1702_size_type ce1702_thumbnail_table[] = {
+	{480, 270, CE1702_SIZE_169},
+	{400, 240, CE1702_SIZE_53},
+	{320, 240, CE1702_SIZE_QVGA},
+//	{240, 160, CE1702_SIZE_QVGA},	//requested. temporarily blocked TV size. (12/27)
 	{176, 144, CE1702_SIZE_QCIF},
 };
 
@@ -422,48 +490,52 @@ uint16_t ce1702_get_supported_size(uint16_t width, uint16_t height, struct ce170
 {
 	int  i;
 	uint16_t rc = 0;
+	uint32_t calc=0, target=0;
 
-	LDBGI("%s: input size = [%d x %d] size=[%d]\n", __func__, width, height, tbl_size);
 	for(i=0;i<tbl_size;i++) {
 		if( (table[i].width == width) && (table[i].height == height) ) {
 			rc = table[i].size_val;
-			LDBGI("%s:1 supported size = [%d x %d] val=0x%02x\n", __func__,
-					table[i].width, table[i].height, rc);
+			LDBGI("%s: requested size = [%d x %d], supported size = [%d x %d] val=[0x%02x]\n", __func__,
+					width, height, table[i].width, table[i].height, rc);
 			break;
 		}
 	}
-	if(rc == 0) {
-		if( (width*3) == (height*4) ) {
-			for(i=0;i<tbl_size;i++) {
-				if( (table[i].width*3) == (table[i].height*4) ) {
-					rc = table[i].size_val;
-					LDBGI("%s:2 supported size = [%d x %d](4:3) val=0x%02x\n", __func__,
-						table[i].width, table[i].height, rc);
-					break;
-				}
-			}
-		} else if( (width*9) == (height*16) ) {
-			for(i=0;i<tbl_size;i++) {
-				if( (table[i].width*9) == (table[i].height*16) ) {
-					rc = table[i].size_val;
-					LDBGI("%s:3 supported size = [%d x %d](16:9) val=0x%02x\n", __func__,
-						table[i].width, table[i].height, rc);
-					break;
-				}
-			}
-		} else {
-			rc = CE1702_SIZE_1MP;
-			LDBGI("%s:4 supported size = [%d x %d](default) val=0x%02x\n", __func__,
-					1280, 960, rc);
-		}
 
+  if(rc == 0) {
+       if(width == 160 && height == 120){
+          rc = CE1702_SIZE_QQCIF;
+			LDBGI("%s: Not find any size. use this! = [%d x %d](default) val=0x%02x\n", __func__,
+						160, 120, rc);
+          return rc;
+       }
+  }
+
+	if(rc == 0) {
+		if(height !=0)
+			calc = (width*4096) / height;
+		for(i=0;i<tbl_size;i++) {
+			if (table[i].height !=0)
+				target = (table[i].width*4096) / table[i].height;
+			if(calc == target) {
+				rc = table[i].size_val;
+				LDBGI("%s: ## requested size = [%d x %d], supported size = [%d x %d] val=[0x%02x]\n", __func__,
+						width, height, table[i].width, table[i].height, rc);
+				break;
+			}
+		}
 	}
 
+	//Even though rc = 0,
 	if(rc == 0) {
-		//Even though rc = 0,
-		rc = CE1702_SIZE_1MP;
-		LDBGI("%s: Not find any size. use this! = [%d x %d](default) val=0x%02x\n", __func__,
-					1280, 960, rc);
+		if(table[0].width > 500) {	// Check whether thumbnail or not.
+			rc = CE1702_SIZE_1MP;
+			LDBGI("%s: Not find any size. use this! = [%d x %d](default) val=0x%02x\n", __func__,
+						1280, 960, rc);
+		} else {
+			rc = CE1702_SIZE_QCIF;
+			LDBGI("%s: Not find any size. use this! = [%d x %d](default) val=0x%02x\n", __func__,
+						176, 144, rc);
+		}
 	}
 
 	return rc;
@@ -475,8 +547,7 @@ int32_t ce1702_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
 	int32_t rc = 0;
-	uint8_t wdata = 0;
-
+	uint8_t wdata[20];
 #ifndef STOP_LENS_WORKAROUND_1205
 	//uint8_t rdata[2];
 	uint8_t result =0;
@@ -490,9 +561,10 @@ int32_t ce1702_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 		//mdelay(500);
 		CE_FwStart();
 		ce1702_set_model_name();
+		ce1702_switching_exif_gps(false);
 	} else if (update_type == MSM_SENSOR_UPDATE_PERIODIC) {
 	//Start, Mode Change, Suspend/Resume
-		if ((isPreviewMode |isSingleCaptureMode |isTMSMode | isBurstMode) ==0){
+		if ((isPreviewMode | isSingleCaptureMode | isTMSMode | isBurstMode | isHDRMode | isLowLightShotMode) ==0){
 			rc = ce1702_set_ISP_mode();
 			if (rc < 0)
 				LDBGE("%s: set ISP mode failed \n", __func__);
@@ -513,6 +585,9 @@ int32_t ce1702_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			case MSM_SENSOR_RES_6:
 			case MSM_SENSOR_RES_7:
 			case MSM_SENSOR_RES_8:
+			case MSM_SENSOR_RES_9:
+			case MSM_SENSOR_RES_10:
+            case MSM_SENSOR_RES_YUV_PREVIEW:
 				ce1702_frame_mode = CE1702_MODE_PREVIEW;
 				v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
 					NOTIFY_PCLK_CHANGE, &s_ctrl->msm_sensor_reg->
@@ -529,6 +604,69 @@ int32_t ce1702_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 				LDBGE("%s: E, Burst shot setting\n", __func__);
 				ce1702_frame_mode = CE1702_MODE_BURST_SHOT;
 				break;
+          case MSM_SENSOR_RES_HDR:
+              LDBGE("%s: E, HDR shot setting\n", __func__);
+              ce1702_frame_mode = CE1702_MODE_HDR_SHOT;
+
+              wdata[0] = 0x20;
+              wdata[1] = 0x01;
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, wdata,  2);
+
+              wdata[0] = 0x05;
+              wdata[1] = 0x0A;
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, wdata,  2);
+
+              cnt = sizeof(ce1702_postview_table) / sizeof(ce1702_postview_table[0]);
+              wdata[0] = ce1702_get_supported_size(size_info.preview_width, size_info.preview_height, ce1702_postview_table, cnt);
+              wdata[1] = 0x05;
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x55, wdata,  2);
+              LDBGI("%s: postview wdata[0] = %d\n", __func__,wdata[0]);
+
+              cnt = sizeof(ce1702_picture_table) / sizeof(ce1702_picture_table[0]);
+              wdata[0] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_picture_table, cnt);
+              ce1702_size_info = wdata[0];
+              wdata[1] = 0x10;
+              wdata[2] = 0x56;
+              wdata[3] = 0x00;
+              LDBGI("%s: picture wdata[0] = %d\n", __func__,wdata[0]);
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x73, wdata,  4);
+
+              wdata[0] = 0x00;
+              wdata[1] = 0x01;
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x71, wdata,  2);
+
+             ce1702_set_zoom_ratio(s_ctrl, ce1702_zoom_ratio);
+
+              break;
+           case MSM_SENSOR_RES_LLS:
+              LDBGE("%s: E, Low Light shot setting\n", __func__);
+              ce1702_frame_mode = CE1702_MODE_LOW_LIGHT_SHOT;
+
+              wdata[0] = 0x20;
+              wdata[1] = 0x01;
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, wdata,  2);
+
+              cnt = sizeof(ce1702_postview_table) / sizeof(ce1702_postview_table[0]);
+              wdata[0] = ce1702_get_supported_size(size_info.preview_width, size_info.preview_height, ce1702_postview_table, cnt);
+              wdata[1] = 0x05;
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x55, wdata,  2);
+              LDBGI("%s: postview wdata[0] = %d\n", __func__,wdata[0]);
+
+              cnt = sizeof(ce1702_picture_table) / sizeof(ce1702_picture_table[0]);
+              wdata[0] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_picture_table, cnt);
+              ce1702_size_info = wdata[0];
+              wdata[1] = 0x10;
+              wdata[2] = 0x14;
+              wdata[3] = 0x00;
+              LDBGI("%s: wdata[0] = %d\n", __func__,wdata[0]);
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x73, wdata,  4);
+
+              wdata[0] = 0x00;
+              wdata[1] = 0x01;
+              ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x71, wdata,  2);
+
+             ce1702_set_zoom_ratio(s_ctrl, ce1702_zoom_ratio);
+              break;
 			default:
 				LDBGE("%s: res not exist.\n", __func__);
 				break;
@@ -536,8 +674,8 @@ int32_t ce1702_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 
 #ifndef STOP_LENS_WORKAROUND_1205
 		if(ce1702_focus_mode == AF_MODE_AUTO) {
-			wdata = 0x00;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x35, &wdata,  1);	// Stop VCM
+			wdata[0] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x35, wdata,  1);	// Stop VCM
 			if (rc < 0)
 				LDBGE("%s: ce1702_i2c_write failed \n", __func__);
 			cnt = 0;
@@ -699,22 +837,29 @@ void ce1702_param_init(void)
 	ce1702_deferred_af_mode = -1;
 	ce1702_deferred_focus_length = -1;
 	ce1702_deferred_af_start = 0;
+	ce1702_need_thumbnail = true;
+	ce1702_asd_onoff = 0;
+	ce1702_just_changed_to_preview = false;	/* LGE_CHANGE, remove flashing at last, 2013.2.21, jungki.kim@lge.com */
 }
 
 int32_t ce1702_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
+	hw_rev_type lge_bd_rev = lge_get_board_revno();
 	LDBGI("%s: %d\n", __func__, __LINE__);
 
 	ce1702_param_init();	// init parameters by jungki.kim
 	ce1702_frame_mode = CE1702_FRAME_MAX;
-	if(isPreviewMode == 1 || isSingleCaptureMode == 1 || isTMSMode==1 || isBurstMode==1){
-		LDBGE("%s: Preview is still running!!! isPreviewMode = %d, isSingleCaptureMode = %d, isTMSMode=%d, isBurstMode=%d \n", __func__, isPreviewMode, isSingleCaptureMode, isTMSMode, isBurstMode);
+	if(isPreviewMode == 1 || isSingleCaptureMode == 1 || isTMSMode==1 || isBurstMode==1|| isHDRMode==1 || isLowLightShotMode==1 ){
+		LDBGE("%s: Preview is still running!!! isPreviewMode = %d, isSingleCaptureMode = %d, isTMSMode=%d, isBurstMode=%d, isHDRMode=%d, isLowLightShotMode=%d\n",
+      __func__, isPreviewMode, isSingleCaptureMode, isTMSMode, isBurstMode, isHDRMode, isLowLightShotMode);
 		isPreviewMode = 0;
 		isSingleCaptureMode = 0;
 		isTMSMode = 0;
 		isBurstMode = 0;
+       isHDRMode = 0;
+       isLowLightShotMode = 0;
 	}
 
 	s_ctrl->reg_ptr = kzalloc(sizeof(struct regulator *)
@@ -735,8 +880,8 @@ int32_t ce1702_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	rc = gpio_request(ISP_HOST_INT, "ISP_HOST_INT");
 	rc = gpio_request(ISP_STBY, "ISP_STBY");
 /* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(lge_bd_rev >= HW_REV_C ||lge_bd_rev == HW_REV_1_0){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc = gpio_request(ISP_RST, "ISP_RST");
 	}
@@ -744,7 +889,7 @@ int32_t ce1702_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		LDBGE("%s: PM request gpio failed\n", __func__);
 	}
 #elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
+	if(lge_bd_rev >= HW_REV_C){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc = gpio_request(ISP_RST, "ISP_RST");
 	}
@@ -793,8 +938,8 @@ int32_t ce1702_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	rc =pm8xxx_gpio_config(ISP_HOST_INT, &gpio20_param);
 	rc =pm8xxx_gpio_config(ISP_STBY, &gpio13_param);
 /* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(lge_bd_rev >= HW_REV_C ||lge_bd_rev == HW_REV_1_0){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc =pm8xxx_gpio_config(ISP_RST, &gpio27_param);
 	}
@@ -802,7 +947,7 @@ int32_t ce1702_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		LDBGE("%s: pm8xxx_gpio_config on failed\n", __func__);
 	}
 #elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
+	if(lge_bd_rev >= HW_REV_C){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc =pm8xxx_gpio_config(ISP_RST, &gpio27_param);
 	}
@@ -817,8 +962,8 @@ int32_t ce1702_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	mdelay(1);
 
 /* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0)
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(lge_bd_rev >= HW_REV_C ||lge_bd_rev == HW_REV_1_0)
 	{
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc = gpio_direction_output(ISP_RST, 1);
@@ -828,7 +973,7 @@ int32_t ce1702_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		}
 	}else
 #elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C)
+	if(lge_bd_rev >= HW_REV_C)
 	{
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc = gpio_direction_output(ISP_RST, 1);
@@ -859,13 +1004,13 @@ int32_t ce1702_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 enable_clk_failed:
 /* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(lge_bd_rev >= HW_REV_C ||lge_bd_rev == HW_REV_1_0){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc = gpio_direction_output(ISP_RST, 0);
 	}else
 #elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
+	if(lge_bd_rev >= HW_REV_C){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc = gpio_direction_output(ISP_RST, 0);
 	}else
@@ -901,6 +1046,7 @@ int32_t ce1702_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
+	hw_rev_type lge_bd_rev = lge_get_board_revno();
 	LDBGI("%s\n", __func__);
 
 /*LGE_UPDATE_S Color Engine Switch for camera, 2012.11.19, elin.lee@lge.com*/
@@ -918,13 +1064,13 @@ int32_t ce1702_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		ce1702_msm_sensor_disable_i2c_mux(
 			data->sensor_platform_info->i2c_conf);
 /* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
- 	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(lge_bd_rev >= HW_REV_C ||lge_bd_rev == HW_REV_1_0){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc = gpio_direction_output(ISP_RST, 0);
  	}else
 #elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
+	if(lge_bd_rev >= HW_REV_C){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		rc = gpio_direction_output(ISP_RST, 0);
 	}else
@@ -971,25 +1117,28 @@ int32_t ce1702_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	gpio_free(ISP_HOST_INT);
 	gpio_free(ISP_STBY);
 /* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT)
- 	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(lge_bd_rev >= HW_REV_C ||lge_bd_rev == HW_REV_1_0){
 		LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 		gpio_free(ISP_RST);
 	}
 #elif defined(CONFIG_MACH_APQ8064_GVDCM)
-if(lge_get_board_revno() >= HW_REV_C){
+if(lge_bd_rev >= HW_REV_C){
 	LDBGI("%s: Revision check! ISP_RST GPIO No.%d\n",__func__,ISP_RST );
 	gpio_free(ISP_RST);
 }
 #endif
 /* LGE_CHANGE_E, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[End] */
 	ce1702_frame_mode = CE1702_FRAME_MAX;
-	if(isPreviewMode == 1 || isSingleCaptureMode == 1 || isTMSMode==1 || isBurstMode==1){
-		LDBGE("%s: Preview is still running!!! isPreviewMode = %d, isSingleCaptureMode = %d, isTMSMode=%d, isBurstMode=%d \n", __func__, isPreviewMode, isSingleCaptureMode, isTMSMode, isBurstMode);
+	if(isPreviewMode == 1 || isSingleCaptureMode == 1 || isTMSMode==1 || isBurstMode==1 || isHDRMode==1 || isLowLightShotMode==1){
+		LDBGE("%s: Preview is still running!!! isPreviewMode = %d, isSingleCaptureMode = %d, isTMSMode=%d, isBurstMode=%d, isHDRMode=%d, isLowLightShotMode=%d\n",
+      __func__, isPreviewMode, isSingleCaptureMode, isTMSMode, isBurstMode, isHDRMode, isLowLightShotMode);
 		isPreviewMode = 0;
 		isSingleCaptureMode = 0;
 		isTMSMode = 0;
 		isBurstMode = 0;
+       isHDRMode = 0;
+       isLowLightShotMode = 0;
 	}
     ce1702_focus_mode = -1;
 
@@ -1020,11 +1169,10 @@ void ce1702_sensor_set_param_lately(struct msm_sensor_ctrl_t *s_ctrl)
 		Then I check whether it is previewing or not and it is not on previewing!!
 		So I need it try later.
 	*/
+	ce1702_just_changed_to_preview = true;	/* LGE_CHANGE, remove flashing at last, 2013.2.21, jungki.kim@lge.com */
 
-	//if( ce1702_aec_awb_lock >= 10) {
-		LDBGI("%s: ce1702_aec_awb_lock=[%d] EXTRA WORK TO DO!\n", __func__, ce1702_aec_awb_lock);
-		ce1702_set_aec_awb_lock(s_ctrl, ce1702_aec_awb_lock);
-	//}
+	LDBGI("%s: ce1702_aec_awb_lock=[%d] EXTRA WORK TO DO!\n", __func__, ce1702_aec_awb_lock);
+	ce1702_set_aec_awb_lock(s_ctrl, ce1702_aec_awb_lock);
 
 	if ( ((ce1702_frame_mode == CE1702_MODE_PREVIEW) && (isSingleCaptureMode == 0))
 		|| ((ce1702_frame_mode == CE1702_MODE_TMS_SHOT) && (isTMSMode == 1)) ) {
@@ -1049,6 +1197,7 @@ void ce1702_sensor_set_param_lately(struct msm_sensor_ctrl_t *s_ctrl)
 		}
 	}
 
+	ce1702_just_changed_to_preview = false;	/* LGE_CHANGE, remove flashing at last, 2013.2.21, jungki.kim@lge.com */
 }
 
 void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
@@ -1061,7 +1210,7 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 	int cnt = 0;
 //	int dim_rate;
 
-	LDBGI("%s: isPreviewMode=%d,  isSingleCaptureMode =%d, isTMSMode=%d, isBurstMode =%d\n", __func__, isPreviewMode, isSingleCaptureMode, isTMSMode, isBurstMode);
+	LDBGI("%s: isPreviewMode=%d,  isSingleCaptureMode =%d, isTMSMode=%d, isBurstMode =%d, isHDRMode=%d, isLowLightShotMode=%d\n", __func__, isPreviewMode, isSingleCaptureMode, isTMSMode, isBurstMode, isHDRMode, isLowLightShotMode);
 
 	switch(ce1702_frame_mode){
 		case CE1702_MODE_PREVIEW:
@@ -1074,28 +1223,42 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 				if (result == 0x00) {//if stopping
 					LDBGE("%s: CE1702_MODE_PREVIEW initial start\n", __func__);
 					if(ce1702_cam_preview == PREVIEW_MODE_CAMCORDER){
+						LDBGI("ce1702_get_supported_size: ce1702_video_table\n");
 						retry_cnt = sizeof(ce1702_video_table) / sizeof(ce1702_video_table[0]);
 						wdata[0] = ce1702_get_supported_size(size_info.video_width, size_info.video_height, ce1702_video_table, retry_cnt);
+						if(size_info.video_height*16 == size_info.video_width*9) {
+							wdata[1] = 0x03;
+							LDBGI("%s: 16:9 recording setting\n", __func__);
+						} else {
+							wdata[1] = 0x02;
+							LDBGI("%s: 4:3 recording setting\n", __func__);
+						}
 					}
 					else{
+						LDBGI("ce1702_get_supported_size: ce1702_preview_table\n");
 						retry_cnt = sizeof(ce1702_preview_table) / sizeof(ce1702_preview_table[0]);
 						wdata[0] = ce1702_get_supported_size(size_info.preview_width, size_info.preview_height, ce1702_preview_table, retry_cnt);
+						wdata[1] = 0x01;
 					}
-					wdata[1] = 0x01;
 					rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x54, wdata,  2);
 					if (rc < 0)
 						LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
 					LDBGI("%s: video_width = [%d], video_height = [%d]\n", __func__, size_info.video_width,size_info.video_height);
 
+					LDBGI("ce1702_get_supported_size: ce1702_postview_table\n");
 					cnt = sizeof(ce1702_postview_table) / sizeof(ce1702_postview_table[0]);
 					/* LGE_CHANGE_S, fix zoom capture, 2012.11.21, gayoung85.lee[Start] */
-					wdata[0] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_postview_table, cnt);
+					if(size_info.picture_width >= size_info.preview_width && size_info.picture_height >= size_info.preview_height)
+				        	wdata[0] = ce1702_get_supported_size(size_info.preview_width, size_info.preview_height, ce1702_postview_table, cnt);
+					else
+						wdata[0] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_postview_table, cnt);
 					wdata[1] = 0x05;
 					rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x55, wdata,  2);
 					if (rc < 0)
 						LDBGE("%s: ce1702_i2c_write failed(2) \n", __func__);
 					LDBGI("%s: Capture Size:: picture width = %d , picture height = %d\n", __func__,size_info.picture_width,size_info.picture_height);
 
+					LDBGI("ce1702_get_supported_size: ce1702_picture_table\n");
 					cnt = sizeof(ce1702_picture_table) / sizeof(ce1702_picture_table[0]);
 					wdata[0] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_picture_table, cnt);
 					ce1702_size_info = wdata[0];
@@ -1116,7 +1279,20 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 					wdata[6] = 0x21; //0x20
 					rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x90, wdata,  7);
 					if (rc < 0)
-						LDBGE("%s: ce1702_i2c_write failed(9) \n", __func__);
+						LDBGE("%s: ce1702_i2c_write failed(10) \n", __func__);
+
+					LDBGI("ce1702_get_supported_size: ce1702_thumbnail_table\n");
+					cnt = sizeof(ce1702_thumbnail_table) / sizeof(ce1702_thumbnail_table[0]);
+					wdata[0] = 0x00;
+					wdata[1] = 0x80; //1207 yt.jeon@lge.com increase compression rate. 0x60
+					wdata[2] = 0x0C; //0x09;
+					wdata[3] = 0x20;//0x320(800), 0xD0
+					wdata[4] = 0x03; //0x07
+					wdata[5] = 0x01;
+					wdata[6] = ce1702_get_supported_size(size_info.thumbnail_width, size_info.thumbnail_heigh, ce1702_thumbnail_table, cnt);
+					rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x91, wdata,  7);
+					if (rc < 0)
+						LDBGE("%s: ce1702_i2c_write failed(11) \n", __func__);
 
 					wdata[0] = 0x21;
 					wdata[1] = 0x00;
@@ -1124,9 +1300,6 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 					if (rc < 0)
 						LDBGE("%s: ce1702_i2c_write failed(4) \n", __func__);
 
-					/* LGE_CHANGE_S, For Snapshot Flash, 2012.10.22, jungki.kim[Start] */
-					ce1702_sensor_set_led_flash_mode_snapshot(ce1702_led_flash_mode);
-					/* LGE_CHANGE_E, For Snapshot Flash, 2012.10.22, jungki.kim[End] */
 					ce1702_set_zoom_ratio(s_ctrl, ce1702_zoom_ratio);
 					/* LGE_CHANGE_E, fix zoom capture, 2012.11.21, gayoung85.lee[End] */
 
@@ -1142,6 +1315,19 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 
 					wdata[0] = 0x00;
 					rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x11, wdata,  1);
+					if (rc < 0)
+						LDBGE("%s: ce1702_i2c_write failed(7) \n", __func__);
+
+					if(ce1702_cam_preview == PREVIEW_MODE_CAMCORDER)
+						if((size_info.video_width==320 && size_info.video_height==240)||
+							(size_info.video_width==176 && size_info.video_height==144))
+							wdata[0] = 0x0F;		//set 15fps
+						else
+							wdata[0] = 0x1E;		//set 30fps
+					else
+						wdata[0] = 0x1E;		//set 30fps
+					wdata[1] = 0x00;
+					rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x5A, wdata, 2);
 					if (rc < 0)
 						LDBGE("%s: ce1702_i2c_write failed(7) \n", __func__);
 				}
@@ -1160,12 +1346,19 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 						LDBGE("%s: ce1702_i2c_read failed \n", __func__);
 					retry_cnt++;
 				} while ((result != 0x08) && (retry_cnt < 100));
+				if(retry_cnt >= 100) {
+					LDBGE("%s: %d: error to CE1702_MODE_PREVIEW \n", __func__, __LINE__);
+					// event log
+					//ce1702_store_isp_eventlog();
+				}
 
-				if(result == 0x08){
+				if(result == 0x08){                  
 					isPreviewMode = 1;
 					isSingleCaptureMode = 0;
 					isTMSMode = 0;
 					isBurstMode = 0;
+					isHDRMode = 0;
+					isLowLightShotMode = 0;
 				}else{
 					isPreviewMode = 0;
 				}
@@ -1175,7 +1368,13 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 					ce1702_deferred_af_start = 1;
 				}
 
-				LDBGI("%s: ce1702_i2c_read successed, CE1702_MODE_PREVIEW result=%d, isPreviewMode=%d \n", __func__, result, isPreviewMode);
+				LDBGI("%s: ce1702_i2c_read successed, CE1702_MODE_PREVIEW result=0x%02x, isPreviewMode=%d \n", __func__, result, isPreviewMode);
+/* LGE_CHANGE_S, Setting face detectionf for ASD, 2013.1.12, gayoung85.lee[Start] */
+					if(ce1702_asd_onoff){
+						LDBGI("[G-young] %s : setting face detecting on \n",__func__);
+						ce1702_set_face_detect(ce1702_asd_onoff);
+					}
+/* LGE_CHANGE_E, Setting face detectionf for ASD, 2013.1.12, gayoung85.lee[End] */
 			}
 			break;
 
@@ -1183,12 +1382,21 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 			if(isSingleCaptureMode == 0){
 				LDBGE("%s: CE1702_MODE_SINGLE_SHOT start\n", __func__);
 
+				/* LGE_CHANGE_S, For Snapshot Flash, 2012.10.22, jungki.kim[Start] */
+				ce1702_sensor_set_led_flash_mode_snapshot(ce1702_led_flash_mode);
+				/* LGE_CHANGE_E, For Snapshot Flash, 2012.10.22, jungki.kim[End] */
+
+				ce1702_set_exif_rotation_to_isp();
+
+				if (ce1702_need_thumbnail == false) {
+					LDBGE("%s: set remove exif data !!\n", __func__);
+					ce1702_switching_exif_gps(false);
+				}
+
 				wdata[0] = 0x11;//aewb lock
 				rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x11, wdata,  1);
 				if (rc < 0)
 					LDBGE("%s: ce1702_i2c_write failed(10) \n", __func__);
-
-				ce1702_set_exif_rotation_to_isp();
 
 				wdata[0] = 0x00;	//Buffering Capture
 				rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x74, wdata,  1);
@@ -1205,7 +1413,9 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 					retry_cnt++;
 				} while ((result != 0x01) && (retry_cnt < 100));
 				if(retry_cnt >= 100) {
-					LDBGE("%s: %d: error to capture with mode 1\n", __func__, __LINE__);
+					LDBGE("%s: %d: error to CE1702_MODE_SINGLE_SHOT \n", __func__, __LINE__);
+					// event log
+					//ce1702_store_isp_eventlog();
 					return;
 				}
 
@@ -1214,9 +1424,12 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 					isSingleCaptureMode = 1;
 					isTMSMode = 0;
 					isBurstMode = 0;
+                 isHDRMode = 0;
+                 isLowLightShotMode = 0;
 				}else{
 					isSingleCaptureMode = 0;
 				}
+				ce1702_deferred_af_start = 0;
 				LDBGI("%s: ce1702_i2c_read successed, CE1702_MODE_SINGLE_SHOT result=%d, isSingleCaptureMode=%d \n", __func__, result, isSingleCaptureMode);
 			}
 			break;
@@ -1237,7 +1450,7 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 			        cnt = sizeof(ce1702_picture_table) / sizeof(ce1702_picture_table[0]);
 				/* LGE_CHANGE_S, fix zoom capture, 2012.11.21, gayoung85.lee[Start] */
 			        wdata[1] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_picture_table, cnt);
-			        wdata[2] = 0x00;
+			        wdata[2] = 0x06;
 			        wdata[3] = 0x00;
 			        wdata[4] = 0x00;
 			        wdata[5] = 0x01;
@@ -1263,16 +1476,22 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 						LDBGE("%s: ce1702_i2c_read failed \n", __func__);
 					retry_cnt++;
 				} while ((result != 0x18) && (retry_cnt < 100));
+				if(retry_cnt >= 100) {
+					LDBGE("%s: %d: error to CE1702_MODE_TMS_SHOT \n", __func__, __LINE__);
+					// event log
+					//ce1702_store_isp_eventlog();
+				}
 
 				if(result == 0x18){
 					isPreviewMode = 0;
 					isSingleCaptureMode = 0;
 					isTMSMode = 1;
 					isBurstMode = 0;
+					isHDRMode = 0;
+					isLowLightShotMode = 0;
 				}else{
 					isTMSMode = 0;
 				}
-
 				LDBGI("%s: ce1702_i2c_read successed, CE1702_MODE_TMS_SHOT result=%d, isTMSMode=%d \n", __func__, result, isTMSMode);
 			}
 			break;
@@ -1280,55 +1499,168 @@ void ce1702_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 		case CE1702_MODE_BURST_SHOT:
 			if (isBurstMode ==0){
 				LDBGI("%s: CE1702_MODE_BURST_SHOT start\n", __func__);
-
-				// LGE_CHANGE_S, rotation fixed, 2012.10.24 elin.lee@lge.com
-				wdata[0] = 0x03;
-				rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xAE, wdata,  1);
-				if (rc < 0)
-					LDBGE("%s: ce1702_i2c_write failed(16) \n", __func__);
-				// LGE_CHANGE_E, rotation fixed, 2012.10.24 elin.lee@lge.com
+				wdata[0] = 0x20;
+				wdata[1] = 0x00;
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, wdata,  2);
 
 				cnt = sizeof(ce1702_postview_table) / sizeof(ce1702_postview_table[0]);
-			        /* LGE_CHANGE_S, fix zoom capture, 2012.11.21, gayoung85.lee[Start] */
-			        wdata[0] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_postview_table, cnt);
-			         cnt = sizeof(ce1702_picture_table) / sizeof(ce1702_picture_table[0]);
-			        /* LGE_CHANGE_S, fix zoom capture, 2012.11.21, gayoung85.lee[Start] */
-			        wdata[1] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_picture_table, cnt);
-			        wdata[2] = 0x00;
-			        wdata[3] = 0x00;
-			        wdata[4] = 0x00;
-			        wdata[5] = 0x01;
-			        wdata[6] = 0x00;
+				wdata[0] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_postview_table, cnt);
+				wdata[1] = 0x05;
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x55, wdata,  2);	// postview setting
 
-			        rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x62, wdata,  7);
-				if (rc < 0)
-					LDBGE("%s: ce1702_i2c_write failed(17) \n", __func__);
+				cnt = sizeof(ce1702_picture_table) / sizeof(ce1702_picture_table[0]);
+				wdata[0] = ce1702_get_supported_size(size_info.picture_width, size_info.picture_height, ce1702_picture_table, cnt);
+				ce1702_size_info = wdata[0];
+				wdata[1] = 0x05;	// burstshot mode
+				wdata[2] = 0x11;
+				wdata[3] = 0x00;
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x73, wdata,  4);	// capture setting
 
-			        LDBGI("%s: Burst Shot Size:: picture width = %d , picture height = %d\n", __func__,size_info.picture_width,size_info.picture_height);
+				wdata[0] = 0x00;
+				wdata[1] = 0x00;
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x71, wdata,  2);	// No of Capture Setting
 
-				wdata[0] = 0x01;
-				rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x63, wdata,  1);
-				if (rc < 0)
-					LDBGE("%s: ce1702_i2c_write failed(19) \n", __func__);
+				wdata[0] = 0x00;
+				wdata[1] = 0xD0;
+				wdata[2] = 0x0E;	//38%
+				wdata[3] = 0x08;
+				wdata[4] = 0x07;	//18%
+				wdata[5] = 0x01;
+				wdata[6] = 0x21;
+				rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x90, wdata,  7);
 
-				do{
-					mdelay(10);
-					//rdata[0] = 0x00;
-					rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x6C, NULL, 0,  &result,  1);
+				wdata[0] = 0x10;
+				wdata[1] = 0x02;
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x96, wdata,  2);
+
+				cnt = sizeof(ce1702_thumbnail_table) / sizeof(ce1702_thumbnail_table[0]);
+				wdata[0] = 0x00;
+				wdata[1] = 0x80;
+				wdata[2] = 0x0C;
+				wdata[3] = 0x8C;
+				wdata[4] = 0x0A;
+				wdata[5] = 0x01;
+				wdata[6] = ce1702_get_supported_size(size_info.thumbnail_width, size_info.thumbnail_heigh, ce1702_thumbnail_table, cnt);
+				rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x91, wdata,  7);
+
+				ce1702_set_exif_rotation_to_isp();
+
+				wdata[0] = 0x11;	//aewb lock
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x11, wdata,  1);
+
+				wdata[0] = 0x00;	//Buffering Capture
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x74, wdata,  0);
+
+				retry_cnt = 0;
+				result = 0;
+				do {
+					rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x6C, NULL, 0, &result,	1);
 					if (rc < 0)
 						LDBGE("%s: ce1702_i2c_read failed \n", __func__);
+					if(result == 0x01)
+						break;
+					mdelay(10);
 					retry_cnt++;
-				} while ((result != 0x18) && (retry_cnt < 100));
+				} while (retry_cnt < 100);
 
-				if(result == 0x18){
+				if(retry_cnt >= 100) {
+					LDBGE("%s: %d: error to CE1702_MODE_BURST_SHOT \n", __func__, __LINE__);
+					//event log
+					//ce1702_store_isp_eventlog();
+					return;
+				}
+
+				if(result == 0x01){
 					isPreviewMode = 0;
 					isSingleCaptureMode = 0;
 					isTMSMode = 0;
 					isBurstMode = 1;
+                 isHDRMode = 0;
+                 isLowLightShotMode = 0;
 				}else{
 					isBurstMode = 0;
 				}
+				ce1702_deferred_af_start = 0;
 				LDBGI("%s: ce1702_i2c_read successed, CE1702_MODE_BURST_SHOT result=%d, isBurstMode=%d \n", __func__, result, isBurstMode);
+			}
+			break;
+      case CE1702_MODE_HDR_SHOT:
+			LDBGE("%s: CE1702_MODE_HDR_SHOT start\n", __func__);
+			wdata[0] = 0x11;
+			ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x11, wdata,  1);
+			LDBGI("%s: test 11 cmd!!\n", __func__);
+
+			wdata[0] = 0x00;  //Buffering Capture
+			ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x74, wdata,  1);
+
+			retry_cnt = 0;
+			do {
+				mdelay(10);
+				//rdata[0] = 0x00;
+				ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x6C, NULL, 0,  &result,  1);
+				retry_cnt++;
+			} while ((result != 0x01) && (retry_cnt < 100));
+
+			if(retry_cnt >= 100) {
+				LDBGE("%s: %d: error to capture with CE1702_MODE_HDR_SHOT\n", __func__, __LINE__);
+				// event log
+				//ce1702_store_isp_eventlog();
+				return;
+			}
+
+			if(result == 0x01){
+				isPreviewMode = 0;
+				isSingleCaptureMode = 0;
+				isTMSMode = 0;
+				isBurstMode = 0;
+				isHDRMode = 1;
+				isLowLightShotMode = 0;
+			}else{
+				isHDRMode = 0;
+			}
+			//mdelay(40); //yt.jeon 1114 optimize delay time
+
+			LDBGI("%s: ce1702_i2c_read successed, CE1702_MODE_HDR_SHOT result=%d, isHDRMode=%d \n", __func__, result, isHDRMode);
+			break;
+		case CE1702_MODE_LOW_LIGHT_SHOT:
+			if (isLowLightShotMode ==0){
+				LDBGE("%s: CE1702_MODE_LOW_LIGHT_SHOT start\n", __func__);
+				wdata[0] = 0x11;
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x11, wdata,  1);
+				LDBGI("%s: test 11 cmd!!\n", __func__);
+
+				wdata[0] = 0x00;  //Buffering Capture
+				ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x74, wdata,  1);
+
+				retry_cnt = 0;
+				do {
+					mdelay(10);
+					//rdata[0] = 0x00;
+					ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x6C, NULL, 0,  &result,  1);
+					retry_cnt++;
+				} while ((result != 0x01) && (retry_cnt < 100));
+
+				if(retry_cnt >= 100) {
+					LDBGE("%s: %d: error to capture with CE1702_MODE_LOW_LIGHT_SHOT\n", __func__, __LINE__);
+					// event log
+					//ce1702_store_isp_eventlog();
+					return;
+				}
+
+				if(result == 0x01){
+					isPreviewMode = 0;
+					isSingleCaptureMode = 0;
+					isTMSMode = 0;
+					isBurstMode = 0;
+					isHDRMode = 0;
+					isLowLightShotMode = 1;
+				}else{
+					isLowLightShotMode = 0;
+				}
+				//mdelay(40); //yt.jeon 1114 optimize delay time
+				ce1702_deferred_af_start = 0;
+
+				LDBGI("%s: ce1702_i2c_read successed, CE1702_MODE_LOW_LIGHT_SHOT result=%d, isLowLightShotMode=%d \n", __func__, result, isLowLightShotMode);
 			}
 			break;
 		default:
@@ -1349,7 +1681,7 @@ void ce1702_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 	uint8_t wdata=0;
 	int32_t rc = 0;
 
-	LDBGE("%s: isPreviewMode=%d,  isSingleCaptureMode =%d, isTMSMode=%d, isBurstMode =%d\n", __func__, isPreviewMode, isSingleCaptureMode, isTMSMode, isBurstMode);
+	LDBGI("%s: isPreviewMode=%d,  isSingleCaptureMode =%d, isTMSMode=%d, isBurstMode =%d, isHDRMode=%d, isLowLightShotMode=%d\n", __func__, isPreviewMode, isSingleCaptureMode, isTMSMode, isBurstMode, isHDRMode, isLowLightShotMode);
 
 	//stop Lens
 	if(ce1702_frame_mode < CE1702_FRAME_MAX){
@@ -1399,6 +1731,13 @@ void ce1702_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 					retry_cnt++;
 					} while (retry_cnt < 100);
 
+				if(retry_cnt >= 100) {
+					LDBGE("%s: %d: error to CE1702_MODE_PREVIEW \n", __func__, __LINE__);
+					// event log
+					//ce1702_store_isp_eventlog();
+					return;
+				}
+
 				if(result == 0x00){
 					isPreviewMode = 0;
 				}
@@ -1408,7 +1747,9 @@ void ce1702_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 
 		case CE1702_MODE_SINGLE_SHOT :
 		case CE1702_MODE_BURST_SHOT :
-			if ((isSingleCaptureMode == 1) ||(isBurstMode == 1)){
+		case CE1702_MODE_HDR_SHOT:
+		case CE1702_MODE_LOW_LIGHT_SHOT:
+			if ((isSingleCaptureMode == 1) ||(isBurstMode == 1) || (isHDRMode == 1) ||(isLowLightShotMode== 1)){
 				LDBGI("%s: CE1702_MODE_SINGLE_SHOT(BURST_SHOT) stop\n", __func__);
 				wdata = 0x00;
 				rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x75, &wdata,  1);
@@ -1426,12 +1767,20 @@ void ce1702_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 					mdelay(10);
 					retry_cnt++;
 				} while (retry_cnt < 100);
+				if(retry_cnt >= 100) {
+					LDBGE("%s: %d: error to CE1702_MODE_SINGLE_SHOT, CE1702_MODE_BURST_SHOT \n", __func__, __LINE__);
+					// event log
+					//ce1702_store_isp_eventlog();
+					return;
+				}
 
 				if(result == 0x00){
 					isSingleCaptureMode  = 0;
 					isBurstMode = 0;
+                 isHDRMode = 0;
+                 isLowLightShotMode = 0;
 				}
-				LDBGE("%s: ce1702_i2c_read successed, result=%d, isSingleCaptureMode =%d \n", __func__, result, isSingleCaptureMode );
+				LDBGE("%s: ce1702_i2c_read successed, result=%d, isSingleCaptureMode =%d, isHDRMode=%d, isLowLightShotMode=%d\n", __func__, result, isSingleCaptureMode, isHDRMode, isLowLightShotMode );
 			}
 			break;
 
@@ -1454,6 +1803,12 @@ void ce1702_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 					mdelay(10);
 					retry_cnt++;
 				} while (retry_cnt < 100);
+				if(retry_cnt >= 100) {
+					LDBGE("%s: %d: error to CE1702_MODE_TMS_SHOT \n", __func__, __LINE__);
+					// event log
+					//ce1702_store_isp_eventlog();
+					return;
+				}
 
 				if(result == 0x00){
 					isTMSMode= 0;
@@ -1503,7 +1858,7 @@ void ce1702_set_preview_assist_mode(struct msm_sensor_ctrl_t *s_ctrl, uint8_t mo
 // DATA : 0x05
 int32_t ce1702_set_special_effect(struct msm_sensor_ctrl_t *s_ctrl, uint8_t effect)
 {
-	int32_t rc = TRUE;
+	int32_t rc = CE1702_OK;
 	unsigned char data[2];
 	//uint8_t rdata[2];
 	uint8_t res;
@@ -1640,11 +1995,13 @@ int8_t ce1702_set_caf(int mode)
 
 		case AF_MODE_CAF_PICTURE:
 			LDBGI("%s: start [ AF_MODE_CAF_PICTURE ]\n", __func__);
+
 			data[0] = 0x00; // AF-T
 			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x20, data, 1);
 			// 2. Check AF Searching Status (CMD:0x24)
 			ce1702_check_af_status(TRUE);
 
+			ce1702_sensor_set_led_flash_mode_for_AF(FLASH_LED_OFF);
 			data[0] = 0x01;
 			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2C, data, 1);
 			cnt = 0;
@@ -1708,6 +2065,10 @@ int8_t ce1702_start_af(struct msm_sensor_ctrl_t *s_ctrl)
 			ce1702_is_doing_touchaf = false;
 		}
 		else {
+			/* LGE_CHANGE_S, remove flashing at last, 2013.1.21, jungki.kim[Start] */
+			//ce1702_sensor_set_led_flash_mode_for_AF(ce1702_led_flash_mode);
+			if(!ce1702_just_changed_to_preview)	ce1702_sensor_set_led_flash_mode_for_AF(ce1702_led_flash_mode);
+			/* LGE_CHANGE_E, remove flashing at last, 2013.1.21, jungki.kim[End] */
 			data = 0x05; // Area ON!
 			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x42, &data, 1); // control preview assist
 			cnt = 0;
@@ -1728,6 +2089,10 @@ int8_t ce1702_start_af(struct msm_sensor_ctrl_t *s_ctrl)
 			data = ce1702_focus_mode == AF_MODE_MACRO ? 0x01 : 0x00;
 			ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x20, &data, 1);
 			ce1702_check_af_status(TRUE);
+			/* LGE_CHANGE_S, remove flashing at last, 2013.1.21, jungki.kim[Start] */
+			//ce1702_sensor_set_led_flash_mode_for_AF(ce1702_led_flash_mode);
+			if(!ce1702_just_changed_to_preview)	ce1702_sensor_set_led_flash_mode_for_AF(ce1702_led_flash_mode);
+			/* LGE_CHANGE_E, remove flashing at last, 2013.1.21, jungki.kim[End] */
 			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x23, NULL, 0);
 			cnt = 0;
 			do {
@@ -1739,8 +2104,13 @@ int8_t ce1702_start_af(struct msm_sensor_ctrl_t *s_ctrl)
 			} while (cnt < 100);	//lens running
 			break;
 		case AF_MODE_CAF_VIDEO:
-		case AF_MODE_CAF_PICTURE:
 			LDBGI("%s: Start [CAF VIDEO, PICTURE AF]\n", __func__);
+			ce1702_set_caf(ce1702_focus_mode);
+			break;
+		case AF_MODE_CAF_PICTURE:
+			LDBGI("%s: Start [##CAF VIDEO, PICTURE AF]\n", __func__);
+			ce1702_aec_awb_lock = 0;
+			ce1702_set_aec_awb_lock(s_ctrl, 0);
 			ce1702_set_caf(ce1702_focus_mode);
 			break;
 		case AF_MODE_INFINITY:
@@ -1795,7 +2165,12 @@ int8_t ce1702_stop_af(struct msm_sensor_ctrl_t *s_ctrl)
 		LDBGI("%s: Stop [TOUCH AF]\n", __func__);
 		ce1702_set_window(s_ctrl, window, SET_AREA_AF_OFF);
 	}
-
+/* LGE_CHANGE_S, Setting face detectionf for ASD, 2013.1.12, gayoung85.lee[Start] */
+	if(ce1702_asd_onoff){
+		LDBGI("[G-young] %s : setting face detecting on \n",__func__);
+		ce1702_set_face_detect(ce1702_asd_onoff);
+	}
+/* LGE_CHANGE_E, Setting face detectionf for ASD, 2013.1.12, gayoung85.lee[End] */
 	ce1702_is_doing_touchaf = false;
 	return rc;
 }
@@ -1969,6 +2344,8 @@ int32_t ce1702_stop_lens(struct msm_sensor_ctrl_t *s_ctrl)
 			cnt++;
 		} while (cnt < 100);	//lens running
 	}
+
+	ce1702_sensor_set_led_flash_mode_for_AF(FLASH_LED_OFF);
 	LDBGE("%s: AF-T stop check [count %d]	= %x \n", __func__, cnt, rdata[0]);
 
 	return 0;
@@ -2033,10 +2410,15 @@ int8_t ce1702_set_wb_setting(struct msm_sensor_ctrl_t *s_ctrl, uint8_t wb)
 			data[1] = 0x01;
 			break;
 		case CAMERA_WB_FLUORESCENT:
-			LDBGI("%s: setting CAMERA_WB_FLUORESCENT\n", __func__);
 			wb_mode = 0x01;
 			data[0] = 0x10;
+#if defined(CONFIG_MACH_APQ8064_GKKT) ||defined(CONFIG_MACH_APQ8064_GKSK)||defined(CONFIG_MACH_APQ8064_GKU)
 			data[1] = 0x03;
+			LDBGI("%s: setting CAMERA_WB_FLUORESCENT for F240 (TL84)  value = %d\n", __func__, data[1]);
+#else
+			data[1] = 0x05;
+			LDBGI("%s: setting CAMERA_WB_FLUORESCENT for Global (Osram) value = %d\n", __func__, data[1]);
+#endif			
 			break;
 		case CAMERA_WB_CLOUDY_DAYLIGHT:
 			LDBGI("%s: setting CAMERA_WB_CLOUDY_DAYLIGHT\n", __func__);
@@ -2086,15 +2468,14 @@ int8_t ce1702_set_wb_setting(struct msm_sensor_ctrl_t *s_ctrl, uint8_t wb)
 	return rc;
 }
 
+#define CAF_STOP_HERE 1
 //Zoom Ratio Settings for CE1702 by jungki.kim
 int8_t ce1702_set_zoom_ratio(struct msm_sensor_ctrl_t *s_ctrl, int32_t zoom)
 {
 	int8_t rc = 0;
 	unsigned char data = 0;
 	uint8_t rdata[2] = {0, 0};
-	//uint8_t res = 0;
 	int cnt;
-//	bool af_pause = false;
 	if(isSingleCaptureMode == 1){
 		return TRUE;
 	}
@@ -2102,32 +2483,11 @@ int8_t ce1702_set_zoom_ratio(struct msm_sensor_ctrl_t *s_ctrl, int32_t zoom)
 	LDBGI("%s: zoom ratio=[%d] focus_mode=[%d]\n", __func__, zoom, ce1702_focus_mode);
 
 #ifdef CAF_STOP_HERE
-	af_pause = false;
-	if(ce1702_focus_mode == AF_MODE_CAF_PICTURE) {
-		//data[0] = 0x00;
-		rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2D, NULL, 0, &res, 1);
-		if (rc < 0)
-			LDBGE("%s: ce1702_i2c_read failed \n", __func__);
-		if(res == 0x01) {
-			data = 0x02;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2C, &data, 1);	// pause
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
-			cnt = 0;
-			do {
-				data[0] = 0x00;
-				rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2D, NULL, 0, &res,  1);
-				if (rc < 0)
-					LDBGE("%s: ce1702_i2c_read failed \n", __func__);
-				if (res  == 0x02) {
-					LDBGI("%s: Pause AF-T\n", __func__);
-					af_pause = true;
-					break;
-				}
-				mdelay(10);
-				cnt++;
-			} while (cnt < 100);
-		}
+	if(isTMSMode) {
+		LDBGI("%s: TMSMode Zoom\n", __func__);
+		data = 0x03;
+		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2C, &data, 1);
+		if (rc < 0) LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
 	}
 #endif
 
@@ -2159,27 +2519,11 @@ int8_t ce1702_set_zoom_ratio(struct msm_sensor_ctrl_t *s_ctrl, int32_t zoom)
 	}
 
 #ifdef CAF_STOP_HERE
-	/* Restart AF-T on Snapshot*/
-	if(af_pause) {
+	if(isTMSMode) {
+		LDBGI("%s: TMSMode Zoom\n", __func__);
 		data = 0x01;
-		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2C, &data, 1);	// restart
-		if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(3) \n", __func__);
-		cnt = 0;
-		do {
-			//data[0] = 0x00;
-			rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2D, NULL, 0, &res,  1);
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_read failed \n", __func__);
-			if (res  == 0x01) {
-				LDBGI("%s: Restart AF-T\n", __func__);
-				af_pause = false;
-				break;
-			}
-			mdelay(10);
-			cnt++;
-		} while (cnt < 100);
-		LDBGI("%s: [%d]: now polling END!\n", __func__, cnt);
+		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2C, &data, 1);
+		if (rc < 0) LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
 	}
 #endif
 	ce1702_zoom_ratio = zoom;
@@ -2189,7 +2533,9 @@ int8_t ce1702_set_zoom_ratio(struct msm_sensor_ctrl_t *s_ctrl, int32_t zoom)
 int8_t ce1702_set_manual_focus_length(struct msm_sensor_ctrl_t *s_ctrl, int32_t focus_val)
 {
 	int8_t rc = 0;
-	unsigned char data[10];
+	int cnt;
+	uint8_t rdata;
+	uint8_t data[10];
 
 	LDBGI("%s: manual focus value=%d\n", __func__, focus_val);
 
@@ -2198,6 +2544,22 @@ int8_t ce1702_set_manual_focus_length(struct msm_sensor_ctrl_t *s_ctrl, int32_t 
 		LDBGI("%s: deferred focus length: [%d] !!\n", __func__, focus_val);
 		return rc;
 	}
+
+	// check AF-T
+	cnt = 0;
+	ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2D, NULL, 0, &rdata, 1);
+	if (rdata== 1) {
+		data[0] = 0x00;
+		ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2C, data, 1); // stop AF-T
+		do {
+			rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x2D, NULL, 0, &rdata, 1);
+			if (rdata == 0)
+				break;
+			mdelay(10);
+			cnt++;
+		} while (cnt < 100);	//lens running
+	}
+	LDBGE("%s: AF-T stop check [count %d]	= %x \n", __func__, cnt, rdata);
 
 	focus_val = 610 - (10*focus_val);  //20121212, hyungmoo.huh@lge.com, Need to use EEPROM data for accuracy
 	data[0] = 0x01;	// absolut position
@@ -2233,9 +2595,20 @@ int get_pm8921_batt_temp(void)
 int8_t ce1702_sensor_set_led_flash_mode(struct msm_sensor_ctrl_t *s_ctrl, int32_t led_mode)
 {
 	int8_t rc = 0;
+	ce1702_led_flash_mode = led_mode;
+	ce1702_sensor_set_led_flash_mode_snapshot(ce1702_led_flash_mode);
+
+	return rc;
+}
+
+int8_t ce1702_sensor_set_led_flash_mode_for_AF(int32_t led_mode)
+{
+	int8_t rc = 0;
 	unsigned char data[4];
 	unsigned char led_power = 0x1A;
 	int batt_temp = 0;
+
+	LDBGI("%s: Enter [%d]\n", __func__, led_mode);
 
 	batt_temp = get_pm8921_batt_temp();
 	LDBGI("%s: led_mode = [ %d ] battery = [%d]\n", __func__, led_mode, batt_temp);
@@ -2245,120 +2618,89 @@ int8_t ce1702_sensor_set_led_flash_mode(struct msm_sensor_ctrl_t *s_ctrl, int32_
 		led_power = 0x03;	// 225mA
 	}
 
-	if(ce1702_led_flash_mode == led_mode) {
-		LDBGE("%s: just before value[%d] = requested value[%d] (SAME!)\n", __func__, ce1702_led_flash_mode, led_mode);
-		return rc;
-	}
-
 	switch(led_mode) {
 		case FLASH_LED_OFF:
-			data[0] = 0x03; 	//Snapshot
-			data[1] = 0x00;	//on
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);	// Set Strobe
+		case FLASH_LED_AUTO_NO_PRE_FLASH:
+		case FLASH_LED_ON_NO_PRE_FLASH:
+			data[0] = 0x01;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2); // Set Strobe
 			if (rc < 0)
 				LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
-			data[0] = 0x00; 	//LED
-			data[1] = 0x00;	//OFF
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x06, data, 2);	// CMD:ONOFF!(Manually)
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(2) \n", __func__);
 		break;
 
-#ifdef PREVIEW_AF_FLASH_ON
 		case FLASH_LED_AUTO:	//auto for on AF
 			data[0] = 0x01; 	//AF
-			data[1] = 0x02;	//auto
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);	// Set Strobe
+			data[1] = 0x02; //auto
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2); // Set Strobe
 			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(3) \n", __func__);
+				LDBGE("%s: ce1702_i2c_write failed(2) \n", __func__);
 			data[0] = 0x01; 	//AF
-			data[1] = 0x00;
+			data[1] = 0x01;
 			data[2] = led_power;
 			data[3] = 0x00;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);	// How Strong?
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4); // How Strong?
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(3) \n", __func__);
+			data[0] = 0x03;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, data, 2);
 			if (rc < 0)
 				LDBGE("%s: ce1702_i2c_write failed(4) \n", __func__);
 		break;
 
 		case FLASH_LED_ON:	//on for on AF
 			data[0] = 0x01; 	//AF
-			data[1] = 0x01;	//on
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);	// Set Strobe
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(5) \n", __func__);
-			data[0] = 0x01; 	//AF
-			data[1] = 0x00;
-			data[2] = led_power;
-			data[3] = 0x00;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);	// How Strong?
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(6) \n", __func__);
-		break;
-#else
-		case FLASH_LED_AUTO:	//auto for on AF
-			data[0] = 0x03; 	//Snapshot
-			data[1] = 0x02; //auto
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2); // Set Strobe
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(7) \n", __func__);
-			data[0] = 0x03; 	//Snapshot
-			data[1] = 0x00;
-			data[2] = led_power;
-			data[3] = 0x00;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4); // How Strong?
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(8) \n", __func__);
-		break;
-
-		case FLASH_LED_ON:	//on for on AF
-			data[0] = 0x03; 	//SnapShot
 			data[1] = 0x01; //on
 			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2); // Set Strobe
 			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(9) \n", __func__);
-			data[0] = 0x03; 	//Snapshot
-			data[1] = 0x00;
+				LDBGE("%s: ce1702_i2c_write failed(5) \n", __func__);
+			data[0] = 0x01; 	//AF
+			data[1] = 0x01;
 			data[2] = led_power;
 			data[3] = 0x00;
 			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4); // How Strong?
 			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(10) \n", __func__);
+				LDBGE("%s: ce1702_i2c_write failed(6) \n", __func__);
+			data[0] = 0x03;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, data, 2);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(7) \n", __func__);
 		break;
 
-#endif
-
 		case FLASH_LED_TORCH:	//torch
-			data[0] = 0x00;	//Manual
+			data[0] = 0x00;
 			data[1] = 0x00;
-			data[2] = 0x03;	//Max Current on Snapshot
-			data[3] = 0x00;	//Max Current on Recording
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);	// How Strong?
+/* LGE_CHANGE_S, GV wants to use the lowest torch mode, 2013.1.29, jungki.kim[Start] */
+#ifdef CONFIG_MACH_APQ8064_GVDCM
+			data[2] = 0x00;
+#else
+			data[2] = 0x03;	// 225mA
+#endif
+/* LGE_CHANGE_E, GV wants to use the lowest torch mode, 2013.1.29, jungki.kim[End] */
+
+			data[3] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);
 			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(11) \n", __func__);
-			data[0] = 0x00; 	//LED
-			data[1] = 0x01;	//ON
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x06, data, 2);	// CMD:ONOFF!(Manually)
+				LDBGE("%s: ce1702_i2c_write failed(8) \n", __func__);
+			data[0] = 0x00;
+			data[1] = 0x01; //ON
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x06, data, 2); // CMD:ONOFF!(Manually)
 			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(12) \n", __func__);
+				LDBGE("%s: ce1702_i2c_write failed(9) \n", __func__);
 		break;
 
 		default:
-			data[0] = 0x03; 	//Snapshot
-			data[1] = 0x00;	//on
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);	// Set Strobe
+			data[0] = 0x01;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2); // Set Strobe
 			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(13) \n", __func__);
-			data[0] = 0x00; 	//LED
-			data[1] = 0x00;	//OFF
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x06, data, 2);	// CMD:ONOFF!(Manually)
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(14) \n", __func__);
-
+				LDBGE("%s: ce1702_i2c_write failed(10) \n", __func__);
 			led_mode = 0;
 		break;
 	}
 
-	ce1702_led_flash_mode = led_mode;
 	return rc;
 }
 /* LGE_CHANGE_E, Set Flash LED Mode For Preview, 2012.10.22, jungki.kim[End] */
@@ -2382,40 +2724,89 @@ int8_t ce1702_sensor_set_led_flash_mode_snapshot(int32_t led_mode)
 	LDBGI("%s: led_mode=%d\n", __func__, led_mode);
 
 	switch(led_mode) {
+		case FLASH_LED_OFF:
+			data[0] = 0x01;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
+			data[0] = 0x03;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
+			data[0] = 0x00;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x06, data, 2);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(9) \n", __func__);
+		break;
+
 		case FLASH_LED_AUTO:	//auto for snapshot
+		case FLASH_LED_AUTO_NO_PRE_FLASH:
 			data[0] = 0x03; 	//snapshot
 			data[1] = 0x02;	//auto
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);	// Set Strobe
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);
 			if (rc < 0)
 				LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
 			data[0] = 0x03; 	//snapshot
-			data[1] = 0x00;
+			data[1] = 0x01;
 			data[2] = led_power;
 			data[3] = 0x00;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);	// How Strong?
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);
 			if (rc < 0)
 				LDBGE("%s: ce1702_i2c_write failed(2) \n", __func__);
+			data[0] = 0x02;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, data, 2);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(3) \n", __func__);
 		break;
 
 		case FLASH_LED_ON:	//on for snapshot
+		case FLASH_LED_ON_NO_PRE_FLASH:
 			data[0] = 0x03; 	//snapshot
 			data[1] = 0x01;	//on
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);	// Set Strobe
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(3) \n", __func__);
-			data[0] = 0x03; 	//snapshot
-			data[1] = 0x00;
-			data[2] = led_power;
-			data[3] = 0x00;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);	// How Strong?
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB2, data, 2);
 			if (rc < 0)
 				LDBGE("%s: ce1702_i2c_write failed(4) \n", __func__);
+			data[0] = 0x03; 	//snapshot
+			data[1] = 0x01;
+			data[2] = led_power;
+			data[3] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(5) \n", __func__);
+			data[0] = 0x02;
+			data[1] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, data, 2);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(6) \n", __func__);
 		break;
 
-		case FLASH_LED_TORCH:
-		case FLASH_LED_OFF:
-		default:
+		case FLASH_LED_TORCH:	// use for movie
+			data[0] = 0x00;
+			data[1] = 0x00;
+/* LGE_CHANGE_S, GV wants to use the lowest torch mode, 2013.1.29, jungki.kim[Start] */
+#ifdef CONFIG_MACH_APQ8064_GVDCM
+			data[2] = 0x00;
+#else
+			data[2] = 0x03;	// 225mA
+#endif
+/* LGE_CHANGE_E, GV wants to use the lowest torch mode, 2013.1.29, jungki.kim[End] */
+			data[3] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xB3, data, 4);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(8) \n", __func__);
+			data[0] = 0x00;
+			data[1] = 0x01;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x06, data, 2);
+			if (rc < 0)
+				LDBGE("%s: ce1702_i2c_write failed(9) \n", __func__);
 		break;
+
+		default:
+			break;
 	}
 
 	return rc;
@@ -2428,22 +2819,27 @@ int8_t ce1702_sensor_set_antibanding(struct msm_sensor_ctrl_t *s_ctrl, int32_t a
 	int8_t rc = 0;
 	unsigned char data = 0;
 
+	if(ce1702_is_doing_touchaf == true) {
+		LDBGI("%s: No need to set antibanding. ce1702_is_doing_touchaf = [%s]\n",__func__, (ce1702_is_doing_touchaf==true)?"true":"false");
+		return rc;
+	}
+
 	LDBGI("%s: antibanding=%d\n", __func__, antibanding);
 
 	switch(antibanding) {
-		case 0:	//off
+		case CAMERA_ANTIBANDING_OFF:	//off
 			data = 0x00;
 			break;
 
-		case 1:	// 50hz
+		case CAMERA_ANTIBANDING_50HZ:	// 50hz
 			data = 0x02;
 			break;
 
-		case 2:	//60hz
+		case CAMERA_ANTIBANDING_60HZ:	//60hz
 			data = 0x03;
 			break;
 
-		case 3:	// auto
+		case CAMERA_ANTIBANDING_AUTO:	// auto
 			data = 0x01;
 			break;
 		default:
@@ -2464,6 +2860,7 @@ int32_t ce1702_object_tracking(struct msm_sensor_ctrl_t *s_ctrl, struct rec_t * 
 	uint8_t wdata[10];
 	uint16_t center_x, center_y;
 	int32_t rc = 0;
+	uint8_t res = 0;
 
 	LDBGI("%s mode = %d\n", __func__,rect_info->mode);
 
@@ -2474,6 +2871,20 @@ int32_t ce1702_object_tracking(struct msm_sensor_ctrl_t *s_ctrl, struct rec_t * 
 
 		LDBGI("%s x = %d, dx = %d, y = %d, dy = %d\n", __func__,rect_info->x,rect_info->dx,rect_info->y,rect_info->dy);
 		LDBGI("%s center_x = %d, center_y = %d\n", __func__,center_x,center_y);
+
+		rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x43, NULL, 0, &res,  1);
+		if(res == 0x04){
+			int cnt= 0;
+			LDBGI("%s object tracking is running = %d\n", __func__,res);
+			wdata[0] = 0x00;
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x42, wdata,  1);	//Object tracking off
+			do {
+				rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x43, NULL, 0, &res,  1);
+				if(res == 0x00) break;	// check sync area
+				mdelay(5); //yt.jeon 1115 optimize delay time
+				cnt++;
+			} while (cnt < 5);
+		}
 
 		wdata[0] = 0x04;
 		wdata[1] = 0x00;
@@ -2510,19 +2921,40 @@ int8_t ce1702_set_aec_awb_lock(struct msm_sensor_ctrl_t *s_ctrl, int32_t islock)
 {
 	int8_t rc = 0;
 	uint8_t data, res = 0;
+       int8_t result =0;
 
 	/* Is it previewing? */
 	rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x6C, NULL, 0, &res, 1);
-	LDBGI("%s: %d: Preview state check = %x \n", __func__, __LINE__, res);
+	LDBGI("%s: %d: Preview state check=[0x%02x], ce1702_is_doing_touchaf=[%d]\n", __func__, __LINE__, res, ce1702_is_doing_touchaf);
 	if( (res != 0x08) &&(res != 0x18)) {
 		LDBGI("%s: Sensor is not previewing... value=[%x]\n", __func__, res);
-		/*
-			Comment by Jungki.kim
-			After previewing is success, this has to be excuted lately.
-		*/
-		//ce1702_aec_awb_lock = 10 + islock;
 		return rc;
 	}
+
+	if(ce1702_focus_mode==AF_MODE_CAF_VIDEO)
+	{
+		rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x24, NULL, 0, &res, 1);	//check AF status
+		LDBGE("%s: lens stop check [lens status = 0x%02x], [AF-C status = 0x%02x]  \n", __func__, res&0x01 , res>>6&0x3);
+		result = res&0x01;
+		if(result == 1) //running... status
+		{
+			int cnt= 0;
+			uint8_t rdata;
+			// stop lens
+			LDBGI("%s: Stop Lens [AF]\n", __func__);
+			ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x35, NULL, 0); // stop
+			cnt = 0;
+			do {
+				rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x24, NULL, 0, &rdata, 1);
+				if ((rdata & 0x01) == 0)
+					break;
+				mdelay(10);
+				cnt++;
+			} while (cnt < 100);	//lens running
+			LDBGE("%s: lens stop check [count %d]	= %x \n", __func__, cnt, rdata);
+		}
+	}
+
 	data = ce1702_aec_awb_lock;
 	switch (islock) {
 		case 0 :
@@ -2538,9 +2970,21 @@ int8_t ce1702_set_aec_awb_lock(struct msm_sensor_ctrl_t *s_ctrl, int32_t islock)
 			data = data | 0x10;
 			break;
 	}
-	ce1702_aec_awb_lock = islock;
-	rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x11, &data, 1);
+	ce1702_aec_awb_lock = data;
 
+	if(!ce1702_is_doing_touchaf) {
+		if( !((data == 0x02)||(data == 0x03)) ) {
+			if(data == 0x11) data = 0x13;
+			LDBGI("%s: data = [0x%02x]\n", __func__, data);
+			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x11, &data, 1);
+		}
+	}
+
+	if(ce1702_focus_mode==AF_MODE_CAF_VIDEO && result == 1)
+	{
+		// 2. Start CAF(CMD:0x23)
+		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x23, NULL, 0);
+	}
 	return rc;
 }
 /* LGE_CHANGE_E, Support AEC/AWB Lock For CE1702, 2012.10.22, jungki.kim[End] */
@@ -2569,9 +3013,13 @@ int32_t ce1702_dim_info(struct msm_sensor_ctrl_t *s_ctrl, struct dimen_t* dimens
 	size_info.picture_height = dimension_info->picture_height;
 	size_info.video_width = dimension_info->video_width;
 	size_info.video_height = dimension_info->video_height;
+	size_info.thumbnail_width = dimension_info->thumbnail_width;
+	size_info.thumbnail_heigh= dimension_info->thumbnail_heigh;
 
-	LDBGI("%s: preview_width = %d, preview_height = %d, picture_width = %d, picture_height = %d\n", __func__,
-			size_info.preview_width,size_info.preview_height,size_info.picture_width,size_info.picture_height);
+	LDBGI("%s: preview = %d x %d, picture = %d x %d, thumbnail = %d x %d\n", __func__,
+			size_info.preview_width, size_info.preview_height,
+			size_info.picture_width, size_info.picture_height,
+			size_info.thumbnail_width, size_info.thumbnail_heigh);
 
 	return CE1702_OK;
 }
@@ -2670,8 +3118,10 @@ int8_t ce1702_set_iso(struct msm_sensor_ctrl_t *s_ctrl, int32_t iso)
 /* LGE_CHANGE_S, Add ManualSceneMode for GK/GV, 2012.10.28, gayoung85.lee[Start] */
 int8_t ce1702_set_manual_scene_mode(struct msm_sensor_ctrl_t *s_ctrl, int32_t scene_mode)
 {
-	int8_t rc = TRUE;
+	int8_t rc = CE1702_OK;
 	unsigned char data[6];
+	//uint8_t result =0;
+	//int cnt;
 
 	LDBGI("%s: scene_mode=%d, ce1702_scene_mode = %d\n", __func__, scene_mode, ce1702_scene_mode);
 
@@ -2680,43 +3130,51 @@ int8_t ce1702_set_manual_scene_mode(struct msm_sensor_ctrl_t *s_ctrl, int32_t sc
 	data[3] = 0x00;
 	data[4] = 0x00;
 	data[5] = 0x00;
+
 	if(ce1702_scene_mode != scene_mode) {
 		switch(scene_mode) {
 			case CAMERA_SCENE_OFF:
 				data[0] = 0x00;
 				data[1] = 0x00;
-			LDBGI("%s: CAMERA_SCENE_OFF=%d\n", __func__, scene_mode);
+				LDBGI("%s: CAMERA_SCENE_OFF, CAMERA_SCENE_NIGHT=%d\n", __func__, scene_mode);
 				break;
 			case CAMERA_SCENE_LANDSCAPE :
 				data[1] = 0x01;
-			LDBGI("%s: CAMERA_SCENE_LANDSCAPE=%d\n", __func__, scene_mode);
+				LDBGI("%s: CAMERA_SCENE_LANDSCAPE=%d\n", __func__, scene_mode);
 				break;
 			case CAMERA_SCENE_PORTRAIT :
 				data[1] = 0x02;
-			LDBGI("%s: CAMERA_SCENE_PORTRAIT=%d\n", __func__, scene_mode);
+				LDBGI("%s: CAMERA_SCENE_PORTRAIT=%d\n", __func__, scene_mode);
 				break;
-			case CAMERA_SCENE_NIGHT_PORTRAIT :
+			case CAMERA_SCENE_NIGHT :
 				data[1] = 0x03;
-			LDBGI("%s: CAMERA_SCENE_NIGHT_PORTRAIT=%d\n", __func__, scene_mode);
+				LDBGI("%s: CAMERA_SCENE_NIGHT_PORTRAIT=%d\n", __func__, scene_mode);
 				break;
 			case CAMERA_SCENE_SPORTS:
 				data[1] = 0x04;
-			LDBGI("%s: CAMERA_SCENE_SPORTS=%d\n", __func__, scene_mode);
+				LDBGI("%s: CAMERA_SCENE_SPORTS=%d\n", __func__, scene_mode);
 				break;
 			case CAMERA_SCENE_SUNSET :
 				data[1] = 0x05;
-			LDBGI("%s: CAMERA_SCENE_SUNSET=%d\n", __func__, scene_mode);
+				LDBGI("%s: CAMERA_SCENE_SUNSET=%d\n", __func__, scene_mode);
 				break;
 			default :
 				data[0] = 0x00;
 				data[1] = 0x00;
 				break;
 		}
+
+		if(ce1702_asd_onoff == 1){
+			LDBGI("%s: ce1702_asd_onoff=%d  ce1702_scene_mode =%d\n", __func__, ce1702_asd_onoff, ce1702_scene_mode );
+			ce1702_scene_mode = scene_mode;
+			return rc;
+		}
+
 		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x80, data, 6);
 		if(rc < 0) {
 			LDBGI("%s: ce1702_i2c_write failed(1). Fail to apply scene mode [%d]!!\n", __func__, scene_mode);
 			return FALSE;
-		}
+		}    
 		ce1702_scene_mode = scene_mode;
 	}
 	return rc;
@@ -2741,10 +3199,43 @@ int8_t ce1702_set_model_name(void)
 	model_name = "LG-F240L";
 #endif
 #ifdef CONFIG_MACH_APQ8064_GKATT
-	model_name = "LG-E940";
+	model_name = "LG-E980";
+#endif
+#ifdef CONFIG_MACH_APQ8064_GKOPENHK
+	model_name = "LG-E988"; //GK OPEN HK
+#endif
+#if defined(CONFIG_MACH_APQ8064_GKOPENTW) || defined(CONFIG_MACH_APQ8064_GKCHTTW)
+	model_name = "LG-E988"; //GK OPEN TW
+#endif
+#if defined(CONFIG_MACH_APQ8064_GKSHBSG) || defined(CONFIG_MACH_APQ8064_GKOPENSG) || defined(CONFIG_MACH_APQ8064_GKMONSG) || defined(CONFIG_MACH_APQ8064_GKSTLSG)
+	model_name = "LG-E988"; 
+#endif
+#ifdef CONFIG_MACH_APQ8064_GKOPENEU
+	model_name = "LG-E986";  //GK OPEN EU
+#endif
+#ifdef CONFIG_MACH_APQ8064_GKOPENCIS
+	model_name = "LG-E988";  //GK OPEN CIS
+#endif
+#ifdef CONFIG_MACH_APQ8064_GKTCLMX
+	model_name = "LG-E980h";  //GK TCL MX
+#endif
+#ifdef CONFIG_MACH_APQ8064_GKOPENBR
+	model_name = "LG-E989";  //GK OPEN BR
+#endif
+#ifdef CONFIG_MACH_APQ8064_GKVIVBR
+	model_name = "LG-E989";  //GK VIV BR
+#endif
+#if defined(CONFIG_MACH_APQ8064_GKOPENESA) || defined(CONFIG_MACH_APQ8064_GKOPENAME) || defined(CONFIG_MACH_APQ8064_GKOPENMY) || defined(CONFIG_MACH_APQ8064_GKOPENZA) || defined(CONFIG_MACH_APQ8064_GKOPENID) || defined(CONFIG_MACH_APQ8064_GKORIIL)
+	model_name = "LG-E988";  
+#endif
+#if defined(CONFIG_MACH_APQ8064_GKOPENIL) || defined(CONFIG_MACH_APQ8064_GKCCMIL) || defined(CONFIG_MACH_APQ8064_GKMIRIL) || defined(CONFIG_MACH_APQ8064_GKPCLIL) || defined(CONFIG_MACH_APQ8064_GKOPENTH)
+	model_name = "LG-E989";  
 #endif
 #ifdef CONFIG_MACH_APQ8064_GVDCM
-	model_name = "DS1201";
+	model_name = "L-04E";
+#endif
+#ifdef CONFIG_MACH_APQ8064_GVKT
+	model_name = "LG-F220K";
 #endif
 
 	memset(data, 0, sizeof(data));
@@ -2782,18 +3273,16 @@ int8_t ce1702_set_ISP_mode(void)
 	int32_t rc = 0;
 	uint8_t pdata[2];
 
+	LDBGI("%s: Setting\n", __func__);
 	//1. set ISP Mode
-
 	if(ce1702_cam_preview == PREVIEW_MODE_CAMCORDER)
-		pdata[0] = 0x10; //Temp 0x0E: 660Mbps, 2lane
+		pdata[0] = 0x0E; //660Mbps, 2lane
 	else
 		pdata[0] = 0x10; //768Mbps, 2lane
 	rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x03, pdata, 1);
 	if (rc < 0)
 		LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
-	mdelay(5);
-
-	LDBGE("%s: writing 0x03, 0x05\n", __func__);
+	mdelay(10);
 
 	//2. set System Preset
 	pdata[0] = 0x00;
@@ -2840,7 +3329,7 @@ int32_t ce1702_set_gyro_data(struct msm_sensor_ctrl_t *s_ctrl, uint8_t *data)
 	uint8_t data2[32];
 	int32_t rc = 0;
 
-	LDBGI("%s\n", __func__);
+	//LDBGI("%s\n", __func__);
 
 	if (copy_from_user(&data2, (void *)data, 32))
 		return -EFAULT;
@@ -2867,14 +3356,11 @@ int8_t ce1702_set_WDR(struct msm_sensor_ctrl_t *s_ctrl, int32_t wdr_mode)
 	int8_t rc = 0;
 	uint8_t pdata[2];
 	uint8_t res = 0;
-	uint8_t wdrdata[3];
-	//uint8_t rdata[2];
+//	uint8_t wdrdata[3];
+	uint8_t uvdata[2];
 	int cnt = 0;
-	if(ce1702_cam_preview != PREVIEW_MODE_CAMCORDER){
-		return rc ;
-	}
 
-	LDBGI("%s: WDR = %d\n", __func__, wdr_mode);
+	LDBGI("[G-young] %s: WDR = %d\n", __func__, wdr_mode);
 
 	pdata[0] = 0x20;
 	pdata[1] = 0x01;
@@ -2901,31 +3387,59 @@ int8_t ce1702_set_WDR(struct msm_sensor_ctrl_t *s_ctrl, int32_t wdr_mode)
 		LDBGI("%s: Fail to read isp status \n", __func__);
 		rc = - EIO;
 	}
+	
 	switch(wdr_mode) {
 		case CE1702_STATUS_OFF:
 			pdata[0] = 0x00;
-			LDBGI("ce1702_set_WDR : %d \n", wdr_mode);
+			uvdata[0] = 0x03; 
+			uvdata[1] = 0x00;	
 			break;
-
+			
 		case CE1702_STATUS_ON:
 			pdata[0] = 0x01;
-			LDBGI("ce1702_set_WDR : %d \n", wdr_mode);
+			uvdata[0] = 0x03; 
+			uvdata[1] = 0x05;	
 			break;
 		}
 
 	// 0 : off, 1: on
-	LDBGI("ce1702_set_WDR : %d \n", wdr_mode);
+	LDBGI("[G-young] %s : wdr = %d, uvdata = %d\n", __func__, wdr_mode, uvdata[1]);
 
 	rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x88, pdata, 1);
 	if(rc<0) {
 		LDBGE("%s: ce1702_i2c_write failed(1).  Fail to apply WDR[%d]\n", __func__, wdr_mode);
 		return FALSE;
 	}
+	
+	rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x3D, uvdata, 2);
+	if(rc<0) {
+		LDBGE("%s: ce1702_i2c_write failed(1).  Fail to apply UV-MAP[%d]\n", __func__, uvdata[1]);
+		return FALSE;
+	}
+
+	//pdata[0] =0x00;
+	rc =  ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x01, NULL, 0);
+	if (rc < 0)
+		LDBGE("%s: ce1702_i2c_write failed2() \n", __func__);
+
+	cnt = 0;
+	do {
+		mdelay(5); //yt.jeon 1115 optimize delay time
+		//rdata[0] = 0x00;
+		rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x02, NULL, 0, &res, 1);
+		if (rc < 0)
+			LDBGE("%s: ce1702_i2c_read failed \n", __func__);
+		LDBGI("%s: verifying... cnt=%d rc=%d\n", __func__, cnt, rc);
+		cnt++;
+	} while ( (res != 0) && (cnt < 100) );	
+
+#if 0	
 	//rdata[0] = 0x00;
 	rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x87, NULL, 0, wdrdata, 3);
 	if (rc < 0)
 		LDBGE("%s: ce1702_i2c_read failed(1) \n", __func__);
 	LDBGI("%s : status = %d, hilight = %d, shadow = %d\n",__func__, wdrdata[0], wdrdata[1],wdrdata[2]);
+#endif
 
 	return rc;
 }
@@ -2947,7 +3461,7 @@ int8_t ce1702_set_exif_rotation_to_isp(void)
 {
 	int8_t rc = 0;
 	unsigned char cmd;
-	unsigned char data[2];
+	unsigned char data[5];
 
 	memset(data, 0, sizeof(data));
 
@@ -2972,7 +3486,7 @@ int8_t ce1702_set_exif_rotation_to_isp(void)
 				LDBGE("%s: Bug!!\n",__func__);
 				break;
 		}
-		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, cmd, data, 2);
+		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, cmd, data, 5);
 		if(rc != CE1702_OK)
 			LDBGE("%s: ce1702_i2c_write failed(1) Send Command Error!\n", __func__);
 	}
@@ -2981,14 +3495,43 @@ int8_t ce1702_set_exif_rotation_to_isp(void)
 }
 /* LGE_CHANGE_E, Insert Rotation Information In EXIF, 2012.10.31, jungki.kim[End] */
 
+/* LGE_CHANGE_S, Switch EXIF of GPS , 2012.12.27, jungki.kim[Start] */
+int8_t ce1702_switching_exif_gps(bool onoff)
+{
+	int8_t rc = 0;
+	unsigned char data[2];
+
+	data[0] = 0x11;
+
+	if (ce1702_need_thumbnail) {
+		data[1] = onoff ? 0x00 : 0x04;
+	} else {
+		data[1] = onoff ? 0x02 : 0x05;
+	}
+	LDBGE("%s: data[1]=%d ! \n", __func__, data[1]);
+
+	rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, data, 2);
+
+	return rc;
+}
+/* LGE_CHANGE_E, Switch EXIF of GPS , 2012.12.27, jungki.kim[End] */
+
 /* LGE_CHANGE_S, Set GPS Exif Tags For GK/GV, 2012.11.7, jungki.kim[Start] */
 int8_t ce1702_set_exif_gps(struct msm_sensor_ctrl_t *s_ctrl, struct k_exif_gps_t *gps_info)
 {
 	int8_t rc = 0;
 	unsigned char cmd;
 	unsigned char data[9];
-	uint32_t flt;
+	uint32_t flt, len;
 	//int i;
+
+	if (!gps_info->altitude && !gps_info->latitude[0] && !gps_info->latitude[1] && !gps_info->latitude[2] && !gps_info->longitude[0] && !gps_info->longitude[1] && !gps_info->longitude[2]) {
+		LDBGE("%s: set remove gps data !!\n", __func__);
+		ce1702_switching_exif_gps(false);
+		return rc;
+	}
+
+	ce1702_switching_exif_gps(true);
 
 	cmd = 0xA3;
 
@@ -3092,81 +3635,113 @@ int8_t ce1702_set_exif_gps(struct msm_sensor_ctrl_t *s_ctrl, struct k_exif_gps_t
 	if(rc != CE1702_OK)
 		LDBGE("%s: ce1702_i2c_write failed(4) Error to insert GPS(date and time)!!\n", __func__);
 
+	len = strlen(gps_info->gpsProcessingMethod);
+	if (len) {
+		uint8_t method[130] = {0, };
+
+		method[0] = 0x0A;
+		method[1] = (uint8_t)len + 1;
+		strcpy(&method[2], gps_info->gpsProcessingMethod);
+
+		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0xA1, method, 130);
+		if(rc != CE1702_OK)
+			LDBGE("%s:ce1702_i2c_write failed(3) Error to insert GPS(ProcessingMethod)!!\n", __func__);
+	}
+
 	return rc;
 }
 /* LGE_CHANGE_E, Set GPS Exif Tags For GK/GV, 2012.11.7, jungki.kim[End] */
 
-/* LGE_CHANGE_S, Add Auto Scene Detection for GK project, 2012.11.7, gayoung85.lee[Start] */
+/* LGE_CHANGE_S, Set ASD, 2013.1.12, gayoung85.lee[Start] */
 int8_t ce1702_asd_enable(struct msm_sensor_ctrl_t *s_ctrl, int32_t asd_onoff)
 {
-	int8_t rc, res = 0;
 	unsigned char wdata[6];
 	uint8_t data;
+	int rc = CE1702_OK;
 
-	LDBGI("%s: asd_onoff = [%d], ce1702_scene_mode = [%d], ce1702_is_doing_touchaf = [%d]\n", __func__,
-		asd_onoff, ce1702_scene_mode, ce1702_is_doing_touchaf);
-	rc=ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x43, NULL, 0, &res, 1);
-	LDBGI("%s: check preview assist status = [%d]\n", __func__,res);
-	if (res== 0x04) {
-		LDBGI("%s: object tarcking is running ~!! skip setting \n", __func__);
-		return rc;
-	}
-	if( ((asd_onoff == 0) && (ce1702_scene_mode != 0)) ||(ce1702_is_doing_touchaf == true) ) {
-		LDBGI("%s normal scene mode = [%d] ce1702_is_doing_touchaf = [%s]\n",__func__,
-			ce1702_scene_mode, (ce1702_is_doing_touchaf==true)?"true":"false");
-		return rc;
-	} else {
-		LDBGI("%s asd_mode = %d [start]\n", __func__, asd_onoff);
-		if(asd_onoff){
+	LDBGI("[G-young] %s : value = %d [start]\n", __func__, asd_onoff);
+	wdata[0] = asd_onoff;
+	wdata[1] = 0x00;
+	wdata[2] = asd_onoff;
+	wdata[3] = 0x00;
+	wdata[4] = 0x00;
+	wdata[5] = 0x00;
 
-		//set preview assist (41H) for face detection
-			wdata[0] = 0x00;
-			wdata[1] = 0x01;
-			wdata[2] = 0x03;
-			wdata[3] = 0x00;
-			wdata[4] = 0x00;
-			wdata[5] = 0x00;
+	rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x80, wdata, 6 );
+	if (rc < 0)
+		LDBGE("%s: ce1702_i2c_write failed(5) \n", __func__);
 
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x41, wdata, 6);
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
-			LDBGI("%s apply preview assist 'on' for face detection\n", __func__);
-			//apply preview assist (42H) for face detection
-			wdata[0] = 0x01;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x42, wdata, 1);
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(2) \n", __func__);
-		} else {
-			/* ASD Disable */
-			wdata[0] = 0x00;
-			rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x42, wdata, 1);
-			if (rc < 0)
-				LDBGE("%s: ce1702_i2c_write failed(3) \n", __func__);
-			LDBGI("%s apply preview assist 'off'  for face detection\n", __func__);
-		}
+	ce1702_asd_onoff = asd_onoff;
 
-		wdata[0] = asd_onoff;
-		wdata[1] = 0x00;
-		wdata[2] = 0x00;
+	data = 0x01;
+	rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x14, &data, 1);
+	if (rc < 0)
+		LDBGE("%s: ce1702_i2c_write failed(4) \n", __func__);
+
+	LDBGI("[G-young] %s : setting face detecting , value = %d \n",__func__, asd_onoff);
+	ce1702_set_face_detect(asd_onoff);
+
+	LDBGI("[G-young] %s : asd_onoff = %d [end]\n", __func__, asd_onoff);
+
+	return CE1702_OK;
+
+}
+/* LGE_CHANGE_E, Set ASD, 2013.1.12, gayoung85.lee[End] */
+
+/* LGE_CHANGE_S, Setting face detection for ASD, 2013.1.12, gayoung85.lee[Start] */
+int8_t ce1702_set_face_detect(bool asd_onoff)
+{
+	int cnt,  rc ;
+	uint8_t res, data;
+	unsigned char wdata[6];
+
+	LDBGI("[G-young] %s : asd_onoff = %d [start]\n", __func__, asd_onoff);
+	rc = 0;
+	data = asd_onoff; // Face detect ON!
+
+	if(asd_onoff){
+		wdata[0] = 0x00;
+		wdata[1] = 0x01;
+		wdata[2] = 0x03;
 		wdata[3] = 0x00;
 		wdata[4] = 0x00;
 		wdata[5] = 0x00;
 
-		data = 0x01;
-		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x14, &data, 1);
+		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x41, wdata, 6);
+		LDBGI("[G-young] %s : asd_onoff = %d  0x41 write\n", __func__, asd_onoff);
 		if (rc < 0)
-			LDBGE("%s: ce1702_i2c_write failed(4) \n", __func__);
-		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x80, wdata, 6 );
-		if (rc < 0)
-			LDBGE("%s: ce1702_i2c_write failed(5) \n", __func__);
-
-		LDBGI("%s [end]\n", __func__);
+			LDBGE("%s: ce1702_i2c_write failed(1) \n", __func__);
 	}
-	return rc;
+
+	res = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x43, NULL, 0, &res,  1);
+	LDBGI("[G-young] %s : preview assist mode status = %d \n", __func__, res);
+
+	if((asd_onoff == 1 && res == 0x01) || (asd_onoff ==0 && res == 0x00)){
+		LDBGI("[G-young] %s : asd_onoff = %d, preview assist mode = %d  / already setting! \n", __func__, asd_onoff, res);
+		return 0;
+	}
+
+	LDBGI("[G-young] %s : 0x42 write [start]\n", __func__);
+
+	rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x42, &data, 1); // control preview assist
+	if (rc < 0)
+		LDBGE("%s: ce1702_i2c_write failed(2) \n", __func__);
+
+	cnt = 0;
+		do {
+			rc = ce1702_i2c_read(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x43, NULL, 0, &res,  1);
+//			LDBGE("[G-young] %s : preview assist mode status = %d\n",__func__, res);
+			if(res == data) break;	// check sync area
+			mdelay(5); //yt.jeon 1115 optimize delay time
+			cnt++;
+		} while (cnt < 100);
+
+	LDBGI("[G-young] %s : preview assist mode status = %d [end]\n", __func__, res);
+
+	return 0;
+
 }
-/* LGE_CHANGE_E, Add Auto Scene Detection for GK project, 2012.11.7, gayoung85.lee[End] */
-
-
+/* LGE_CHANGE_E, Setting face detection for ASD, 2013.1.12, gayoung85.lee[End] */
 
 //20121212, hyungmoo.huh@lge.com, description [START]
 int8_t ce1702_set_manual_VCM_position(struct msm_sensor_ctrl_t *s_ctrl, int32_t focus_val)
@@ -3229,6 +3804,30 @@ int8_t ce1702_set_VCM_default_position(struct msm_sensor_ctrl_t *s_ctrl)
 }
 //20121212, hyungmoo.huh@lge.com, description [END]
 
+/* LGE_CHANGE_S, fixed cts failure!, 2013.01.07 junghee.eim@lge.com */
+int32_t ce1702_set_exif_thumbnail_size(struct msm_sensor_ctrl_t *s_ctrl, struct dimen_t* dimension_info)
+{
+	int rc = 0;
+
+	if (!dimension_info->thumbnail_width && !dimension_info->thumbnail_heigh) {
+#if 0
+		data[0] = 0x11;
+		data[1] = 0x02;
+		rc = ce1702_i2c_write(ce1702_s_interface_ctrl->sensor_i2c_addr, 0x07, data, 2);
+#endif
+		ce1702_need_thumbnail = false;
+		LDBGE("%s: remove thumbnail !! \n", __func__);
+
+	}
+	else {
+		ce1702_need_thumbnail = true;
+	}
+
+	LDBGI("[%s] thumbnail = %d x %d\n", __func__, dimension_info->thumbnail_width, dimension_info->thumbnail_heigh);
+	return rc;
+}
+/* LGE_CHANGE_E, fixed cts failure!, 2013.01.07 junghee.eim@lge.com */
+
 static struct msm_sensor_fn_t ce1702_func_tbl = {
 	.sensor_start_stream = ce1702_sensor_start_stream, //msm_sensor_start_stream,
 	.sensor_stop_stream = ce1702_sensor_stop_stream,//msm_sensor_stop_stream,
@@ -3271,6 +3870,7 @@ static struct msm_sensor_fn_t ce1702_func_tbl = {
 	.sensor_set_exif_rotation = ce1702_set_exif_rotation,					//Insert Rotation Information In EXIF by jungki.kim@lge.com
 	.sensor_set_exif_gps = ce1702_set_exif_gps,							//Set GPS Exif Tags For GK/GV by jungki.kim@lge.com
 	.sensor_set_asd_enable = ce1702_asd_enable,							//Support ASD for CE1702 by gayoung85.lee
+	.sensor_set_exif_thumbnail_size = ce1702_set_exif_thumbnail_size,
 };
 
 static struct msm_sensor_reg_t ce1702_regs = {

@@ -172,7 +172,7 @@ static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 /* LGE_CHANGE_E, For GV Rev.C bring-up, 2012.10.29, jungki.kim[Start] */
 static struct msm_gpiomux_config apq8064_cam_common_configs_revC[] = {
 /* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */
-#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GVDCM)
+#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GVDCM) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	{
 		.gpio = GPIO_CAM_FLASH_EN, /* 7 */
 		.settings = {
@@ -271,8 +271,8 @@ static struct msm_bus_vectors cam_preview_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 106704000, // org. 27648000 /* LGE_CHANGE, increase preview vector EBI bus band width from case#1016080, 2012.11.10, elin.lee@lge.com */
-		.ib  = 160056000,//org. 110592000, /* LGE_CHANGE, increase preview vector EBI bus band width from case#1016080, 2012.11.10, elin.lee@lge.com */
+		.ab  = 194735543,//106704000, // org. 27648000 /* LGE_CHANGE, increase preview vector EBI bus band width from case#1146423, 2013.04.23, elin.lee@lge.com */
+		.ib  = 292103315,//160056000,//org. 110592000, /* LGE_CHANGE, increase preview vector EBI bus band width from case#1146423, 2013.04.23, elin.lee@lge.com */
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -292,7 +292,7 @@ static struct msm_bus_vectors cam_video_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 140451840,
+		.ab  = 274406400,//140451840,  /* LGE_CHANGE, bus overflow - increase video vector EBI bus band width from case#01079884, 2013.01.18, youngil.yun@lge.com */
 		.ib  = 561807360,
 	},
 	{
@@ -457,7 +457,7 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 static struct camera_vreg_t apq_8064_back_cam_vreg[] = {
 	{"cam1_vdig", REG_VS, 0, 0, 0, 0},
 	{"cam1_vio", REG_VS, 0, 0, 0, 0},
-	{"cam1_vana", REG_LDO, 2800000, 2800000, 85600, 0},
+	{"cam1_vana", REG_LDO, 2850000, 2850000, 85600, 0},
 	{"cam1_vaf", REG_LDO, 1800000, 1800000, 150000, 0},
 	{"cam1_isp_core", REG_LDO, 1150000, 1150000, 260000, 0},
 	{"cam1_isp_host", REG_LDO, 1800000, 1800000, 9000, 0},

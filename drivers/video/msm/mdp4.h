@@ -53,7 +53,7 @@ extern u64 mdp_max_bw;
 #define CS_CONTROLLER_0 0x0707ffff
 #define CS_CONTROLLER_1 0x03073f3f
 
-#if defined (CONFIG_MACH_APQ8064_GKATT) //invert color
+#if defined (CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL) //invert color
 #define CSC_RESTORE
 #define CMAP_RESTORE
 #endif

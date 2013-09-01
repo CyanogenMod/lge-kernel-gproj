@@ -22,7 +22,7 @@
 
 /* debug message */
 //#define FEATURE_DEBUG_LOW
-#define FEATURE_DEBUG_MIDDLE
+//#define FEATURE_DEBUG_MIDDLE
 
 #define SNFC_DEBUG_MSG printk
 //#define SNFC_DEBUG_MSG(ARGS,...)

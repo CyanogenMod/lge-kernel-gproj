@@ -160,16 +160,17 @@ static int snfc_rfs_init(void)
 		SNFC_DEBUG_MSG("[snfc_rfs] FAIL!! can not register snfc_rfs \n");
 		return rc;
 	}
-	
+#ifndef CONFIG_CXD2235AGG_GJ_KDDI	
 	if(lge_get_board_revno() >= HW_REV_C)
 	{
 		gpio_rfs = 84;
 	}
 	else
+#endif
 	{
 		gpio_rfs = 55;
 	}
-	
+
 	SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_init - end \n");
 
 	return 0;

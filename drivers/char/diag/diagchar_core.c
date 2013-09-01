@@ -732,6 +732,30 @@ long diagchar_ioctl(struct file *filp,
 #endif
 		}
 #endif /* DIAG over USB */
+//2012-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [START]
+#ifdef CONFIG_LGE_DM_DEV
+		else if(temp == DM_DEV_MODE && driver->logging_mode == USB_MODE)
+		{	
+//			pr_info("[mook] temp == DM_DEV_MODE && driver->logging_mode == USB_MODE\n");
+			diagfwd_connect();
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+			diag_clear_hsic_tbl();
+			diagfwd_cancel_hsic();
+			diagfwd_connect_bridge(0);
+#endif
+		}
+
+		else if(temp == USB_MODE && driver->logging_mode == DM_DEV_MODE)
+		{
+//			pr_info("[mook] temp == USB_MODE && driver->logging_mode == DM_DEV_MODE\n");
+			diagfwd_disconnect();
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+			diagfwd_cancel_hsic();
+			diagfwd_connect_bridge(0);
+#endif
+		}
+#endif /* CONFIG_LGE_DM_DEV */
+//2012-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [END]
 		success = 1;
 	}
 
@@ -1048,6 +1072,9 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	char *buf_cmp;
 #endif
 
+#ifdef CONFIG_LGE_DM_DEV
+	char *buf_dev;
+#endif
 #ifdef DIAG_DEBUG
 #if 0
 	int length = 0, i;
@@ -1086,6 +1113,15 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		if (*(buf_cmp) != 0xFA)
 			return 0;
 	}
+#endif
+
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE) {
+			/* only diag cmd #250 for supporting testmode tool */
+			buf_dev = (char *)buf + 4;
+			if (*(buf_dev) != 0xFA)
+				return 0;
+		}
 #endif
 
 	if (pkt_type == DCI_DATA_TYPE) {

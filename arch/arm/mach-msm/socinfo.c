@@ -24,6 +24,9 @@
 
 #define BUILD_ID_LENGTH 32
 
+extern int g_speed_bin;
+extern int g_pvs_bin;
+
 enum {
 	HW_PLATFORM_UNKNOWN = 0,
 	HW_PLATFORM_SURF    = 1,
@@ -279,6 +282,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[142] = MSM_CPU_8930AA,
 	[143] = MSM_CPU_8930AA,
 	[144] = MSM_CPU_8930AA,
+	[160] = MSM_CPU_8930AA,
 
 	/* 8226 IDs */
 	[145] = MSM_CPU_8226,
@@ -302,7 +306,7 @@ static struct socinfo_v1 dummy_socinfo = {
 };
 
 #if defined (CONFIG_LGE_PM)
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 u16 *poweron_st = 0;
 uint16_t power_on_status_info_get(void)
 {
@@ -404,6 +408,16 @@ uint32_t socinfo_get_pmic_die_revision(void)
 	return socinfo ?
 		(socinfo->v1.format >= 7 ? socinfo->v7.pmic_die_revision : 0)
 		: 0;
+}
+
+int socinfo_get_speed_bin(void)
+{
+	return g_speed_bin;
+}
+
+int socinfo_get_pvs_bin(void)
+{
+	return g_pvs_bin;
 }
 
 enum msm_cpu socinfo_get_msm_cpu(void)
@@ -614,10 +628,30 @@ socinfo_show_pmic_die_revision(struct sys_device *dev,
 		socinfo_get_pmic_die_revision());
 }
 
+static ssize_t
+socinfo_show_speed_bin(struct sys_device *dev,
+		       struct sysdev_attribute *attr,
+		       char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_speed_bin());
+}
+
+static ssize_t
+socinfo_show_pvs_bin(struct sys_device *dev,
+		     struct sysdev_attribute *attr,
+		     char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_pvs_bin());
+}
+
 static struct sysdev_attribute socinfo_v1_files[] = {
 	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
 	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
 	_SYSDEV_ATTR(build_id, 0444, socinfo_show_build_id, NULL),
+	_SYSDEV_ATTR(speed_bin, 0444, socinfo_show_speed_bin, NULL),
+	_SYSDEV_ATTR(pvs_bin, 0444, socinfo_show_pvs_bin, NULL),
 };
 
 static struct sysdev_attribute socinfo_v2_files[] = {

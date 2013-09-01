@@ -189,6 +189,8 @@ struct android_dev {
 	struct pm_qos_request pm_qos_req_dma;
 	struct work_struct work;
 	bool check_pif;
+	bool otg;
+	
 #ifdef CONFIG_USB_G_LGE_ANDROID_AUTORUN
 	bool check_charge_only;
 #endif
@@ -379,7 +381,7 @@ static void android_work(struct work_struct *data)
 			 dev->connected, dev->sw_connected, cdev->config);
 	}
 
-#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_LGE_PM)
+#if defined(CONFIG_USB_G_LGE_ANDROID) && defined(CONFIG_LGE_PM) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
         if (lge_pm_get_cable_type() == CABLE_56K &&
             lge_get_boot_mode() == LGE_BOOT_MODE_NORMAL &&
             uevent_envp == connected)
@@ -2428,6 +2430,44 @@ static ssize_t lock_store(struct device *pdev, struct device_attribute *attr, co
 
 	return size;
 }
+
+#if defined(CONFIG_USB_OTG)
+extern int usb_id_sel_enable(int on);
+
+static ssize_t otg_show(struct device *pdev, struct device_attribute *attr, char *buf)
+{
+	struct android_dev *dev = dev_get_drvdata(pdev);
+
+	pr_info("%s: enter\n",__func__);
+	
+	return snprintf(buf, PAGE_SIZE, "%d\n", dev->otg);
+}
+
+static ssize_t otg_store(struct device *pdev, struct device_attribute *attr, const char *buff, size_t size)
+{
+	struct android_dev *dev = dev_get_drvdata(pdev);
+	int otg = 0;
+
+	pr_info("%s: enter (%s)\n",__func__, buff);
+
+	mutex_lock(&dev->mutex);
+	sscanf(buff, "%d", &otg);
+	dev->otg = otg;
+    mutex_unlock(&dev->mutex);
+	
+    pr_info("%s: otg=%d\n",__func__,otg);
+	if(otg == 1)
+	{
+		usb_id_sel_enable(1);		//USB_ID = HOST_ID
+	}
+	else
+	{
+		usb_id_sel_enable(0);		//USB_ID = DEVICE_ID
+    }
+	return size;
+}
+#endif
+
 #endif
 
 #if defined CONFIG_USB_G_LGE_ANDROID && defined CONFIG_LGE_PM
@@ -2543,6 +2583,9 @@ static DEVICE_ATTR(remote_wakeup, S_IRUGO | S_IWUSR,
 		remote_wakeup_show, remote_wakeup_store);
 #if defined CONFIG_USB_G_LGE_ANDROID && defined CONFIG_LGE_PM
 static DEVICE_ATTR(lock, S_IRUGO | S_IWUSR, lock_show, lock_store);
+#ifdef CONFIG_USB_OTG
+static DEVICE_ATTR(otg, 0664, otg_show, otg_store);
+#endif
 #endif
 
 static struct device_attribute *android_usb_attributes[] = {
@@ -2565,6 +2608,9 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_remote_wakeup,
 #if defined CONFIG_USB_G_LGE_ANDROID && defined CONFIG_LGE_PM
     &dev_attr_lock,
+#ifdef CONFIG_USB_OTG
+    &dev_attr_otg,
+#endif	
 #endif
 	NULL
 };
@@ -2864,7 +2910,6 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	gadget->ep0->driver_data = cdev;
 
 	list_for_each_entry(conf, &dev->configs, list_item)
-		if (&conf->usb_config == cdev->config)
 			list_for_each_entry(f,
 					    &conf->enabled_functions,
 					    enabled_list)

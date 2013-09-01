@@ -272,7 +272,7 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 		spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	}
 	pmctl = msm_cam_server_get_mctl(pcam->mctl_handle);
-	if (pmctl == NULL) {
+       if (pmctl == NULL || pmctl->client == NULL) {
 		pr_err("%s No mctl found\n", __func__);
 		buf->state = MSM_BUFFER_STATE_UNUSED;
 		return;
@@ -308,7 +308,13 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 		}
 //End  LGE_BSP_CAMERA : Fixed WBT - jonghwan.ko@lge.com
 		videobuf2_pmem_contig_user_put(mem, pmctl->client,
-			pmctl->domain_num);
+			pmctl->domain_num
+/* LGE_CHANGE_S, ion leakage patch, 2013.1.23, jungki.kim[Start] */
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+			, pcam_inst->is_closing
+#endif
+/* LGE_CHANGE_E, ion leakage patch, 2013.1.23, jungki.kim[End] */
+			);
 	}
 	buf->state = MSM_BUFFER_STATE_UNUSED;
 }
@@ -715,6 +721,18 @@ int msm_mctl_reserve_free_buf(
 	 * camera instance, he would send the preferred camera instance.
 	 * If the preferred camera instance is NULL, get the
 	 * camera instance using the image mode passed */
+
+#if 0
+/* LGE_CHANGE_S, add messages to debug null, 2013.4.29, jungki.kim[Start] */
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	if(!buf_handle->inst_handle){
+		pr_err("%s: buf_handle->inst_handle is 0\n", __func__);
+		return rc;
+	}
+#endif
+/* LGE_CHANGE_E, add messages to debug null, 2013.4.29, jungki.kim[End] */
+#endif
+
 	if (!pcam_inst)
 		pcam_inst = msm_mctl_get_pcam_inst(pmctl, buf_handle);
 

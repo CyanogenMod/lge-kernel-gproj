@@ -16,12 +16,14 @@
 #include <linux/gpio.h>
 #include <linux/switch.h>
 #include <linux/delay.h>
+#include <linux/wakelock.h>
 
 static int pre_set_flag;
 struct pm8xxx_cradle {
     struct switch_dev sdev;
     struct work_struct work;
     struct device *dev;
+	struct wake_lock wake_lock;
     const struct pm8xxx_cradle_platform_data *pdata;
     int carkit;
     int pouch;
@@ -52,7 +54,6 @@ static void boot_cradle_det_func(void)
 
 }
 
-
 static void pm8xxx_cradle_work_func(struct work_struct *work)
 {
     int state;
@@ -73,7 +74,9 @@ static void pm8xxx_cradle_work_func(struct work_struct *work)
     printk("%s : [Cradle] cradle value is %d\n", __func__ , state);
     cradle->state = state;
     spin_unlock_irqrestore(&cradle->lock, flags);
-    msleep(500);//test
+//  msleep(500);//test
+	wake_lock_timeout(&cradle->wake_lock, msecs_to_jiffies(3000));
+
     switch_set_state(&cradle->sdev, cradle->state);
 
 }
@@ -174,7 +177,8 @@ static int __devinit pm8xxx_cradle_probe(struct platform_device *pdev)
 
 	cradle->pdata    = pdata;
 
-	cradle->sdev.name = "dock";
+	//cradle->sdev.name = "dock";
+	cradle->sdev.name = "smartcover";
 	cradle->sdev.print_name = cradle_print_name;
 	cradle->pouch = cradle->carkit = 0;
 
@@ -190,6 +194,7 @@ static int __devinit pm8xxx_cradle_probe(struct platform_device *pdev)
 	    cradle_set_deskdock(pre_set_flag);
 	    cradle->state = pre_set_flag;
 	}
+	wake_lock_init(&cradle->wake_lock, WAKE_LOCK_SUSPEND, "hall_ic_wakeups");
 
 	INIT_WORK(&cradle->work, pm8xxx_cradle_work_func);
 

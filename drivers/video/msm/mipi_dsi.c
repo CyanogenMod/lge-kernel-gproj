@@ -76,7 +76,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	printk(KERN_INFO"%s is started.. \n", __func__);
 
-	if (mdp_rev >= MDP_REV_41 && mfd->panel_info.type == MIPI_CMD_PANEL)
+	if (mdp_rev >= MDP_REV_41)
 		mutex_lock(&mfd->dma->ov_mutex);
 	else
 		down(&mfd->dma->mutex);
@@ -96,11 +96,12 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	 */
 
 #if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT) \
-	|| defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT) \
        || defined(CONFIG_FB_MSM_MIPI_DSI_LGIT_FHD)
 	//for power sequence of lgit panel
 #else
+#if defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT)
 	mipi_dsi_op_mode_config(DSI_CMD_MODE);
+#endif
 #endif
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
@@ -114,11 +115,12 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	}
 
 #if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT) \
-	|| defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT) \
        || defined(CONFIG_FB_MSM_MIPI_DSI_LGIT_FHD)
 	//for power sequence of lgit panel.
 #else
+#if defined(CONFIG_FB_MSM_MIPI_HITACHI_VIDEO_HD_PT)
 	ret = panel_next_off(pdev);
+#endif
 #endif
 
 	mipi_dsi_clk_disable();
@@ -134,7 +136,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(0);
 
-	if (mdp_rev >= MDP_REV_41 && mfd->panel_info.type == MIPI_CMD_PANEL)
+	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
 	else
 		up(&mfd->dma->mutex);

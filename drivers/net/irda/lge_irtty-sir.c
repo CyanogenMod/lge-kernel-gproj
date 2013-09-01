@@ -577,6 +577,9 @@ static int irtty_open(struct tty_struct *tty)
 	/* we must switch on IrDA HW module & Level shifter
 	 * prior to transfering any data
 	 */
+#if defined(CONFIG_MACH_APQ8064_GVDCM)
+	gpio_set_value_cansleep(GPIO_IRDA_PWDN, GPIO_IRDA_PWDN_DISABLE);
+#endif
 	gpio_set_value_cansleep(GPIO_IRDA_PWDN, GPIO_IRDA_PWDN_ENABLE);
 #if !defined(CONFIG_MACH_APQ8064_GVDCM)
 	gpio_set_value_cansleep(GPIO_IRDA_SW_EN, GPIO_IRDA_SW_EN_ENABLE);
@@ -641,8 +644,10 @@ static void irtty_close(struct tty_struct *tty)
 	 */
 #if !defined(CONFIG_MACH_APQ8064_GVDCM)
 	gpio_set_value_cansleep(GPIO_IRDA_SW_EN, GPIO_IRDA_SW_EN_DISABLE);
-#endif
 	gpio_set_value_cansleep(GPIO_IRDA_PWDN, GPIO_IRDA_PWDN_DISABLE);
+#else
+	gpio_set_value_cansleep(GPIO_IRDA_PWDN, GPIO_IRDA_PWDN_DISABLE);
+#endif
 
 #ifdef CONFIG_LGE_IRDA_FACTORY
 	_dev = NULL;

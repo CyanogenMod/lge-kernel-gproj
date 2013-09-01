@@ -103,8 +103,8 @@ static struct gpiomux_setting cam_settings[] = {
 };
 
 static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
-/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */	
-#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT)
+/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */
+#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	{
 		.gpio = GPIO_CAM_FLASH_EN, /* 7 */
 		.settings = {
@@ -171,8 +171,8 @@ static struct msm_gpiomux_config apq8064_cam_common_configs[] = {
 };
 /* LGE_CHANGE_E, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
 static struct msm_gpiomux_config apq8064_cam_common_configs_revE[] = {
-/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */	
-#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT)
+/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */
+#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	{
 		.gpio = GPIO_CAM_FLASH_EN, /* 7 */
 		.settings = {
@@ -271,8 +271,8 @@ static struct msm_bus_vectors cam_preview_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 106704000, // org. 27648000 /* LGE_CHANGE, increase preview vector EBI bus band width from case#1016080, 2012.11.10, elin.lee@lge.com */
-		.ib  = 160056000,//org. 110592000, /* LGE_CHANGE, increase preview vector EBI bus band width from case#1016080, 2012.11.10, elin.lee@lge.com */
+		.ab  = 194735543,//106704000, // org. 27648000 /* LGE_CHANGE, increase preview vector EBI bus band width from case#1146423, 2013.04.23, elin.lee@lge.com */
+		.ib  = 292103315,//160056000,//org. 110592000, /* LGE_CHANGE, increase preview vector EBI bus band width from case#1146423, 2013.04.23, elin.lee@lge.com */
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -292,7 +292,7 @@ static struct msm_bus_vectors cam_video_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 140451840,
+		.ab  = 274406400,//140451840,  /* LGE_CHANGE, bus overflow - increase video vector EBI bus band width from case#01079884, 2013.01.18, youngil.yun@lge.com */
 		.ib  = 561807360,
 	},
 	{
@@ -457,13 +457,13 @@ static struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 static struct camera_vreg_t apq_8064_back_cam_vreg[] = {
 	{"cam1_vdig", REG_VS, 0, 0, 0, 0},
 	{"cam1_vio", REG_VS, 0, 0, 0, 0},
-	{"cam1_vana", REG_LDO, 2800000, 2800000, 85600, 0},	
+	{"cam1_vana", REG_LDO, 2850000, 2850000, 85600, 0},
 	{"cam1_vaf", REG_LDO, 1800000, 1800000, 150000, 0},
 	{"cam1_isp_core", REG_LDO, 1150000, 1150000, 260000, 0},
-	{"cam1_isp_host", REG_LDO, 1800000, 1800000, 9000, 0},	  
-	{"cam1_isp_ram", REG_LDO, 1800000, 1800000, 115000, 0},	   
-	{"cam1_isp_camif", REG_LDO, 1800000, 1800000, 11000, 0},	   
-	{"cam1_isp_sys", REG_LDO, 2800000, 2800000, 2000, 0},	 	
+	{"cam1_isp_host", REG_LDO, 1800000, 1800000, 9000, 0},
+	{"cam1_isp_ram", REG_LDO, 1800000, 1800000, 115000, 0},
+	{"cam1_isp_camif", REG_LDO, 1800000, 1800000, 11000, 0},
+	{"cam1_isp_sys", REG_LDO, 2800000, 2800000, 2000, 0},
 };
 
 
@@ -562,10 +562,10 @@ static struct msm_camera_sensor_info msm_camera_sensor_ce1702_data = {
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = YUV_SENSOR,
 #ifdef CONFIG_CE1702_ACT
-	// [LGE_CHANGE_TEST_START] 20120503 jinsool.lee@lge.com 
+	// [LGE_CHANGE_TEST_START] 20120503 jinsool.lee@lge.com
 	// .actuator_info = &ce1702_actuator_info,
 	.actuator_info = &msm_act_main_cam_0_info,
-	// [LGE_CHANGE_TEST_END] 20120503 jinsool.lee@lge.com 
+	// [LGE_CHANGE_TEST_END] 20120503 jinsool.lee@lge.com
 #endif
 //	.eeprom_info = &ce1702_eeprom_info,
 };
@@ -579,10 +579,10 @@ static struct msm_camera_sensor_info msm_camera_sensor_ce1702_data_revE = {
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = YUV_SENSOR,
 #ifdef CONFIG_CE1702_ACT
-	// [LGE_CHANGE_TEST_START] 20120503 jinsool.lee@lge.com 
+	// [LGE_CHANGE_TEST_START] 20120503 jinsool.lee@lge.com
 	// .actuator_info = &ce1702_actuator_info,
 	.actuator_info = &msm_act_main_cam_0_info,
-	// [LGE_CHANGE_TEST_END] 20120503 jinsool.lee@lge.com 
+	// [LGE_CHANGE_TEST_END] 20120503 jinsool.lee@lge.com
 #endif
 //	.eeprom_info = &ce1702_eeprom_info,
 };
@@ -764,7 +764,7 @@ static struct camera_vreg_t apq_8064_front_cam_vreg[] = {
 #if defined (CONFIG_IMX132)
 static struct camera_vreg_t apq_8064_front_cam_vreg[] = {
 	{"cam2_vio", REG_LDO, 1800000, 1800000, 85600, 0},
-	{"cam2_vdig", REG_LDO, 1200000, 1200000, 105000, 0}, 
+	{"cam2_vdig", REG_LDO, 1200000, 1200000, 105000, 0},
 //	{"cam2_vana", REG_LDO, 2800000, 2850000, 85600},
 };
 #endif
@@ -1087,8 +1087,8 @@ struct led_flash_platform_data {
 	unsigned sda_gpio;
 };
 
-/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */	
-#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT)
+/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */
+#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 static struct led_flash_platform_data lm3559_flash_pdata[] = {
 	{
 		.scl_gpio = GPIO_CAM_FLASH_I2C_SCL,
@@ -1097,7 +1097,7 @@ static struct led_flash_platform_data lm3559_flash_pdata[] = {
 	}
 };
 #endif
-/* LGE_CHANGE_E, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */	
+/* LGE_CHANGE_E, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */
 
 static struct platform_device msm_camera_server = {
 	.name = "msm_cam_server",
@@ -1157,7 +1157,7 @@ static struct i2c_board_info apq8064_camera_i2c_boardinfo[] = {
 #endif
 #ifdef CONFIG_IMX132
 	{
-	I2C_BOARD_INFO("imx132", I2C_SLAVE_ADDR_IMX132), /* 0x6C */	
+	I2C_BOARD_INFO("imx132", I2C_SLAVE_ADDR_IMX132), /* 0x6C */
 	.platform_data = &msm_camera_sensor_imx132_data,
 	},
 #endif
@@ -1174,7 +1174,7 @@ static struct i2c_board_info apq8064_camera_i2c_boardinfo_revE[] = {
 #endif
 #ifdef CONFIG_IMX132
 	{
-	I2C_BOARD_INFO("imx132", I2C_SLAVE_ADDR_IMX132), /* 0x6C */	
+	I2C_BOARD_INFO("imx132", I2C_SLAVE_ADDR_IMX132), /* 0x6C */
 	.platform_data = &msm_camera_sensor_imx132_data_revE,
 	},
 #endif
@@ -1182,8 +1182,8 @@ static struct i2c_board_info apq8064_camera_i2c_boardinfo_revE[] = {
 /* LGE_CHANGE_E, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[End] */
 
 /* Enabling flash LED for camera */
-/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */	
-#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT)
+/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */
+#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 static struct i2c_board_info apq8064_lge_camera_i2c_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("lm3559", I2C_SLAVE_ADDR_FLASH),
@@ -1191,7 +1191,7 @@ static struct i2c_board_info apq8064_lge_camera_i2c_boardinfo[] = {
 	},
 };
 #endif
-/* LGE_CHANGE_E, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */	
+/* LGE_CHANGE_E, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */
 
 struct msm_camera_board_info apq8064_camera_board_info = {
 	.board_info = apq8064_camera_i2c_boardinfo,
@@ -1205,13 +1205,13 @@ struct msm_camera_board_info apq8064_camera_board_info_revE = {
 /* LGE_CHANGE_E, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[End] */
 
 /* Enabling flash LED for camera */
-/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */	
-#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT)
+/* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.lee@lge.com */
+#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 struct msm_camera_board_info apq8064_lge_camera_board_info = {
 	.board_info = apq8064_lge_camera_i2c_boardinfo,
 	.num_i2c_board_info = ARRAY_SIZE(apq8064_lge_camera_i2c_boardinfo),
 };
 #endif
-/* LGE_CHANGE_E, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.leelge.com */	
+/* LGE_CHANGE_E, For GV/GK 13M & 2.4M camera driver -> ISP controls the flash driver, 2012.08.15, gayoung85.leelge.com */
 #endif
 #endif

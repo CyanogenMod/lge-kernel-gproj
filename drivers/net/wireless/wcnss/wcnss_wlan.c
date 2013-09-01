@@ -30,6 +30,7 @@
 #include <mach/msm_iomap.h> 
 #include <mach/msm_smd.h>
 #include <linux/clk.h>
+
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
@@ -681,6 +682,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
 	struct qcom_wcnss_opts *pdata;
+	unsigned long wcnss_phys_addr;
+	int size = 0;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
 									"qcom,has_pronto_hw");
 
@@ -761,8 +764,25 @@ wcnss_trigger_config(struct platform_device *pdev)
 
 	wake_lock_init(&penv->wcnss_wake_lock, WAKE_LOCK_SUSPEND, "wcnss");
 
+	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
+		size = 0x3000;
+		wcnss_phys_addr = MSM_PRONTO_PHYS;
+	} else {
+		wcnss_phys_addr = MSM_RIVA_PHYS;
+		size = SZ_256;
+	}
+
+	penv->msm_wcnss_base = ioremap(wcnss_phys_addr, size);
+	if (!penv->msm_wcnss_base) {
+		ret = -ENOMEM;
+		pr_err("%s: ioremap wcnss physical failed\n", __func__);
+		goto fail_wake;
+	}
+
 	return 0;
 
+fail_wake:
+	wake_lock_destroy(&penv->wcnss_wake_lock);
 fail_res:
 	if (penv->pil)
 		pil_put(penv->pil);
@@ -771,7 +791,7 @@ fail_pil:
 				WCNSS_WLAN_SWITCH_OFF);
 fail_power:
 	if (has_pronto_hw)
-		ret = wcnss_pronto_gpios_config(&pdev->dev, false);
+		wcnss_pronto_gpios_config(&pdev->dev, false);
 	else
 		wcnss_gpios_config(penv->gpios_5wire, false);
 fail_gpio_res:
