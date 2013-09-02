@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-//youngil.yun@lge.com 2012-07-09 - start 
+//youngil.yun@lge.com 2012-07-09 - start
 #include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/i2c.h>
@@ -28,14 +28,14 @@
 #include "../../../../../arch/arm/mach-msm/lge/gk/board-gk.h"
 #endif
 #include "msm_camera_i2c_mux.h"
-//youngil.yun@lge.com 2012-07-09 - end 
+//youngil.yun@lge.com 2012-07-09 - end
 
 #if 1 // Start LGE_BSP_CAMERA::kyounghoon.noh@lge.com 2012-06-26
 #include "msm.h"
 #include "msm_ispif.h"
 #endif // End LGE_BSP_CAMERA::kyounghoon.noh@lge.com 2012-06-26
 #include "msm_sensor.h"
-#include <mach/board_lge.h> 
+#include <mach/board_lge.h>
 
 /* LGE_CHANGE_S, Define Camera Log, 2012.10.18 jungki.kim@lge.com */
 #define CAMERA_DEBUG 1
@@ -65,8 +65,8 @@
 #define CE1702_FLASH_BIN03_FILE "/sdcard/CE14XF03.bin"
 #endif
 
-#define ISP_HOST_INT PM8921_GPIO_PM_TO_SYS(20)  
-#define ISP_STBY PM8921_GPIO_PM_TO_SYS(13)  
+#define ISP_HOST_INT PM8921_GPIO_PM_TO_SYS(20)
+#define ISP_STBY PM8921_GPIO_PM_TO_SYS(13)
 /* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
 #define ISP_RST PM8921_GPIO_PM_TO_SYS(27)
 /* LGE_CHANGE_E, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[End] */
@@ -91,7 +91,7 @@
 #define SPI_CMD_READ                            0x5
 #define SPI_CMD_BURST_WRITE                     0x6
 #define SPI_CMD_BURST_READ                      0x7
-#endif 
+#endif
 
 #define HPIC_READ			0x01	// read command
 #define HPIC_WRITE			0x02	// write command
@@ -109,7 +109,7 @@
 
 typedef void        *HANDLE;
 
-typedef enum 
+typedef enum
 {
   CE1702_NANDFLASH = 0, //internal NAND-FLASH
   CE1702_SDCARD2,
@@ -118,12 +118,14 @@ typedef enum
 }check_isp_bin;
 
 /* LGE_CHANGE_S, Define For CE1702 output mode, 2012.11.10, elin.lee*/
-typedef enum 
+typedef enum
 {
-   CE1702_MODE_PREVIEW = 0, 
+   CE1702_MODE_PREVIEW = 0,
    CE1702_MODE_SINGLE_SHOT,
    CE1702_MODE_TMS_SHOT,
    CE1702_MODE_BURST_SHOT,
+   CE1702_MODE_HDR_SHOT,
+   CE1702_MODE_LOW_LIGHT_SHOT,
    CE1702_FRAME_MAX
 }check_isp_mode;
 /* LGE_CHANGE_E, Define For CE1702 output mode, 2012.11.10, elin.lee*/
@@ -146,10 +148,12 @@ struct ce1702_work {
 #define SET_AREA_AF_OFF			2
 #define SET_AREA_AE_OFF			3
 
-#define FLASH_LED_OFF			0
-#define FLASH_LED_AUTO			1
-#define FLASH_LED_ON			2
-#define FLASH_LED_TORCH		3
+#define FLASH_LED_OFF				0
+#define FLASH_LED_AUTO				1
+#define FLASH_LED_ON				2
+#define FLASH_LED_TORCH				3
+#define FLASH_LED_AUTO_NO_PRE_FLASH	4
+#define FLASH_LED_ON_NO_PRE_FLASH	5
 
 #define CAMERA_WB_OFF 			9
 
@@ -175,11 +179,16 @@ struct ce1702_work {
 #define CE1702_SIZE_VGA		0x0B
 #define CE1702_SIZE_CIF		0x09
 #define CE1702_SIZE_QVGA	0x05
+#define CE1702_SIZE_53		0x07
 #define CE1702_SIZE_QCIF		0x02
 #define CE1702_SIZE_FHD		0x1F
 #define CE1702_SIZE_FHD1	0x1E
 #define CE1702_SIZE_EIS_FHD	0x26
-#define CE1702_SIZE_EIS_HD		0x25
+#define CE1702_SIZE_EIS_HD	0x25
+#define CE1702_SIZE_169		0x08	//480x270
+#define CE1702_SIZE_QQCIF		0x00	//160x120
+//#define CE1702_SIZE_TV_THB	0x04	//480x270
+
 /* LGE_CHANGE_E, Define For CE1702 Sensor To Understand Easier, 2012.10.22, jungki.kim[End] */
 
 struct ce1702_size_type {
@@ -223,15 +232,17 @@ int32_t ce1702_power_down(struct msm_sensor_ctrl_t *s_ctrl);
 int32_t ce1702_match_id(struct msm_sensor_ctrl_t *s_ctrl);
 extern int32_t ce1702_i2c_read(unsigned short   saddr,unsigned char cmd_addr, unsigned char *cmd_data, int cmd_len, unsigned char *rdata, int length);
 extern int32_t ce1702_i2c_write(unsigned short saddr, unsigned short waddr, unsigned char *wdata, uint32_t length);
-extern inline void init_suspend(void);
-extern inline void deinit_suspend(void);
+extern void init_suspend(void);
+extern void deinit_suspend(void);
 extern void ce1702_sysfs_add(struct kobject* kobj);
 extern  void ce1702_sysfs_rm(struct kobject* kobj);
+extern void ce1702_store_isp_eventlog(void);
 extern  void ce1702_wq_ISP_upload(struct work_struct *work);
 extern long ce1702_check_flash_version(void);
 
 /* LGE_CHANGE_S, Define to use every scope, 2012.10.24, jungki.kim[Start] */
 extern long ce1702_isp_fw_full_upload(void);
+int8_t ce1702_sensor_set_led_flash_mode_for_AF(int32_t led_mode);
 int8_t ce1702_set_caf(int mode);
 int8_t ce1702_stop_af(struct msm_sensor_ctrl_t *s_ctrl);
 int8_t ce1702_set_focus_mode_setting(struct msm_sensor_ctrl_t *s_ctrl, int32_t afmode);
@@ -245,6 +256,7 @@ int8_t ce1702_set_exif_rotation_to_isp(void);
 int8_t ce1702_set_manual_focus_length(struct msm_sensor_ctrl_t *s_ctrl, int32_t focus_val);
 int8_t ce1702_set_window(struct msm_sensor_ctrl_t *s_ctrl, int16_t *window, int16_t sw);
 int8_t ce1702_set_VCM_default_position(struct msm_sensor_ctrl_t *s_ctrl);
+int8_t ce1702_switching_exif_gps(bool onoff);
 /* LGE_CHANGE_E, Define to use every scope, 2012.10.24, jungki.kim[End] */
 void CE_FwStart(void);
 

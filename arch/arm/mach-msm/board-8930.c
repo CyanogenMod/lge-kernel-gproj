@@ -133,7 +133,7 @@ struct sx150x_platform_data msm8930_sx150x_data[] = {
 #endif
 
 #define MSM_PMEM_ADSP_SIZE         0x7800000
-#define MSM_PMEM_AUDIO_SIZE        0x314000
+#define MSM_PMEM_AUDIO_SIZE        0x408000
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
 #define MSM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 #else
@@ -2369,8 +2369,6 @@ static struct platform_device *pmic_pm8917_devices[] __initdata = {
 
 static struct platform_device *common_devices[] __initdata = {
 	&msm_8960_q6_lpass,
-	&msm_8960_q6_mss_fw,
-	&msm_8960_q6_mss_sw,
 	&msm_8960_riva,
 	&msm_pil_tzapps,
 	&msm_pil_vidc,
@@ -2930,6 +2928,12 @@ static void __init msm8930_cdp_init(void)
 	else
 		msm8930_pm8917_gpio_mpp_init();
 #endif
+	/* Don't add modem devices on APQ targets */
+	if (socinfo_get_id() != 119 && socinfo_get_id() != 157
+	    && socinfo_get_id() != 160){
+		platform_device_register(&msm_8960_q6_mss_fw);
+		platform_device_register(&msm_8960_q6_mss_sw);
+	}
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 #ifdef CONFIG_MSM_CAMERA
 	msm8930_init_cam();

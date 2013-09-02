@@ -36,3 +36,171 @@ config MACH_APQ8064_GKATT
 		bool "APQ8064 GKATT"
 	help
 	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKOPENHK
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENHK"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKOPENTW
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENTW"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKSHBSG
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKSHBSG"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKOPENEU
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENEU"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKOPENCIS
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENCIS"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKTCLMX
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKTCLMX"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKOPENBR
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENBR"
+	help
+	  Support for the LGE GK device. 
+	  
+config MACH_APQ8064_GKVIVBR
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKVIVBR"
+	help
+	  Support for the LGE GK device. 
+	  
+	  
+config MACH_APQ8064_GKSTLSG
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKSTLSG"
+	help
+	  Support for the LGE GK device. 
+	  
+config MACH_APQ8064_GKOPENSG
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENSG"
+	help
+	  Support for the LGE GK device. 
+	  
+config MACH_APQ8064_GKMONSG
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKMONSG"
+	help
+	  Support for the LGE GK device. 	  
+	  
+config MACH_APQ8064_GKCHTTW
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKCHTTW"
+	help
+	  Support for the LGE GK device.  
+
+config MACH_APQ8064_GKOPENESA
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENESA"
+	help
+	  Support for the LGE GK device. 
+
+config MACH_APQ8064_GKOPENAME
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENAME"
+	help
+	  Support for the LGE GK device.	
+
+config MACH_APQ8064_GKOPENIL
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENIL"
+	help
+	  Support for the LGE GK device.	  
+
+config MACH_APQ8064_GKOPENMY
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENMY"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKOPENTH
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENTH"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKOPENZA
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENZA"
+	help
+	  Support for the LGE GK device. 
+
+config MACH_APQ8064_GKOPENID
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKOPENID"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKORIIL
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKORIIL"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKCCMIL
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKCCMIL"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKMIRIL
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKMIRIL"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKPCLIL
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GKPCLIL"
+	help
+	  Support for the LGE GK device.
+
+config MACH_APQ8064_GKGLOBAL
+	bool "LGE GK Global device"
+	depends on ARCH_APQ8064 && ( MACH_APQ8064_GKCHTTW || MACH_APQ8064_GKOPENAME || MACH_APQ8064_GKOPENBR || MACH_APQ8064_GKVIVBR || MACH_APQ8064_GKOPENESA || MACH_APQ8064_GKOPENEU || MACH_APQ8064_GKOPENHK || MACH_APQ8064_GKOPENIL || MACH_APQ8064_GKOPENSG || MACH_APQ8064_GKMONSG || MACH_APQ8064_GKOPENTW || MACH_APQ8064_GKSHBSG || MACH_APQ8064_GKSTLSG || MACH_APQ8064_GKTCLMX || MACH_APQ8064_GKOPENMY || MACH_APQ8064_GKOPENZA || MACH_APQ8064_GKOPENID || MACH_APQ8064_GKOPENTH || MACH_APQ8064_GKCCMIL || MACH_APQ8064_GKMIRIL || MACH_APQ8064_GKORIIL || MACH_APQ8064_GKPCLIL || MACH_APQ8064_GKOPENCIS )
+	help
+	  Support for the LGE GK Global device.	  

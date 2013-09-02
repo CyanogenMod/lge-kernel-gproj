@@ -179,6 +179,8 @@ void isdbt_hw_setting(void)
 	//gpio_direction_input(GPIO_MB86A35S_SPIS_XIRQ);
 	//udelay(50);
 #if 1 //eric0.kim@lge.com [2012.07.26] - FOR_ACTIVATE_SLEEP_MODE
+	gpio_request(GPIO_ONESEG_INT, "ONESEG_INT");
+	udelay(50);
 	gpio_direction_output(GPIO_ONESEG_INT, false);
 	gpio_set_value(GPIO_ONESEG_INT, 0);
 #else

@@ -573,6 +573,12 @@ I32S Tcc353xClose(I32S _moduleIndex)
 	if (Tcc353xHandle[_moduleIndex][0].handleOpen == 0)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
+	/* interrupt clr and disable */
+	if (Tcc353xHandle[_moduleIndex][0].options.useInterrupt) {
+		Tcc353xSetRegIrqEnable(&Tcc353xHandle[_moduleIndex][0], 0);
+		Tcc353xIrqClear(_moduleIndex, TC3XREG_IRQ_STATCLR_ALL);
+	}
+
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xPeripheralOnOff(&Tcc353xHandle[_moduleIndex][i], 0);
 	}
@@ -1287,8 +1293,10 @@ I32S Tcc353xStreamStop(I32S _moduleIndex)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
 	/* interrupt clr and disable */
-	if (Tcc353xHandle[_moduleIndex][0].options.useInterrupt)
+	if (Tcc353xHandle[_moduleIndex][0].options.useInterrupt) {
 		Tcc353xSetRegIrqEnable(&Tcc353xHandle[_moduleIndex][0], 0);
+		Tcc353xIrqClear(_moduleIndex, TC3XREG_IRQ_STATCLR_ALL);
+	}
 
 	/* disable stream data config */
 	streamDataConfig_0x1E =

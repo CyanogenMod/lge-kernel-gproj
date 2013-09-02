@@ -1743,6 +1743,11 @@ static void max17047_initial_quicstart_check(void)
 
 	
 	power_on_status = smem_get_entry(SMEM_POWER_ON_STATUS_INFO, &smem_size);
+	if(smem_size==0 || !power_on_status)
+	{
+		pr_err("max17047 subsystem failure reason: (unknown, smem_get_entry failed).");
+		return;
+	}
 	
 	if((0xff & *power_on_status) ==0x20)
 	{

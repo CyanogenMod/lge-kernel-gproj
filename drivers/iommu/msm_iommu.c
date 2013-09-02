@@ -82,8 +82,12 @@ static struct msm_iommu_remote_lock msm_iommu_remote_lock;
 static void _msm_iommu_remote_spin_lock_init(void)
 {
 	msm_iommu_remote_lock.lock = smem_alloc(SMEM_SPINLOCK_ARRAY, 32);
-	memset(msm_iommu_remote_lock.lock, 0,
-			sizeof(*msm_iommu_remote_lock.lock));
+
+	if (likely(msm_iommu_remote_lock.lock))
+		memset(msm_iommu_remote_lock.lock, 0,
+				sizeof(*msm_iommu_remote_lock.lock));
+	else
+		BUG();
 }
 
 void msm_iommu_remote_p0_spin_lock(void)

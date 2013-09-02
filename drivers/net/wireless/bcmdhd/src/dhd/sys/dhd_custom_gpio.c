@@ -263,19 +263,19 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"AW", "KR", 24}, //Aruba
 	{"AZ", "BR", 0}, //Azerbaijan
 	{"BA", "GB", 0}, //Bosnia and Herzegovina
-	{"BB", "RU", 1}, //Barbados
+	{"BB", "RU", 5}, //Barbados
 	{"BD", "CN", 0}, //Bangladesh
 	{"BE", "GB" , 0}, //Belgium
 	{"BF", "CN", 0}, //Burkina Faso
 	{"BG", "GB", 0}, //Bulgaria
-	{"BH", "RU", 1}, //Bahrain
+	{"BH", "RU", 5}, //Bahrain
 	{"BI", "IL" , 10}, //Burundi
 	{"BJ", "IL", 10}, //Benin
 	{"BM", "US", 100}, //Bermuda
-	{"BN", "RU", 1}, //Brunei
+	{"BN", "RU", 5}, //Brunei
 	{"BO", "IL", 10}, //Bolivia
 	{"BR", "BR", 0}, //Brazil
-	{"BS", "RU", 1}, //Bahamas
+	{"BS", "RU", 5}, //Bahamas
 	{"BT", "IL", 10}, //Bhntan
 	{"BW", "GB", 0}, //Botswana
 	{"BY", "GB", 0}, //Belarus
@@ -287,7 +287,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"CH", "GB", 0}, //Switzerland
 	{"CI", "IL", 10}, //Cote d'lvoire
 	{"CK", "BR", 0}, //Cook Island
-	{"CL", "RU", 1}, //Chile
+	{"CL", "RU", 5}, //Chile
 	{"CM", "IL", 10}, //Cameroon
 	{"CN", "CN", 0}, //China
 	{"CO", "BR", 0}, //Columbia
@@ -305,7 +305,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"DZ", "KW", 1}, //Algeria
 	{"EC", "BR", 0}, //Ecuador
 	{"EE", "GB", 0}, //Estonia
-	{"EG", "RU", 1}, //Egypt
+	{"EG", "RU", 5}, //Egypt
 	{"ER", "IL", 10}, //Eritrea
 	{"ES", "GB", 0}, //Spain
 	{"ET", "GB", 0}, //Ethiopia
@@ -326,20 +326,20 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"GP", "GB", 0}, //Guadeloupe
 	{"GQ", "IL", 10}, //Equatorial Guinea
 	{"GR", "GB", 0}, //Greece
-	{"GT", "RU", 1}, //Guatemala
+	{"GT", "RU", 5}, //Guatemala
 	{"GU", "US", 100}, //Guam
 	{"GW", "IL", 10}, //Guinea-Bissau
 	{"GY", "QA", 0}, //Guyana
 	{"HK", "BR", 0}, //Hong Kong
 	{"HN", "CN" , 0}, //Honduras
 	{"HR", "GB", 0}, //Croatia
-	{"HT", "RU", 1}, //Haiti
+	{"HT", "RU", 5}, //Haiti
 	{"HU", "GB", 0}, //Hungary
-	{"ID", "QA", 0}, //Indonesia
+	{"ID", "ID", 1}, //Indonesia
 	{"IE", "GB", 0}, //Ireland
 	{"IL", "IL" , 10}, //Israel
 	{"IM", "GB", 0}, //Isle of Man
-	{"IN", "RU", 1}, //India
+	{"IN", "RU", 5}, //India
 	{"IQ", "IL", 10}, //Iraq
 	{"IR", "IL", 10}, //Iran
 	{"IS", "GB", 0}, //Iceland
@@ -387,10 +387,10 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"MS", "GB", 0}, //Montserrat (UK)
 	{"MT", "GB", 0}, //Malta
 	{"MU", "GB", 0}, //Mauritius
-	{"MV", "RU", 1}, //Maldives
+	{"MV", "RU", 5}, //Maldives
 	{"MW", "CN", 0}, //Malawi
-	{"MX", "RU", 1}, //Mexico
-	{"MY", "RU", 1}, //Malaysia
+	{"MX", "RU", 5}, //Mexico
+	{"MY", "RU", 5}, //Malaysia
 	{"MZ", "BR", 0}, //Mozambique
 	{"NA", "BR", 0}, //Namibia
 	{"NC", "IL", 10}, //New Caledonia
@@ -405,7 +405,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"NU", "BR", 0}, //Niue
 	{"NZ", "BR", 0 }, //New Zealand
 	{"OM", "GB", 0}, //Oman
-	{"PA", "RU", 1}, //Panama
+	{"PA", "RU", 5}, //Panama
 	{"PE", "BR", 0}, //Peru
 	{"PF", "GB", 0}, //French Polynesia (France)
 	{"PG", "XY", 3}, //Papua New Guinea
@@ -424,7 +424,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"RKS", "IL", 10}, //Kosvo (Added on window's list)
 	{"RO", "GB", 0}, //Romania
 	{"RS", "GB", 0}, //Serbia
-	{"RU", "RU", 10}, //Russia
+	{"RU", "RU", 5}, //Russia
 	{"RW", "CN", 0}, //Rwanda
 	{"SA", "SA", 0}, //Saudi Arabia
 	{"SB", "IL", 10}, //Solomon Islands
@@ -442,7 +442,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"SR", "IL", 10}, //Suriname
 	{"SS", "GB", 0}, //South_Sudan
 	{"ST", "IL", 10}, //Sao Tome and Principe
-	{"SV", "RU", 1}, //El Salvador
+	{"SV", "RU", 5}, //El Salvador
 	{"SY", "BR", 0}, //Syria
 	{"SZ", "IL", 10}, //Swaziland
 	{"TC", "GB", 0}, //Turks and Caicos Islands (UK)
@@ -460,14 +460,14 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"TV", "IL", 10}, //Tuvalu
 	{"TW", "TW", 2}, //Taiwan
 	{"TZ", "CN", 0}, //Tanzania
-	{"UA", "RU", 1}, //Ukraine
+	{"UA", "RU", 5}, //Ukraine
 	{"UG", "BR", 0}, //Ugnada
 	{"US", "US", 100}, //US
 	{"UY", "BR", 0}, //Uruguay
 	{"UZ", "IL", 10}, //Uzbekistan
 	{"VA", "GB", 0}, //Vatican (Holy See)
 	{"VC", "BR", 0}, //Saint Vincent and the Grenadines
-	{"VE", "RU", 1}, //Venezuela
+	{"VE", "RU", 5}, //Venezuela
 	{"VG", "GB", 0}, //British Virgin Islands
 	{"VI", "US", 100}, //US Virgin Islands
 	{"VN", "BR", 0}, //Vietnam
@@ -476,7 +476,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"YE", "IL", 10}, //Yemen
 	{"YT", "GB", 0}, //Mayotte (France)
 	{"ZA", "GB", 0}, //South Africa
-	{"ZM", "RU", 1}, //Zambia
+	{"ZM", "RU", 5}, //Zambia
 	{"ZW", "BR", 0}, //Zimbabwe
 #endif //LGE_CHANGE_E, moon-wifi@lge.com by wo0ngs 2012-12-20 	
 #endif /* EXMAPLE_TABLE */

@@ -19,8 +19,8 @@
 /*#define _USE_ONSEG_SIGINFO_MODIFIED_MODE_*/
 
 #define _1_SEG_FIFO_THR_	(188*16) /* 1seg interupt cycle 57ms, 416kbps, QPSK, Conv.Code:2/3, GI:1/8 */
-#define _13_SEG_FIFO_THR_	(188*60) /* MMBI interupt cycle 12ms, 7302Kbps, 16QAM, Conv.code:1/2, GI:1/4 */
-//#define _13_SEG_FIFO_THR_	(188*80) /* MMBI interupt cycle 18ms, 7302Kbps, 16QAM, Conv.code:1/2, GI:1/4 */
+//#define _13_SEG_FIFO_THR_	(188*60) /* MMBI interupt cycle 12ms, 7302Kbps, 16QAM, Conv.code:1/2, GI:1/4 */
+#define _13_SEG_FIFO_THR_	(188*80) /* MMBI interupt cycle 18ms, 7302Kbps, 16QAM, Conv.code:1/2, GI:1/4 */
 //#define _13_SEG_FIFO_THR_	(188*120) /* MMBI interupt cycle 25ms, 7302Kbps, 16QAM, Conv.code:1/2, GI:1/4 */
 
 /*
@@ -726,30 +726,30 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 				pInfo->sig_info.info.mmb_info.TotalTSP = 
 						st.opstat.BRsCnt;
 			
-			TcpalPrintStatus((I08S *)"[mmbi][monitor] per[%d] TotalTSP[%d]\n",
+			/*TcpalPrintStatus((I08S *)"[mmbi][monitor] per[%d] TotalTSP[%d]\n",
 					pInfo->sig_info.info.mmb_info.per,
-					pInfo->sig_info.info.mmb_info.TotalTSP);
+					pInfo->sig_info.info.mmb_info.TotalTSP);*/
 		break;
 
 		case 4:
 			pInfo->sig_info.info.mmb_info.cn = 
 				st.status.snr.avgValue;
-			TcpalPrintStatus((I08S *)"[mmbi][monitor] cn[%d]\n",
-					pInfo->sig_info.info.mmb_info.cn);
+			/*TcpalPrintStatus((I08S *)"[mmbi][monitor] cn[%d]\n",
+					pInfo->sig_info.info.mmb_info.cn);*/
 		break;
 
 		case 5:
 			pInfo->sig_info.info.mmb_info.cn = 
 				st.status.snr.avgValue;
-			TcpalPrintStatus((I08S *)"[mmbi][monitor] cn[%d]\n",
-					pInfo->sig_info.info.mmb_info.cn);
+			/*TcpalPrintStatus((I08S *)"[mmbi][monitor] cn[%d]\n",
+					pInfo->sig_info.info.mmb_info.cn);*/
 		break;
 
 		case 6:
 			pInfo->sig_info.info.mmb_info.layerinfo =  
 				Tcc353xWrapperGetLayerInfo(layer, &st);
-			TcpalPrintStatus((I08S *)"[mmbi][monitor]  layer info[%d]\n",
-					pInfo->sig_info.info.mmb_info.layerinfo);
+			/*TcpalPrintStatus((I08S *)"[mmbi][monitor]  layer info[%d]\n",
+					pInfo->sig_info.info.mmb_info.layerinfo);*/
 
 			/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
@@ -863,11 +863,8 @@ int	broadcast_drv_if_get_ch_info(struct broadcast_dmb_ch_info *ch_info)
 {
 	int rc = ERROR;
 
-	TcpalSemaphoreLock(&Tcc353xDrvSem);
-
 	if(OnAir == 0) {
-		TcpalPrintErr((I08S *)"[1seg] broadcast_drv_if_get_ch_info error [!OnAir]\n");
-		TcpalSemaphoreUnLock(&Tcc353xDrvSem);
+		TcpalPrintErr((I08S *)"[1seg][no semaphore] broadcast_drv_if_get_ch_info error [!OnAir]\n");
 		return ERROR;
 	}
 
@@ -875,8 +872,6 @@ int	broadcast_drv_if_get_ch_info(struct broadcast_dmb_ch_info *ch_info)
 	Unused function
 	*/
 	rc = OK;
-
-	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 	return rc;
 }
 
@@ -941,8 +936,10 @@ int	broadcast_drv_if_reset_ch(void)
 	TcpalPrintStatus((I08S *)"[1seg]broadcast_drv_if_reset_ch\n");
 	ret = Tcc353xApiStreamStop(0);
 
-	if (ret != TCC353X_RETURN_SUCCESS)	rc = ERROR;
-	else					rc = OK;
+	if (ret!=TCC353X_RETURN_SUCCESS)
+		rc = ERROR;
+	else
+		rc = OK;
 
 	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 	return rc;
@@ -953,19 +950,14 @@ int	broadcast_drv_if_user_stop(int mode)
 	int ret = 0;
 	int rc = ERROR;
 
-	TcpalSemaphoreLock(&Tcc353xDrvSem);
-
 	if(OnAir == 0) {
-		TcpalPrintErr((I08S *)"[1seg] broadcast_drv_if_user_stop error [!OnAir]\n");
-		TcpalSemaphoreUnLock(&Tcc353xDrvSem);
+		TcpalPrintErr((I08S *)"[1seg][no semaphore] broadcast_drv_if_user_stop error [!OnAir]\n");
 		return ERROR;
 	}
 
-	TcpalPrintStatus((I08S *)"[1seg]broadcast_drv_if_user_stop\n");
+	TcpalPrintStatus((I08S *)"[1seg][no semaphore] broadcast_drv_if_user_stop\n");
 	Tcc353xApiUserLoopStopCmd(0);
 	ret = OK;
-
-	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 	return rc;
 }
 
@@ -973,15 +965,12 @@ int	broadcast_drv_if_select_antenna(unsigned int sel)
 {
 	int rc = ERROR;
 
-	TcpalSemaphoreLock(&Tcc353xDrvSem);
 	if(OnAir == 0) {
-		TcpalPrintErr((I08S *)"[1seg] broadcast_drv_if_select_antenna error [!OnAir]\n");
-		TcpalSemaphoreUnLock(&Tcc353xDrvSem);
+		TcpalPrintErr((I08S *)"[1seg][no semaphore] broadcast_drv_if_select_antenna error [!OnAir]\n");
 		return ERROR;
 	}
 	
 	rc = OK;
-	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 	return rc;
 }
 
@@ -989,15 +978,12 @@ int	broadcast_drv_if_isr(void)
 {
 	int rc = ERROR;
 	
-	TcpalSemaphoreLock(&Tcc353xDrvSem);
 	if(OnAir == 0) {
 		TcpalPrintErr((I08S *)"[1seg] broadcast_drv_if_isr error [!OnAir]\n");
-		TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 		return ERROR;
 	}
 	
 	rc = OK;
-	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 	return rc;
 }
 
@@ -1016,10 +1002,7 @@ int	broadcast_drv_if_get_mode (unsigned short *mode)
 {
 	int rc = ERROR;
 
-	TcpalSemaphoreLock(&Tcc353xDrvSem);
-
 	if(mode == NULL) {
-		TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 		return ERROR;
 	}
 
@@ -1049,8 +1032,6 @@ int	broadcast_drv_if_get_mode (unsigned short *mode)
 	}
 
 	rc = OK;
-
-	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 	return rc;
 }
 

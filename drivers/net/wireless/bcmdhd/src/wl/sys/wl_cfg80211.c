@@ -329,6 +329,11 @@ static s32 wl_notify_pfn_status(struct wl_priv *wl, struct net_device *ndev,
 #endif /* PNO_SUPPORT */
 static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_info,
 	enum wl_status state, bool set);
+
+#ifdef CUSTOMER_HW10
+static void wl_escan_timeout_work_handler(struct work_struct *work);
+#endif
+
 /*
  * register/deregister parent device
  */
@@ -1395,7 +1400,8 @@ wl_cfg80211_change_virtual_iface(struct wiphy *wiphy, struct net_device *ndev,
 				WL_ERR(("struct ap_saved_ie allocation failed\n"));
 				return -ENOMEM;
 			}
-#if defined(CUSTOMER_HW4) && defined(USE_DYNAMIC_F2_BLKSIZE)
+
+#if defined(CUSTOMER_HW4) && defined(USE_DYNAMIC_F2_BLKSIZE) && !defined(CUSTOMER_HW10)
 			dhdsdio_func_blocksize(dhd, 2, DYNAMIC_F2_BLKSIZE_FOR_NONLEGACY);
 #endif /* CUSTOMER_HW4 && USE_DYNAMIC_F2_BLKSIZE */
 		} else {
@@ -2101,6 +2107,12 @@ __wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
 	}
 #endif /* WL_CFG80211_VSDB_PRIORITIZE_SCAN_REQUEST */
 
+#ifdef CUSTOMER_HW10
+	if (wl_get_drv_status(wl, CONNECTING, ndev)) {
+		WL_ERR(("Connecting : Scanning ignored"));
+		return -EAGAIN;
+	}
+#endif
 
 	/* Arm scan timeout timer */
 	mod_timer(&wl->scan_timeout, jiffies + msecs_to_jiffies(WL_SCAN_TIMER_INTERVAL_MS));
@@ -2129,6 +2141,9 @@ __wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
 						get_primary_mac(wl, &primary_mac);
 						wl_cfgp2p_generate_bss_mac(&primary_mac,
 							&wl->p2p->dev_addr, &wl->p2p->int_addr);
+#if defined(CONFIG_LGE_BCM433X_PATCH)	// modified by MJ : [CSP#618771] TV connection issue 2013-02-19
+						wl->p2p_prb_notified = false;
+#endif
 					}
 					wl_clr_p2p_status(wl, GO_NEG_PHASE);
 					WL_DBG(("P2P: GO_NEG_PHASE status cleared \n"));
@@ -4447,6 +4462,7 @@ wl_cfg80211_send_action_frame(struct wiphy *wiphy, struct net_device *dev,
 	u8 category, action;
 	s32 tx_retry;
 	struct p2p_config_af_params config_af_params;
+	struct net_info *iter, *next;
 #ifdef VSDB
 	ulong off_chan_started_jiffies = 0;
 #endif
@@ -4551,9 +4567,17 @@ wl_cfg80211_send_action_frame(struct wiphy *wiphy, struct net_device *dev,
 #endif
 
 	/* if scan is ongoing, abort current scan. */
+#if 0
 	if (wl_get_drv_status_all(wl, SCANNING)) {
 		wl_notify_escan_complete(wl, ndev, true, true);
 	}
+#else
+	for_each_ndev(wl, iter, next) {
+		if (wl_get_drv_status(wl, SCANNING, iter->ndev)) {
+			wl_notify_escan_complete(wl, iter->ndev, true, true); 
+		}
+	}
+#endif
 
 	/* set status and destination address before sending af */
 	if (wl->next_af_subtype != P2P_PAF_SUBTYPE_INVALID) {
@@ -4745,6 +4769,14 @@ wl_cfg80211_mgmt_tx(struct wiphy *wiphy, struct net_device *ndev,
 			wl_cfgp2p_set_management_ie(wl, dev, bssidx,
 				VNDR_IE_PRBRSP_FLAG, (u8 *)(buf + ie_offset), ie_len);
 			cfg80211_mgmt_tx_status(ndev, *cookie, buf, len, true, GFP_KERNEL);
+
+#if defined(CONFIG_LGE_BCM433X_PATCH)	// modified by MJ : [CSP#618771] TV connection issue 2013-02-19
+			if(!wl->p2p_prb_notified)
+			{
+				wl->p2p_prb_notified = true;
+				WL_DBG(("%s: TX ieee80211 Probe Response first time.\n", __func__));
+			}
+#endif
 			goto exit;
 		} else if (ieee80211_is_disassoc(mgmt->frame_control) ||
 			ieee80211_is_deauth(mgmt->frame_control)) {
@@ -5018,6 +5050,7 @@ wl_validate_opensecurity(struct net_device *dev, s32 bssidx)
 {
 	s32 err = BCME_OK;
 
+#ifndef CUSTOMER_HW10 // for WEP Support
 	/* set auth */
 	err = wldev_iovar_setint_bsscfg(dev, "auth", 0, bssidx);
 	if (err < 0) {
@@ -5025,7 +5058,6 @@ wl_validate_opensecurity(struct net_device *dev, s32 bssidx)
 		return BCME_ERROR;
 	}
 
-#ifndef CUSTOMER_HW10 // for WEP Support
 	/* set wsec */
 	err = wldev_iovar_setint_bsscfg(dev, "wsec", 0, bssidx);
 	if (err < 0) {
@@ -5040,7 +5072,7 @@ wl_validate_opensecurity(struct net_device *dev, s32 bssidx)
 	}
 #endif
 
-	return 0;
+	return err;
 }
 
 static s32
@@ -5897,10 +5929,14 @@ wl_cfg80211_parse_set_ies(
 {
 	struct wl_priv *wl = wlcfg_drv_priv;
 	struct parsed_ies prb_ies;
+
+	struct parsed_ies assoc_ies;
 	s32 err = BCME_OK;
 
 	memset(ies, 0, sizeof(struct parsed_ies));
 	memset(&prb_ies, 0, sizeof(struct parsed_ies));
+
+	memset(&assoc_ies, 0, sizeof(struct parsed_ies));
 
 	/* Parse Beacon IEs */
 	if (wl_cfg80211_parse_ies((u8 *)info->tail,
@@ -5935,6 +5971,26 @@ wl_cfg80211_parse_set_ies(
 	} else {
 		WL_DBG(("Applied Vndr IEs for Probe Resp \n"));
 	}
+
+#ifdef CUSTOMER_HW10
+	/* Parse Assoc Response IEs */
+	if (wl_cfg80211_parse_ies((u8 *)info->assocresp_ies,
+		info->assocresp_ies_len, &assoc_ies) < 0) {
+		WL_ERR(("ASSOC RESP get IEs failed \n"));
+		goto fail;
+	}
+
+	/* Set Assoc Response IEs to FW */
+	if(dev_role != NL80211_IFTYPE_P2P_GO) {
+		WL_DBG(("Set ASSOCRESP IEs only in P2P_GO mode \n"));
+	} else if(wl_cfgp2p_set_management_ie(wl, dev, bssidx,
+		VNDR_IE_ASSOCRSP_FLAG, (u8 *)info->assocresp_ies,
+		info->assocresp_ies_len) < 0) {
+		WL_ERR(("Set Assoc Resp IE Failed \n"));
+	} else {
+		WL_DBG(("Applied Vndr IEs for Assoc Resp \n"));
+	}
+#endif
 
 fail:
 
@@ -6012,7 +6068,7 @@ static s32 wl_cfg80211_hostapd_sec(
 		else if ((ies->wpa_ie != NULL || ies->wpa2_ie != NULL)) {
 #else
 		if ((ies->wpa_ie != NULL || ies->wpa2_ie != NULL)) {
-#endif			
+#endif
 			if (!wl->ap_info->security_mode) {
 				/* change from open mode to security mode */
 				update_bss = true;
@@ -7995,6 +8051,9 @@ wl_notify_rx_mgmt_frame(struct wl_priv *wl, struct net_device *ndev,
 			 * GO-NEG Phase
 			 */
 			if (wl->p2p &&
+#if defined(CONFIG_LGE_BCM433X_PATCH)	// modified by MJ : [CSP#618771] TV connection issue 2013-02-19
+				wl->p2p_prb_notified &&
+#endif
 				wl_get_p2p_status(wl, GO_NEG_PHASE)) {
 				WL_DBG(("Filtering P2P probe_req while "
 					"being in GO-Neg state\n"));
@@ -8261,6 +8320,11 @@ static s32 wl_init_priv_mem(struct wl_priv *wl)
 
 		INIT_WORK(&wl->afx_hdl->work, wl_cfg80211_afx_handler);
 	}
+
+#ifdef CUSTOMER_HW10
+	INIT_WORK(&wl->escan_timeout_work, wl_escan_timeout_work_handler);
+#endif
+
 	return 0;
 
 init_priv_mem_out:
@@ -8306,6 +8370,10 @@ static void wl_deinit_priv_mem(struct wl_priv *wl)
 		kfree(wl->afx_hdl);
 		wl->afx_hdl = NULL;
 	}
+
+#ifdef CUSTOMER_HW10
+	cancel_work_sync(&wl->escan_timeout_work);
+#endif
 
 	if (wl->ap_info) {
 		kfree(wl->ap_info->wpa_ie);
@@ -8513,16 +8581,30 @@ static s32 wl_iscan_thread(void *data)
 	return 0;
 }
 
+#ifdef CUSTOMER_HW10
+static void wl_escan_timeout_work_handler(struct work_struct *work)
+{
+	struct wl_priv *wl = wlcfg_drv_priv;
+
+	wl_notify_escan_complete(wl, wl->escan_info.ndev, true, true);
+}
+#endif
+
 static void wl_scan_timeout(unsigned long data)
 {
 	struct wl_priv *wl = (struct wl_priv *)data;
 
 	if (wl->scan_request) {
 		WL_ERR(("timer expired\n"));
-		if (wl->escan_on)
+		if (wl->escan_on) {
+#ifdef CUSTOMER_HW10
+			schedule_work(&wl->escan_timeout_work);
+#else
 			wl_notify_escan_complete(wl, wl->escan_info.ndev, true, true);
-		else
+#endif
+		} else {
 			wl_notify_iscan_complete(wl_to_iscan(wl), true);
+		}
 	}
 }
 static void wl_iscan_timer(unsigned long data)
@@ -9162,8 +9244,13 @@ static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_in
 			}
 			/* Save the current power mode */
 			iter->pm_restore = true;
+#ifdef CUSTOMER_HW10
+			err = wldev_ioctl(iter->ndev, WLC_GET_PM, &iter->pm,
+				sizeof(iter->pm), false);
+#else
 			err = wldev_ioctl(iter->ndev, WLC_GET_PM, &iter->pm,
 				sizeof(iter->pm), true);
+#endif
 			WL_DBG(("%s:power save %s\n", iter->ndev->name,
 				iter->pm ? "enabled" : "disabled"));
 			if ((err = wldev_ioctl(iter->ndev, WLC_SET_PM, &pm,
@@ -9182,6 +9269,12 @@ static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_in
 		wl_update_prof(wl, _net_info->ndev, NULL, &chan, WL_PROF_CHAN);
 		wl_cfg80211_determine_vsdb_mode(wl);
 		for_each_ndev(wl, iter, next) {
+#if defined(CUSTOMER_HW10) && defined(BCM4334_CHIP)
+			if (!strcmp(iter->ndev->name, (char *)"wlan0")) {
+				iter->pm_restore = true;
+				iter->pm = PM_FAST;
+			}
+#endif
 			if (iter->pm_restore) {
 				WL_DBG(("%s:restoring power save %s\n",
 					iter->ndev->name, (iter->pm ? "enabled" : "disabled")));
@@ -9192,7 +9285,9 @@ static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_in
 						WL_DBG(("%s:netdev not ready\n", iter->ndev->name));
 					else
 						WL_ERR(("%s:error(%d)\n", iter->ndev->name, err));
+#if !defined(CUSTOMER_HW10) || !defined(BCM4334_CHIP)
 					break;
+#endif
 				}
 				iter->pm_restore = 0;
 			}
@@ -10220,6 +10315,7 @@ wl_update_prof(struct wl_priv *wl, struct net_device *ndev,
 		break;
 	case WL_PROF_CHAN:
 		profile->channel = *(u32*)data;
+		break;
 	default:
 		err = -EOPNOTSUPP;
 		break;

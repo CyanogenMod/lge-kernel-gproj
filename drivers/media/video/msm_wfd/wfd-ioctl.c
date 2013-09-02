@@ -91,6 +91,10 @@ struct wfd_inst {
 	u32 out_buf_size;
 	struct list_head input_mem_list;
 	struct wfd_stats stats;
+
+	//[LGE_S] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+	struct completion stop_mdp_thread;
+	//[LGE_E] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
 };
 
 struct wfd_vid_buffer {
@@ -530,7 +534,11 @@ void wfd_vidbuf_buf_cleanup(struct vb2_buffer *vb)
 
 static int mdp_output_thread(void *data)
 {
-	int rc = 0;
+	//[LGE_S] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+	//int rc = 0;
+	int rc = 0, no_sig_wait = 0;
+	//[LGE_E] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+
 	struct file *filp = (struct file *)data;
 	struct wfd_inst *inst = filp->private_data;
 	struct wfd_device *wfd_dev =
@@ -539,6 +547,16 @@ static int mdp_output_thread(void *data)
 	struct mem_region *mregion;
 	struct vsg_buf_info ibuf_vsg;
 	while (!kthread_should_stop()) {
+		//[LGE_S] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+		if (rc) {
+			WFD_MSG_DBG("%s() error in output thread\n", __func__);
+			if (!no_sig_wait) {
+				wait_for_completion(&inst->stop_mdp_thread);
+				no_sig_wait = 1;
+			}
+			continue;
+		}
+		//[LGE_E] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
 		WFD_MSG_DBG("waiting for mdp output\n");
 		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev,
 			core, ioctl, MDP_DQ_BUFFER, (void *)&obuf_mdp);
@@ -548,7 +566,10 @@ static int mdp_output_thread(void *data)
 				WFD_MSG_ERR("MDP reported err %d\n", rc);
 
 			WFD_MSG_ERR("Streamoff called\n");
-			break;
+			//[LGE_S] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+			//break;
+			continue;
+			//[LGE_E] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
 		} else {
 			wfd_stats_update(&inst->stats,
 				WFD_STAT_EVENT_MDP_DEQUEUE);
@@ -558,7 +579,10 @@ static int mdp_output_thread(void *data)
 		if (!mregion) {
 			WFD_MSG_ERR("mdp cookie is null\n");
 			rc = -EINVAL;
-			break;
+			//[LGE_S] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+			//break;
+			continue;
+			//[LGE_E] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
 		}
 
 		ibuf_vsg.mdp_buf_info = obuf_mdp;
@@ -573,7 +597,10 @@ static int mdp_output_thread(void *data)
 
 		if (rc) {
 			WFD_MSG_ERR("Failed to queue frame to vsg\n");
-			break;
+			//[LGE_S] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+			//break;
+			continue;
+			//[LGE_E] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
 		} else {
 			wfd_stats_update(&inst->stats,
 				WFD_STAT_EVENT_VSG_QUEUE);
@@ -608,6 +635,10 @@ int wfd_vidbuf_start_streaming(struct vb2_queue *q, unsigned int count)
 		goto subdev_start_fail;
 	}
 
+	//[LGE_S] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+	init_completion(&inst->stop_mdp_thread);
+	//[LGE_E] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+
 	inst->mdp_task = kthread_run(mdp_output_thread, priv_data,
 				"mdp_output_thread");
 	if (IS_ERR(inst->mdp_task)) {
@@ -641,6 +672,10 @@ int wfd_vidbuf_stop_streaming(struct vb2_queue *q)
 			 VSG_STOP, NULL);
 	if (rc)
 		WFD_MSG_ERR("Failed to stop VSG\n");
+
+	//[LGE_S] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
+	complete(&inst->stop_mdp_thread);
+	//[LGE_E] 20130107 taewonee.kim@lge.com, QC pre patch, avoid exiting mdp task thread on error
 
 	kthread_stop(inst->mdp_task);
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,

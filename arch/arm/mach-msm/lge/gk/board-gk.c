@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  *
  */
+	 
+
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/platform_device.h>
@@ -342,9 +344,7 @@ static struct ion_co_heap_pdata fw_co_apq8064_ion_pdata = {
  * to each other.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data apq8064_ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.heaps = {
+struct ion_platform_heap apq8064_heaps[] = {
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
@@ -407,7 +407,11 @@ static struct ion_platform_data apq8064_ion_pdata = {
 			.extra_data = (void *) &co_apq8064_ion_pdata,
 		},
 #endif
-	}
+};
+
+static struct ion_platform_data apq8064_ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.heaps = apq8064_heaps,
 };
 
 static struct platform_device apq8064_ion_dev = {
@@ -483,7 +487,8 @@ static void __init reserve_ion_memory(void)
 		const struct ion_platform_heap *heap =
 			&(apq8064_ion_pdata.heaps[i]);
 
-		if (heap->type == ION_HEAP_TYPE_CP && heap->extra_data) {
+		if (heap->type == (enum ion_heap_type) ION_HEAP_TYPE_CP
+			&& heap->extra_data) {
 			struct ion_cp_heap_pdata *data = heap->extra_data;
 
 			reusable_count += (data->reusable) ? 1 : 0;
@@ -505,7 +510,7 @@ static void __init reserve_ion_memory(void)
 			int fixed_position = NOT_FIXED;
 			int mem_is_fmem = 0;
 
-			switch (heap->type) {
+			switch ((int)heap->type) {
 			case ION_HEAP_TYPE_CP:
 				mem_is_fmem = ((struct ion_cp_heap_pdata *)
 					heap->extra_data)->mem_is_fmem;
@@ -566,7 +571,7 @@ static void __init reserve_ion_memory(void)
 			int fixed_position = NOT_FIXED;
 			struct ion_cp_heap_pdata *pdata = NULL;
 
-			switch (heap->type) {
+			switch ((int)heap->type) {
 			case ION_HEAP_TYPE_CP:
 				pdata =
 				(struct ion_cp_heap_pdata *)heap->extra_data;
@@ -867,20 +872,18 @@ static int get_factory_cable(void)
     int res = 0;
 
     switch(lge_pm_get_cable_type()) {
-	/* It is factory cable */
-	case CABLE_56K:
-	    res = LGEUSB_FACTORY_56K;
-	    break;
-	case CABLE_130K:
-	    res = LGEUSB_FACTORY_130K;
-	    break;
-	case CABLE_910K:
-	    res = LGEUSB_FACTORY_910K;
-	    break;
-	    /* It is normal cable */
-	default:
-	    res = 0;
-	    break;
+    /* It is factory cable */
+    case CABLE_56K:
+        return LGEUSB_FACTORY_56K;
+    case CABLE_130K:
+        return LGEUSB_FACTORY_130K;
+    case CABLE_910K:
+        return LGEUSB_FACTORY_910K;
+
+    /* It is normal cable */
+    default:
+        res = 0;
+        break;
     }
 
     /* if boot mode is factory,
@@ -888,15 +891,14 @@ static int get_factory_cable(void)
      */
     boot_mode = lge_get_boot_mode();
     switch(boot_mode) {
-	case LGE_BOOT_MODE_FACTORY:
-	    res = LGEUSB_FACTORY_130K;
-	    break;
-	case LGE_BOOT_MODE_FACTORY2:
-	//case LGE_BOOT_MODE_PIFBOOT:
-	    res = LGEUSB_FACTORY_56K;
-	    break;
-	default:
-	    break;
+    case LGE_BOOT_MODE_FACTORY:
+        res = LGEUSB_FACTORY_130K;
+        break;
+    case LGE_BOOT_MODE_FACTORY2:
+        res = LGEUSB_FACTORY_56K;
+        break;
+    default:
+        break;
     }
 
     return res;
@@ -978,6 +980,55 @@ static int phy_init_seq[] = {
 #define PMIC_GPIO_DP_IRQ	PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PMIC_GPIO_DP)
 #define MSM_MPM_PIN_USB1_OTGSESSVLD	40
 
+#ifdef CONFIG_USB_OTG
+static bool msm_hsusb_vbus_power(bool on)
+{
+	static struct regulator *votg_5v_switch;
+	static struct regulator *ext_5v_reg;
+	
+	if (!votg_5v_switch) {
+		votg_5v_switch = regulator_get(NULL, "8921_usb_otg");
+		if (IS_ERR(votg_5v_switch)) {
+			pr_err("%s : Unable to get votg_5v_switch\n", __func__);
+			return false;
+		}
+	}	
+
+	if (!ext_5v_reg) {
+		ext_5v_reg = regulator_get(NULL, "ext_5v");
+		if (IS_ERR(ext_5v_reg)) {
+			pr_err("%s: Unable to get ext_5v_reg\n", __func__);
+			return false;
+		}
+	}
+	
+	if (on) {
+		if (regulator_enable(ext_5v_reg)) {
+			pr_err("%s : Unable to enable the regulator:"
+					" ext_5v_reg\n", __func__);
+			return false;
+		}
+		if (regulator_enable(votg_5v_switch)) {
+			pr_err("%s : Unable to enable the regulator:"
+					" votg_5v_switch\n", __func__);
+			return false;
+		}
+	} else {
+		if (regulator_disable(votg_5v_switch)) {
+			pr_err("%s: Unable to disable the regulator:"
+				" votg_5v_switch\n", __func__);
+		}
+		if (regulator_disable(ext_5v_reg)) {
+			pr_err("%s: Unable to disable the regulator:"
+				" ext_5v_reg\n", __func__);
+		}
+	}
+
+	return true;
+}
+#endif /* CONFIG_USB_OTG */
+
+
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
@@ -987,6 +1038,9 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.bus_scale_table	= &usb_bus_scale_pdata,
 	.phy_init_seq		= phy_init_seq,
 	.mpm_otgsessvld_int	= MSM_MPM_PIN_USB1_OTGSESSVLD,
+#ifdef CONFIG_USB_OTG
+	.vbus_power 		= msm_hsusb_vbus_power,
+#endif
 };
 
 static struct msm_usb_host_platform_data msm_ehci_host_pdata3 = {
@@ -1051,57 +1105,26 @@ static struct lp5521_led_config lp5521_led_config[] = {
 	{
 		.name = "R",
 		.chan_nr	= 0,
-		.led_current	= 136,
-		.max_current	= 136,
+		.led_current	= 180,
+		.max_current	= 180,
 	},
 	{
 		.name = "G",
 		.chan_nr	= 1,
-		.led_current	= 126,
-		.max_current	= 126,
+		.led_current	= 180,
+		.max_current	= 180,
 	},
 	{
 		.name = "B",
 		.chan_nr	= 2,
-		.led_current	= 130,
-		.max_current	= 130,
+		.led_current	= 180,
+		.max_current	= 180,
 	},
 };
 
-
-//[pattern_id : 1, PowerOn_Animation]
-static u8 mode1_red[] = {0xE0, 0x0C, 0x40, 0x00, 0x0C, 0x2F, 0x06, 0x28, 0x05, 0x2D, 0x06, 0x2A, 0x06, 0x25, 0x03, 0xDC, 0x02, 0xFA, 0x48, 0x00, 0x03, 0x54, 0x44, 0x01, 0x23, 0x06, 0x31, 0x84, 0x06, 0xA8, 0x0C, 0xAF};
-static u8 mode1_green[] = {0xE0, 0x80, 0x40, 0x00, 0x52, 0x00, 0x0B, 0x15, 0x05, 0x2D, 0x03, 0x48, 0x03, 0x4B, 0x09, 0x1B, 0x02, 0x63, 0x19, 0x89, 0x03, 0xCA, 0x04, 0xC1, 0x05, 0xB2, 0x06, 0xA6, 0x12, 0x8D, 0x52, 0x00};
-static u8 mode1_blue[] = {0xE0, 0x80, 0x40, 0x00, 0x12, 0xFE, 0x40, 0xC0, 0x0A, 0x18, 0x06, 0xA6, 0x06, 0xAA, 0x03, 0xCF, 0x04, 0xB6, 0x52, 0x00};
-
-//[pattern_id : 2, Not used, LCDOn]
-static u8 mode2_red[]={0x40, 0xff, 0x4d, 0x00, 0x0a, 0xff, 0x0a, 0xfe, 0xc0, 0x00};
-static u8 mode2_green[]={0x40, 0xff, 0x4d, 0x00, 0x0a, 0xff, 0x0a, 0xfe, 0xc0, 0x00};
-static u8 mode2_blue[]={0x40, 0xff, 0x4d, 0x00, 0x0a, 0xff, 0x0a, 0xfe, 0xc0, 0x00};
-
-//[pattern_id : 3, Charging0_99]
-static u8 mode3_red[] = {0x40, 0x0D, 0x44, 0x0C, 0x24, 0x32, 0x24, 0x32, 0x66, 0x00, 0x24, 0xB2, 0x24, 0xB2, 0x44, 0x8C};
-
-//[pattern_id : 4, Charging100]
-static u8 mode4_green[]={0x40, 0x80};
-
-//[pattern_id : 5, Not used, Charging16_99]
-static u8 mode5_red[]={0x40, 0x19, 0x27, 0x19, 0xe0, 0x04, 0x0c, 0x65, 0xe0, 0x04, 0x0c, 0x65, 0xe0, 0x04, 0x0c, 0xe5, 0xe0, 0x04, 0x0c, 0xe5, 0xe0, 0x04, 0x29, 0x98, 0xe0, 0x04, 0x5a, 0x00};
-static u8 mode5_green[]={0x40, 0x0c, 0x43, 0x0b, 0xe0, 0x80, 0x19, 0x30, 0xe0, 0x80, 0x19, 0x30, 0xe0, 0x80, 0x19, 0xb0, 0xe0, 0x80, 0x19, 0xb0, 0xe0, 0x80, 0x43, 0x8b, 0xe0, 0x80, 0x5a, 0x00};
-
-//[pattern_id : 6, PowerOff]
-static u8 mode6_red[] = {0xE0, 0x0C, 0x40, 0x00, 0x0C, 0x2F, 0x06, 0x28, 0x05, 0x2D, 0x06, 0x2A, 0x06, 0x25, 0x03, 0xDC, 0x02, 0xFA, 0x48, 0x00, 0x03, 0x54, 0x44, 0x01, 0x23, 0x06, 0x31, 0x84, 0x06, 0xA8, 0x0C, 0xAF};
-static u8 mode6_green[] = {0xE0, 0x80, 0x40, 0x00, 0x52, 0x00, 0x0B, 0x15, 0x05, 0x2D, 0x03, 0x48, 0x03, 0x4B, 0x09, 0x1B, 0x02, 0x63, 0x19, 0x89, 0x03, 0xCA, 0x04, 0xC1, 0x05, 0xB2, 0x06, 0xA6, 0x12, 0x8D, 0x52, 0x00};
-static u8 mode6_blue[] = {0xE0, 0x80, 0x40, 0x00, 0x12, 0xFE, 0x40, 0xC0, 0x0A, 0x18, 0x06, 0xA6, 0x06, 0xAA, 0x03, 0xCF, 0x04, 0xB6, 0x52, 0x00,};
-
-//[pattern_id : 7, MissedNoti]
-static u8 mode7_red[]={0x40, 0x00, 0x10, 0xFE, 0x40, 0x5D, 0xE2, 0x00, 0x07, 0xAD, 0xE2, 0x00, 0x07, 0xAE, 0xE2, 0x00, 0x48, 0x00, 0x40, 0x5D, 0xE2, 0x00, 0x07, 0xAD, 0xE2, 0x00, 0x07, 0xAE, 0xE2, 0x00, 0x25, 0xFE,};
-static u8 mode7_green[]={0x40, 0x00, 0x10, 0xFE, 0x40, 0xCD, 0xE2, 0x00, 0x03, 0xE6, 0xE2, 0x00, 0x03, 0xE5, 0xE2, 0x00, 0x48, 0x00, 0x40, 0xCD, 0xE2, 0x00, 0x03, 0xE6, 0xE2, 0x00, 0x03, 0xE5, 0xE2, 0x00, 0x25, 0xFE,};
-static u8 mode7_blue[]={0x40, 0x00, 0x10, 0xFE, 0x40, 0xE6, 0xE0, 0x06, 0x03, 0xF2, 0xE0, 0x06, 0x03, 0xF2, 0xE0, 0x06, 0x48, 0x00, 0x40, 0xE6, 0xE0, 0x06, 0x03, 0xF2, 0xE0, 0x06, 0x03, 0xF2, 0xE0, 0x06, 0x25, 0xFE,};
-
-
 static struct lp5521_led_pattern board_led_patterns[] = {
 	{
+		/* ID_POWER_ON = 1 */
 		.r = mode1_red,
 		.g = mode1_green,
 		.b = mode1_blue,
@@ -1110,6 +1133,7 @@ static struct lp5521_led_pattern board_led_patterns[] = {
 		.size_b = ARRAY_SIZE(mode1_blue),
 	},
 	{
+		/* ID_LCD_ON = 2 */
 		.r = mode2_red,
 		.g = mode2_green,
 		.b = mode2_blue,
@@ -1118,30 +1142,24 @@ static struct lp5521_led_pattern board_led_patterns[] = {
 		.size_b = ARRAY_SIZE(mode2_blue),
 		},
 	{
+		/* ID_CHARGING = 3 */
 		.r = mode3_red,
-//		.g = mode3_green,
-//		.b = mode3_blue,
 		.size_r = ARRAY_SIZE(mode3_red),
-//		.size_g = ARRAY_SIZE(mode3_green),
-//		.size_b = ARRAY_SIZE(mode3_blue),
 	},
 	{
-//		.r = mode4_red,
+		/* ID_CHARGING_FULL = 4 */
 		.g = mode4_green,
-//		.b = mode4_blue,
-//		.size_r = ARRAY_SIZE(mode4_red),
 		.size_g = ARRAY_SIZE(mode4_green),
-//		.size_b = ARRAY_SIZE(mode4_blue),
 	},
 	{
+		/* ID_CALENDAR_REMIND = 5 */
 		.r = mode5_red,
 		.g = mode5_green,
-//		.b = mode5_blue,
 		.size_r = ARRAY_SIZE(mode5_red),
 		.size_g = ARRAY_SIZE(mode5_green),
-//		.size_b = ARRAY_SIZE(mode5_blue),
 	},
 	{
+		/* ID_POWER_OFF = 6 */
 		.r = mode6_red,
 		.g = mode6_green,
 		.b = mode6_blue,
@@ -1150,12 +1168,89 @@ static struct lp5521_led_pattern board_led_patterns[] = {
 		.size_b = ARRAY_SIZE(mode6_blue),
 	},
 	{
+		/* ID_MISSED_NOTI = 7 */
 		.r = mode7_red,
 		.g = mode7_green,
 		.b = mode7_blue,
 		.size_r = ARRAY_SIZE(mode7_red),
 		.size_g = ARRAY_SIZE(mode7_green),
 		.size_b = ARRAY_SIZE(mode7_blue),
+	},
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	/* for dummy pattern IDs (defined LGLedRecord.java) */
+	{
+		/* ID_ALARM = 8 */
+	},
+	{
+		/* ID_CALL_01 = 9 */
+	},
+	{
+		/* ID_CALL_02 = 10 */
+	},
+	{
+		/* ID_CALL_03 = 11 */
+	},
+	{
+		/* ID_VOLUME_UP = 12 */
+	},
+	{
+		/* ID_VOLUME_DOWN = 13 */
+	},
+#endif
+	{
+		/* ID_FAVORITE_MISSED_NOTI = 14 */
+		.r = mode8_red,
+		.g = mode8_green,
+		.b = mode8_blue,
+		.size_r = ARRAY_SIZE(mode8_red),
+		.size_g = ARRAY_SIZE(mode8_green),
+		.size_b = ARRAY_SIZE(mode8_blue),
+	},
+	{
+		/* CHARGING_100_FOR_ATT = 15 (use chargerlogo, only AT&T) */
+		.g = mode4_green_50,
+		.size_g = ARRAY_SIZE(mode4_green_50),
+	},
+	{
+		/* CHARGING_FOR_ATT = 16 (use chargerlogo, only AT&T) */
+		.r = mode3_red_50,
+		.size_r = ARRAY_SIZE(mode3_red_50),
+	},
+	{
+		/* ID_MISSED_NOTI_PINK = 17 */
+		.r = mode9_red,
+		.g = mode9_green,
+		.b = mode9_blue,
+		.size_r = ARRAY_SIZE(mode9_red),
+		.size_g = ARRAY_SIZE(mode9_green),
+		.size_b = ARRAY_SIZE(mode9_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_BLUE = 18 */
+		.r = mode10_red,
+		.g = mode10_green,
+		.b = mode10_blue,
+		.size_r = ARRAY_SIZE(mode10_red),
+		.size_g = ARRAY_SIZE(mode10_green),
+		.size_b = ARRAY_SIZE(mode10_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_ORANGE = 19 */
+		.r = mode11_red,
+		.g = mode11_green,
+		.b = mode11_blue,
+		.size_r = ARRAY_SIZE(mode11_red),
+		.size_g = ARRAY_SIZE(mode11_green),
+		.size_b = ARRAY_SIZE(mode11_blue),
+	},
+	{
+		/* ID_MISSED_NOTI_YELLOW = 20 */
+		.r = mode12_red,
+		.g = mode12_green,
+		.b = mode12_blue,
+		.size_r = ARRAY_SIZE(mode12_red),
+		.size_g = ARRAY_SIZE(mode12_green),
+		.size_b = ARRAY_SIZE(mode12_blue),
 	},
 };
 
@@ -1173,34 +1268,34 @@ static int lp5521_setup(void)
 {
 	int rc = 0;
 
-	printk("LP5521: [%s] start\n", __func__);
+	LP5521_INFO_MSG("[%s] start", __func__);
 	rc = gpio_request(LP5521_ENABLE, "lp5521_led");
 
 	if(rc){
-		printk("LP5521: [%s] gpio_request(gpio #%d) failed!\n", __func__, LP5521_ENABLE);
+		LP5521_INFO_MSG("LP5521: [%s] gpio_request(gpio #%d) failed!\n", __func__, LP5521_ENABLE);
 		return rc;
 	}
 
 	rc = pm8xxx_gpio_config(LP5521_ENABLE, &lp5521_param);
 
 	if(rc){
-		printk("LP5521: [%s] pm8xxx_gpio_config(gpio #%d) failed!\n", __func__, LP5521_ENABLE);
+		LP5521_INFO_MSG("LP5521: [%s] pm8xxx_gpio_config(gpio #%d) failed!\n", __func__, LP5521_ENABLE);
 		return rc;
 	}
-	printk("LP5521: [%s] complete\n", __func__);
+	LP5521_INFO_MSG("[%s] complete", __func__);
 	return rc;
 }
 
 static void lp5521_enable(bool state)
 {
-	printk("LP5521: [%s] state = %d\n", __func__, state);
+	LP5521_INFO_MSG("LP5521: [%s] state = %d\n", __func__, state);
 	if(state){
 		gpio_set_value(LP5521_ENABLE, 1);
-		printk("LP5521: [%s] RGB_EN(gpio #%d) set to HIGH\n", __func__, LP5521_ENABLE);
+		LP5521_INFO_MSG("LP5521: [%s] RGB_EN(gpio #%d) set to HIGH\n", __func__, LP5521_ENABLE);
 	}
 	else{
 		gpio_set_value(LP5521_ENABLE, 0);
-		printk("LP5521: [%s] RGB_EN(gpio #%d) set to LOW\n", __func__, LP5521_ENABLE);
+		LP5521_INFO_MSG("LP5521: [%s] RGB_EN(gpio #%d) set to LOW\n", __func__, LP5521_ENABLE);
 	}
 
 	return;
@@ -1227,7 +1322,7 @@ static struct i2c_board_info lp5521_board_info[] __initdata = {
 		.platform_data = &lp5521_pdata,
 	},
 };
-#ifdef CONFIG_MACH_APQ8064_GKATT
+#if defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 static struct i2c_board_info lp5521_board_info_rev_f[] __initdata = {
 	{
 		I2C_BOARD_INFO("lp5521", 0x33),
@@ -2246,7 +2341,7 @@ static struct msm_thermal_data msm_thermal_pdata = {
 #ifdef CONFIG_LGE_PM
 	.poll_ms = 1000,
 	.limit_temp_degC = 90,
-#if defined(CONFIG_MACH_APQ8064_GK_KR)||defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR)||defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	.limit_temp_degC_low = 20,
 #endif
 #else
@@ -2384,13 +2479,6 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 	},
 
 	{
-		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
-		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
-		true,
-		1300, 228, 1200000, 2000,
-	},
-
-	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(ON, GDHS, MAX, ACTIVE),
 		false,
@@ -2484,6 +2572,21 @@ static uint8_t spm_power_collapse_with_rpm[] __initdata = {
 	0x00, 0x24, 0x54, 0x10,
 	0x09, 0x07, 0x01, 0x0B,
 	0x10, 0x54, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
+/* 8064AB has a different command to assert apc_pdn */
+static uint8_t spm_power_collapse_without_rpm_krait_v3[] __initdata = {
+	0x00, 0x24, 0x84, 0x10,
+	0x09, 0x03, 0x01,
+	0x10, 0x84, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_with_rpm_krait_v3[] __initdata = {
+	0x00, 0x24, 0x84, 0x10,
+	0x09, 0x07, 0x01, 0x0B,
+	0x10, 0x84, 0x30, 0x0C,
 	0x24, 0x30, 0x0f,
 };
 
@@ -2639,6 +2742,27 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	},
 };
 
+static void __init apq8064ab_update_krait_spm(void)
+{
+	int i;
+
+	/* Update the SPM sequences for SPC and PC */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+			if (pdata->modes[j].cmd ==
+					spm_power_collapse_without_rpm)
+				pdata->modes[j].cmd =
+				spm_power_collapse_without_rpm_krait_v3;
+			else if (pdata->modes[j].cmd ==
+					spm_power_collapse_with_rpm)
+				pdata->modes[j].cmd =
+				spm_power_collapse_with_rpm_krait_v3;
+		}
+	}
+}
+
 #define GSBI_I2C_MODE_CODE	0x20
 #define GSBI_DUAL_MODE_CODE	0x60
 #define MSM_GSBI1_PHYS		0x12440000
@@ -2705,6 +2829,7 @@ static struct platform_device apq8064_device_ext_mpp8_vreg __devinitdata = {
 	},
 };
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
 static struct platform_device apq8064_device_ext_3p3v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= APQ8064_EXT_3P3V_REG_EN_GPIO,
@@ -2722,6 +2847,7 @@ static struct platform_device apq8064_device_ext_ts_sw_vreg __devinitdata = {
 			= &apq8064_gpio_regulator_pdata[GPIO_VREG_ID_EXT_TS_SW],
 	},
 };
+#endif
 
 static struct platform_device apq8064_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
@@ -2781,18 +2907,26 @@ static struct platform_device *early_common_devices[] __initdata = {
 static struct platform_device *pm8921_common_devices[] __initdata = {
 	&apq8064_device_ext_5v_vreg,
 	&apq8064_device_ext_mpp8_vreg,
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	&apq8064_device_ext_3p3v_vreg,
+#endif
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
+#ifndef CONFIG_USB_G_LGE_ANDROID	
 	&apq8064_device_ext_ts_sw_vreg,
+#endif	
 };
 
 static struct platform_device *pm8917_common_devices[] __initdata = {
 	&apq8064_device_ext_mpp8_vreg,
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	&apq8064_device_ext_3p3v_vreg,
+#endif	
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
+#ifndef CONFIG_USB_G_LGE_ANDROID
 	&apq8064_device_ext_ts_sw_vreg,
+#endif	
 };
 
 static struct platform_device *common_devices[] __initdata = {
@@ -2927,6 +3061,7 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_BATTERY_BCL
 	&battery_bcl_device,
 #endif
+	&adsp_loader_device,
 };
 
 static struct platform_device *cdp_devices[] __initdata = {
@@ -3668,7 +3803,7 @@ static void __init register_i2c_devices(void)
 		i2c_register_board_info(APQ_8064_GSBI1_QUP_I2C_BUS_ID, lp5521_board_info, ARRAY_SIZE(lp5521_board_info));
 		printk("LP5521: lp5521_i2c_regiter_board_info (lp5521_board_info)\n");
 	}
-#ifdef CONFIG_MACH_APQ8064_GKATT
+#if defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	else {
 		i2c_register_board_info(APQ_8064_GSBI1_QUP_I2C_BUS_ID, lp5521_board_info_rev_f, ARRAY_SIZE(lp5521_board_info));
 		printk("LP5521: lp5521_i2c_regiter_board_info (lp5521_board_info_rev_f)\n");
@@ -3864,7 +3999,8 @@ static void __init apq8064_common_init(void)
 		} else {
 			mdm_8064_device.dev.platform_data = &mdm_platform_data;
 			// LGE_START // featuring GPIO(MDM2AP_HSIC_READY) confiuration for BCM4334			
-			if (lge_get_board_revno() == HW_REV_E || lge_get_board_revno() == HW_REV_C || lge_get_board_revno() == HW_REV_D){
+			if ((lge_get_board_revno() >= HW_REV_C) && (lge_get_board_revno() != HW_REV_F)){
+			
 				mdm_8064_device.resource[6].start = 81; // MDM2AP_PBLRDY
 				mdm_8064_device.resource[6].end = 81; // MDM2AP_PBLRDY
 			}
@@ -3883,6 +4019,8 @@ static void __init apq8064_common_init(void)
 		apq8064_init_dsps();
 		platform_device_register(&msm_8960_riva);
 	}
+	if (cpu_is_apq8064ab())
+		apq8064ab_update_krait_spm();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE

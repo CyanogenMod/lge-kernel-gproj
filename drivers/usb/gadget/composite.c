@@ -963,9 +963,10 @@ static int get_string(struct usb_composite_dev *cdev,
 	 * simpler-is-better here.
 	 */
 /* MSE-ADD-S iC Data Transfer 2012/05/22 */
-/* MSE-DEL-S iC Data Transfer 2012/10/16 */
+/* MSE-MOD-S iC Data Transfer 2013/01/23 */
 /* #ifndef CONFIG_USB_G_LGE_ANDROID_DTF */
-/* MSE-DEL-E iC Data Transfer 2012/10/16 */
+#ifndef CONFIG_USB_G_LGE_ANDROID_DTF_GJD
+/* MSE-MOD-E iC Data Transfer 2013/01/23 */
 /* MSE-ADD-E iC Data Transfer 2012/05/22 */
 	if (composite->strings) {
 		len = lookup_string(composite->strings, buf, language, id);
@@ -973,26 +974,23 @@ static int get_string(struct usb_composite_dev *cdev,
 			return len;
 	}
 /* MSE-ADD-S iC Data Transfer 2012/05/22 */
-/* MSE-DEL-S iC Data Transfer 2012/10/16 */
-/* #else
- *        if (composite->strings) {
- *                len = lookup_string(composite->strings, buf, language, id);
- *               if (len > 0) {
- *                       return len;
- *               } else {
- *                       if(language == 0) {
- *                               language = 0x0409;
- *                               len = lookup_string(composite->strings, buf, language, id);
- *                       }
- *
- *                       if (len > 0) {
- *                               return len;
- *                       }
- *               }
- *       }
- * #endif
- */
-/* MSE-DEL-E iC Data Transfer 2012/10/16 */
+#else
+    if (composite->strings) {
+        len = lookup_string(composite->strings, buf, language, id);
+        if (len > 0) {
+            return len;
+        } else {
+            if(language == 0) {
+                language = 0x0409;
+                len = lookup_string(composite->strings, buf, language, id);
+            }
+
+            if (len > 0) {
+                return len;
+            }
+       }
+    }
+#endif
 /* MSE-ADD-E iC Data Transfer 2012/05/22 */
 	list_for_each_entry(c, &cdev->configs, list) {
 		if (c->strings) {

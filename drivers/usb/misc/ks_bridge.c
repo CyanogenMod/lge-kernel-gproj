@@ -554,6 +554,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		if (ifc_num != 2)
 			return -ENODEV;
 		ksb = __ksb[EFS_BRIDGE_INDEX];
+        ifc->needs_remote_wakeup = 1;
 		break;
 	default:
 		return -ENODEV;
@@ -596,7 +597,6 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ksb->fs_dev = (struct miscdevice *)id->driver_info;
 	misc_register(ksb->fs_dev);
 
-	ifc->needs_remote_wakeup = 1;
 	usb_enable_autosuspend(ksb->udev);
 
 	pr_debug("usb dev connected");

@@ -8417,6 +8417,7 @@ static bool max1462x_mic_bias = false;
 void set_headset_mic_bias_l10(int on)
 {
 	int rc = -EINVAL;
+       int voltage_l10;
 	static struct regulator *vreg_l10;
 
 	if(!max1462x_mic_bias) {
@@ -8424,8 +8425,8 @@ void set_headset_mic_bias_l10(int on)
 		if (IS_ERR(vreg_l10)) {
 			pr_err("%s: regulator get of vreg_l10 failed (%ld)\n", __func__, PTR_ERR(vreg_l10)); 
 		}
-
-		rc = regulator_set_voltage(vreg_l10, 2800000, 2800000);
+              voltage_l10 = regulator_get_voltage(vreg_l10);
+		rc = regulator_set_voltage(vreg_l10, voltage_l10, voltage_l10);
 		if (rc) {
 			pr_err("%d: regulator set of vreg_l10 failed \n", rc); 
 		}
@@ -8495,7 +8496,8 @@ void set_headset_mic_bias_l29(int on)
 		}
 
 //[LGE] seungkyu.joo, 2012-12-18 , HW Request for enabling apple headset mic
-#if defined(CONFIG_MACH_APQ8064_J1SK)|| defined(CONFIG_MACH_APQ8064_J1KT)|| defined(CONFIG_MACH_APQ8064_J1U)
+#if 1//defined(CONFIG_MACH_APQ8064_J1SK)|| defined(CONFIG_MACH_APQ8064_J1KT)|| defined(CONFIG_MACH_APQ8064_J1U)|| defined(CONFIG_MACH_APQ8064_J1A)
+	//||defined(CONFIG_MACH_APQ8064_J1R) || defined(CONFIG_MACH_APQ8064_J1B) || defined(CONFIG_MACH_APQ8064_J1TL) || defined(CONFIG_MACH_APQ8064_J1SP)
 		rc = regulator_set_voltage(vreg_l29, 2700000, 2700000);
 #else
 		rc = regulator_set_voltage(vreg_l29, 2000000, 2000000);

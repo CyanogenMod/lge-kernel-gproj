@@ -22,8 +22,11 @@ _e_snfc_uart_status g_uartcollisoncontrol = UART_STATUS_KOTO_OFF;
 static int gpio_init = 0;
 static int forced_hsel_up_flag=0;
 static int forced_pon_up_flag=0;	
-static int koto_abnormal=0;
+int koto_abnormal=0;
 static int autopoll_status = 0;
+
+int snfc_poweroff_flag=0;
+
 /*
  *	Function definitions
  */
@@ -39,6 +42,9 @@ void __snfc_uart_control_set_uart_status(_e_snfc_uart_status uart_status)
 	
 	if(current_status == uart_status)
 		return;
+
+	if(current_status > UART_STATUS_READY && uart_status > UART_STATUS_READY)
+		SNFC_DEBUG_MSG("[snfc_uart_control] current status %d, %d device tries to use uart",current_status,uart_status);
 	
 	g_uartcollisoncontrol = uart_status;
 	SNFC_DEBUG_MSG_MIDDLE("[snfc_uart_control] uart status %d -> %d\n", current_status, g_uartcollisoncontrol );
@@ -54,6 +60,9 @@ EXPORT_SYMBOL(__snfc_uart_control_set_uart_status);
 */
 _e_snfc_uart_status __snfc_uart_control_get_uart_status(void)
 {
+	if(g_uartcollisoncontrol > UART_STATUS_READY )
+	SNFC_DEBUG_MSG("[snfc_uart_control] current status %d, other device checks uart status",g_uartcollisoncontrol);
+	
 	return g_uartcollisoncontrol;
 }
 EXPORT_SYMBOL(__snfc_uart_control_get_uart_status);
@@ -167,10 +176,12 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 				break;
 			snfc_gpio_write(GPIO_SNFC_HSEL, GPIO_HIGH_VALUE);	
 			snfc_gpio_write(GPIO_SNFC_PON, GPIO_HIGH_VALUE);
-			
-			SNFC_DEBUG_MSG("[snfc_uart_control] !!!! RFS disable start !!!!\n");
-			disable_irq(gpio_to_irq(gpio_rfs));
 
+			#ifndef CONFIG_CXD2235AGG_GJ_KDDI	
+				//SNFC_DEBUG_MSG("[snfc_uart_control] !!!! RFS disable start !!!!\n");
+				disable_irq(gpio_to_irq(gpio_rfs));
+			#endif
+			
 			mdelay(10);
 			autopoll_status = 1;		
 			SNFC_DEBUG_MSG_LOW("[snfc_uart_control] IOCTL_SNFC_START_AUTOPOLL - end\n");
@@ -263,6 +274,19 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 			rc = snfc_i2c_write(0x02, &write_buf, 1);
 			//mutex_unlock(&nfc_cen_mutex);  			
 			break;
+
+		case IOCTL_SNFC_HVDD_DOWN_SET:
+			SNFC_DEBUG_MSG_LOW("[snfc_uart_control] ioctl_snfc_hvdd_down\n");
+			while(koto_abnormal == 10)
+			{
+				if(snfc_poweroff_flag == 1)
+				{
+					break;
+				}
+				usleep(100);
+			}		
+			SNFC_DEBUG_MSG_LOW("[snfc_uart_control] ioctl_snfc_hvdd_down HVDD %d\n",snfc_gpio_read(86));
+			break;
 			
 		case IOCTL_SNFC_END :
 			SNFC_DEBUG_MSG_LOW("[snfc_uart_control] IOCTL_SNFC_END - start\n");
@@ -280,11 +304,14 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 			snfc_gpio_write(GPIO_SNFC_PON, GPIO_LOW_VALUE);	
 			__snfc_uart_control_set_uart_status(UART_STATUS_READY);
 			
-			if(autopoll_status == 1) 
-			{
-				SNFC_DEBUG_MSG("[snfc_uart_control] !!!! RFS disable end !!!!\n");
-				enable_irq(gpio_to_irq(gpio_rfs));
-			}
+			#ifndef CONFIG_CXD2235AGG_GJ_KDDI	
+				if(autopoll_status == 1) 
+				{
+					//SNFC_DEBUG_MSG("[snfc_uart_control] !!!! RFS disable end !!!!\n");
+					enable_irq(gpio_to_irq(gpio_rfs));
+				}
+			#endif
+			
 			autopoll_status = 0;
 			SNFC_DEBUG_MSG_LOW("[snfc_uart_control] IOCTL_SNFC_END - end (hsel low)(pon low)\n");
 			break;			
@@ -299,26 +326,25 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 * Input : 
 * Output : 
 */
-int snfc_temp_flag = 0;
 static int snfc_uart_control_read(struct file *pf, char *pbuf, size_t size, loff_t *pos)
 {
 	int current_status;
 	int rc;
 		
 	SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_read - start \n");
-	
+
+	if(koto_abnormal == 10 && snfc_poweroff_flag == 1)
+		koto_abnormal = 0;
+
 	current_status = koto_abnormal;	
-	
+
 	rc = copy_to_user((void*)pbuf, (void*)&current_status, size);
 	if(rc)
 	{
 		SNFC_DEBUG_MSG("[snfc_uart_control] ERROR -  copy_to_user \n");
 		return rc;
 	}
-
-	//if(snfc_temp_flag == 1)
-	//	koto_abnormal = 0;
-
+	
 	SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_read :koto_abnormal=%d - end \n",koto_abnormal);
 	
 	return size;
@@ -341,10 +367,8 @@ static int snfc_uart_control_write(struct file *pf, const char *pbuf, size_t siz
 		SNFC_DEBUG_MSG("[snfc_uart_control] ERROR -  copy_to_user \n");
 		return rc;
 	}
-	
-	//if(autopoll_status == 1)
-		koto_abnormal = new_status;	
-	snfc_temp_flag = 1;
+
+	koto_abnormal = new_status;	
 
 	SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_write - end:koto_abnormal=%d \n",koto_abnormal);
 
@@ -387,16 +411,16 @@ static int snfc_uart_control_init(void)
 		return rc;
 	}
 	__snfc_uart_control_set_uart_status(UART_STATUS_READY);
-
+#ifndef	CONFIG_CXD2235AGG_GJ_KDDI
 	rc = gpio_request(86,"snfc_hvdd");
 	if(rc)
 	{
 		SNFC_DEBUG_MSG("[snfc_intu_poll] gpio_request snfc_hvdd fail\n");
 	}
 	snfc_gpio_write(86, GPIO_HIGH_VALUE);	
-	
+#endif	
 	SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_init - end \n");
- 	koto_abnormal = 2;
+ //	koto_abnormal = 2;
 
 	return 0;  	
 }

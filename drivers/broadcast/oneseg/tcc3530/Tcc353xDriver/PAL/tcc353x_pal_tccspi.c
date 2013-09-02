@@ -31,8 +31,8 @@ static I32S Tcc353xTccspiReset(I32S _moduleIndex, I32S _chipAddress);
 */
 //#define DMA_MAX_SIZE	(188*40)		// 07.34kb  7520 byte
 //#define DMA_MAX_SIZE	(188*64)		//  11.75kb 12032
-#define DMA_MAX_SIZE	(188*80)	//  14.68kb 15040
-//#define DMA_MAX_SIZE	(188*87)		//  15.97kb 16356
+//#define DMA_MAX_SIZE	(188*80)	//  14.68kb 15040
+#define DMA_MAX_SIZE	(188*87)		//  15.97kb 16356
 
 #define SPICMD_BUFF_LEN     8
 #define SPICMD_ACK          0x47

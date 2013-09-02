@@ -357,6 +357,9 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
 	.mdp_max_clk = 266667000,
+	.mdp_max_bw = 2000000000UL,
+	.mdp_bw_ab_factor = 115,
+	.mdp_bw_ib_factor = 125,
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 	.mdp_rev = MDP_REV_44,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -1761,7 +1764,7 @@ static char ief_on_set0[2] = {0xE0, 0x07};
 static char ief_cabc_set[6] = {0xC8, 0x22, 0x22, 0x22, 0x33, 0x93};//MIE ON
 static char ief_on_set4[4] = {0xE4, 0x02, 0x82, 0x82};
 static char ief_on_set5[4] = {0xE5, 0x01, 0x82, 0x80};
-static char ief_on_set6[4] = {0xE6, 0x04, 0x05, 0x07};
+static char ief_on_set6[4] = {0xE6, 0x04, 0x00, 0x00};
 
 static char ief_off_set0[2] = {0xE0, 0x00};
 static char ief_off_set4[4] = {0xE4, 0x00, 0x00, 0x00};

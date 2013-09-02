@@ -1015,7 +1015,8 @@ struct msm_snapshot_pp_status {
 #define CFG_SET_EXIF_ROTATION				69		//Insert Rotation Information In EXIF by jungki.kim@lge.com
 #define CFG_SET_EXIF_GPS						70		//Set GPS Exif Tags For GK/GV by jungki.kim@lge.com
 #define CFG_SET_ASD							71			//Supprort ASD for CE1702 by gayoung85.lee
-#define CFG_MAX								72
+#define CFG_SET_EXIF_THUMBNAIL_SIZE			72		// fixed cts failure!, 2013.01.07 junghee.eim@lge.com
+#define CFG_MAX								73
 /* LGE_CHANGE_E, Added For CE1702 For GK/GV, 2012.10.22, jungki.kim[End] */
 
 #define MOVE_NEAR	0
@@ -1321,9 +1322,9 @@ struct sensor_calib_data {
 //End :randy@qualcomm.com for calibration 2012.04.15
 
 enum msm_sensor_resolution_t {
-	MSM_SENSOR_RES_FULL, 
+	MSM_SENSOR_RES_FULL,
 	MSM_SENSOR_RES_QTR,
-	MSM_SENSOR_RES_2, 
+	MSM_SENSOR_RES_2,
 	MSM_SENSOR_RES_3,
 	MSM_SENSOR_RES_4,
 	MSM_SENSOR_RES_5,
@@ -1331,8 +1332,13 @@ enum msm_sensor_resolution_t {
 /* LGE_CHANGE_E, Define For CE1702 output mode, 2012.11.10, elin.lee*/
 	MSM_SENSOR_RES_7,
 	MSM_SENSOR_RES_8,
+	MSM_SENSOR_RES_9,
+	MSM_SENSOR_RES_10,
 	MSM_SENSOR_RES_ZSL,//SENSOR_MODE_ZSL
 	MSM_SENSOR_RES_BURST,//SENSOR_MODE_BURSTSHOT
+	MSM_SENSOR_RES_HDR,//SENSOR_MODE_HDR
+	MSM_SENSOR_RES_LLS,//SENSOR_MODE_LOW_LIGHT_SHOT
+	MSM_SENSOR_RES_YUV_PREVIEW, //SENSOR_MODE_LOW_LIGHT_SHOT
 /* LGE_CHANGE_E, Define For CE1702 output mode, 2012.11.10, elin.lee*/	
 	MSM_SENSOR_INVALID_RES,
 };
@@ -1486,7 +1492,7 @@ struct csiphy_cfg_data {
 #define CSI_RAW10   0x2B
 #define CSI_RAW12   0x2C
 #define CSI_RAW12   0x2C
-#define CSI_JPEG   0x30 
+#define CSI_JPEG   0x30
 
 #define CSI_DECODE_6BIT 0
 #define CSI_DECODE_8BIT 1
@@ -1685,6 +1691,8 @@ struct dimen_t {
   uint16_t picture_height;
   uint16_t video_width;
   uint16_t video_height;
+  uint16_t thumbnail_width;
+  uint16_t thumbnail_heigh;
 };
 /* LGE_CHANGE_E, add the changing image size for GK project, 2012.10.19 youngil.yun@lge.com */
 

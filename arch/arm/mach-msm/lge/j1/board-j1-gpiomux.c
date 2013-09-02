@@ -100,8 +100,7 @@ static struct gpiomux_setting dmb_int_pin = {
 #endif /* CONFIG_LGE_BROADCAST */
 // LGE_BROADCAST_ONESEG }
 
-/* #ifdef CONFIG_LGE_FELICA_KDDI */
-#if defined(CONFIG_LGE_FELICA_KDDI) || defined(CONFIG_LGE_FELICA_DCM)
+#if defined(CONFIG_LGE_FELICA_ONLY)
 static struct gpiomux_setting felica_pon_cfg = {
     .func = GPIOMUX_FUNC_GPIO,
     .drv = GPIOMUX_DRV_2MA,
@@ -127,21 +126,6 @@ static struct gpiomux_setting felica_lockcont_cfg = {
     .pull = GPIOMUX_PULL_NONE,
     .dir = GPIOMUX_OUT_LOW,
 };
-#if defined(CONFIG_LGE_FELICA_KDDI)
-static struct gpiomux_setting nfc_hsel_cfg = {
-    .func = GPIOMUX_FUNC_GPIO,
-    .drv = GPIOMUX_DRV_2MA,
-    .pull = GPIOMUX_PULL_NONE,
-    .dir = GPIOMUX_OUT_LOW,
-};
-static struct gpiomux_setting snfc_intu_cfg = {
-    .func = GPIOMUX_FUNC_GPIO,
-    .drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-	.dir = GPIOMUX_IN,
-
-};
-#endif
 #endif
 
 #ifdef CONFIG_MSM_VCAP
@@ -225,7 +209,6 @@ struct msm_gpiomux_config vcap_configs[] = {
 			[GPIOMUX_ACTIVE] =		&gpio_vcap_config[1],
 		}
 	},
-#if !defined(CONFIG_LGE_FELICA_KDDI)
 	{
 		.gpio = 23,
 		.settings = {
@@ -233,7 +216,6 @@ struct msm_gpiomux_config vcap_configs[] = {
 			[GPIOMUX_ACTIVE] =		&gpio_vcap_config[2],
 		}
 	},
-#endif
 	{
 		.gpio = 19,
 		.settings = {
@@ -241,8 +223,7 @@ struct msm_gpiomux_config vcap_configs[] = {
 			[GPIOMUX_ACTIVE] =		&gpio_vcap_config[8],
 		}
 	},
-/* #ifndef CONFIG_LGE_FELICA_KDDI */
-#if !defined(CONFIG_LGE_FELICA_KDDI) && !defined(CONFIG_LGE_FELICA_DCM)
+#if !defined(CONFIG_LGE_FELICA_ONLY)
 	{
 		.gpio = 22,
 		.settings = {
@@ -473,7 +454,7 @@ static struct gpiomux_setting gsbi4_uart_active = {
 };
 #endif
 
-#if defined(CONFIG_LGE_FELICA) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+#if defined(CONFIG_LGE_FELICA)
 static struct gpiomux_setting gsbi6_felica = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_8MA,
@@ -991,8 +972,10 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 		},
 	},
 #endif /* LGE Not Used */
-/* #ifdef CONFIG_LGE_FELICA_KDDI */
-#if defined(CONFIG_LGE_FELICA_KDDI) || defined(CONFIG_LGE_FELICA_DCM)
+};
+
+#if defined(CONFIG_LGE_FELICA_ONLY)
+static struct msm_gpiomux_config apq8064_felica_configs[] __initdata = {
     /* FELICA PON */
 	{
 		.gpio = 37,
@@ -1024,26 +1007,10 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &felica_lockcont_cfg,
 		},
 	},
-#if defined(CONFIG_LGE_FELICA_KDDI)
-    /* NFC HSEL */
-	{
-		.gpio = 57,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &nfc_hsel_cfg,
-		},
-	},
-    /* SNFC INTU */
-	{
-		.gpio = 23,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &snfc_intu_cfg,
-		},
-	},	
-#endif
-#endif
 };
+#endif	
 
-#if defined(CONFIG_LGE_FELICA) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+#if defined(CONFIG_LGE_FELICA)
 static struct msm_gpiomux_config apq8064_felica_uart_configs[] __initdata = {
 	{
 		.gpio      = 14,		/* GSBI6 UART TX */
@@ -1454,7 +1421,6 @@ static struct msm_gpiomux_config apq8064_sdc2_configs[] __initdata = {
 			[GPIOMUX_ACTIVE] = &sdc2_cmd_data_0_3_active_cfg,
 			[GPIOMUX_SUSPENDED] = &sdc2_suspended_cfg,
 		},
-
 	},
 	{
 		.gpio      = 62,
@@ -1577,7 +1543,7 @@ static struct msm_gpiomux_config apq8064_sdc3_configs[] __initdata = {
 };
 
 /* #ifndef CONFIG_LGE_FELICA_KDDI */
-#if !defined(CONFIG_LGE_FELICA_KDDI) && !defined(CONFIG_LGE_FELICA_DCM)
+#if !defined(CONFIG_LGE_FELICA_KDDI) && !defined(CONFIG_LGE_FELICA_DCM) && !defined(CONFIG_CXD2235AGG_GJ_KDDI)
 /* ehee.lee@lge.com [START] for NFC */
 #if defined(CONFIG_LGE_NFC)
 static struct gpiomux_setting nfc_pn544_ven_cfg = {
@@ -1605,7 +1571,7 @@ static struct gpiomux_setting nfc_pn544_firm_cfg = {
 #endif//endif of CONFIG_LGE_FELICA_KDDI, CONFIG_LGE_FELICA_DCM
 /* ehee.lee@lge.com [START] for NFC */
 /* #ifndef CONFIG_LGE_FELICA_KDDI */
-#if !defined(CONFIG_LGE_FELICA_KDDI) && !defined(CONFIG_LGE_FELICA_DCM)
+#if !defined(CONFIG_LGE_FELICA_KDDI) && !defined(CONFIG_LGE_FELICA_DCM) && !defined(CONFIG_CXD2235AGG_GJ_KDDI)
 #if defined(CONFIG_LGE_NFC)
 static struct msm_gpiomux_config apq8064_nfc_configs[] __initdata = {
 	{
@@ -1667,10 +1633,16 @@ void __init apq8064_init_gpiomux(void)
 		msm_gpiomux_install(apq8064_gsbi_configs,
 				ARRAY_SIZE(apq8064_gsbi_configs));
 	}
-#if defined(CONFIG_LGE_FELICA) || defined(CONFIG_LGE_NFC_SONY_CXD2235AGG)
+#if defined(CONFIG_LGE_FELICA)
 	msm_gpiomux_install(apq8064_felica_uart_configs,
 			ARRAY_SIZE(apq8064_felica_uart_configs));
 #endif
+
+#if defined(CONFIG_LGE_FELICA_ONLY)
+	msm_gpiomux_install(apq8064_felica_configs,
+			ARRAY_SIZE(apq8064_felica_configs));
+#endif
+
 	msm_gpiomux_install(apq8064_slimbus_config,
 			ARRAY_SIZE(apq8064_slimbus_config));
 
@@ -1716,7 +1688,7 @@ void __init apq8064_init_gpiomux(void)
 				ARRAY_SIZE(apq8064_hsic_configs));
 #endif
 /* #ifndef CONFIG_LGE_FELICA_KDDI */
-#if !defined(CONFIG_LGE_FELICA_KDDI) && !defined(CONFIG_LGE_FELICA_DCM)
+#if !defined(CONFIG_LGE_FELICA_KDDI) && !defined(CONFIG_LGE_FELICA_DCM) && !defined(CONFIG_CXD2235AGG_GJ_KDDI)
 /* ehee.lee@lge.com [START] for NFC */
 #if defined(CONFIG_LGE_NFC)
 	msm_gpiomux_install(apq8064_nfc_configs,

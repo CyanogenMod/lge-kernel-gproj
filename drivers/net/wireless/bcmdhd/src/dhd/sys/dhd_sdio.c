@@ -1524,8 +1524,7 @@ dhdsdio_func_blocksize(dhd_pub_t *dhd, int function_num, int block_size)
 			function_num, result, block_size));
 
 		func_blk_size = function_num << 16 | block_size;
-		bcmerr = dhd_bus_iovar_op(dhd, "sd_blocksize", &func_blk_size, sizeof(int32),
-			&result, sizeof(int32), 1);
+		bcmerr = dhd_bus_iovar_op(dhd, "sd_blocksize", NULL, 0, &func_blk_size, sizeof(int32), 1);
 
 		if (bcmerr != BCME_OK) {
 			DHD_ERROR(("%s: Set F2 Block size error\n", __FUNCTION__));
@@ -1582,6 +1581,9 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 	uint16 len, pad1 = 0;
 	uint32 swheader;
 	uint retries = 0;
+#ifdef CUSTOMER_HW10
+	uint32 real_pad = 0;
+#endif
 	bcmsdh_info_t *sdh;
 	void *new;
 	int i;
@@ -1728,6 +1730,9 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 	} else
 #endif /* BCMSDIOH_TXGLOM */
 	{
+#ifdef CUSTOMER_HW10
+		uint32 act_len = len;
+#endif
 	/* Software tag: channel, sequence number, data offset */
 	swheader = ((chan << SDPCM_CHANNEL_SHIFT) & SDPCM_CHANNEL_MASK) | bus->tx_seq |
 	        (((pad1 + SDPCM_HDRLEN) << SDPCM_DOFFSET_SHIFT) & SDPCM_DOFFSET_MASK);
@@ -1772,8 +1777,20 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 			DHD_ERROR(("%s: sending unrounded %d-byte packet\n", __FUNCTION__, len));
 #endif
 	}
-	}
 
+#ifdef CUSTOMER_HW10
+		real_pad = len - act_len;
+
+		if (PKTTAILROOM(osh, pkt) < real_pad) {
+			DHD_INFO(("%s 3: insufficient tailroom %d for %d real_pad\n",
+		          __FUNCTION__, (int)PKTTAILROOM(osh, pkt), real_pad));
+			if (skb_pad(pkt, real_pad)) {
+				DHD_ERROR(("padding error size %d\n", real_pad));
+			}
+		}
+#endif
+
+	}
 	do {
 		ret = dhd_bcmsdh_send_buf(bus, bcmsdh_cur_sbwad(sdh), SDIO_FUNC_2, F2SYNC,
 		                          frame, len, pkt, NULL, NULL);
@@ -6112,8 +6129,12 @@ clkwait:
 		txlimit -= framecnt;
 	}
 	/* Resched the DPC if ctrl cmd is pending on bus credit */
-	if (bus->ctrl_frame_stat)
+	if (bus->ctrl_frame_stat) {
+#ifdef CUSTOMER_HW10
+		msleep(50);
+#endif
 		resched = TRUE;
+	}
 
 	/* Resched if events or tx frames are pending, else await next interrupt */
 	/* On failed register access, all bets are off: no resched or interrupts */
@@ -6802,7 +6823,7 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 {
 	int ret;
 	dhd_bus_t *bus;
-#ifdef GET_CUSTOM_MAC_ENABLE
+#ifdef GET_CUSTOM_MAC_ENABLE_NOPE
 	struct ether_addr ea_addr;
 #endif /* GET_CUSTOM_MAC_ENABLE */
 
@@ -6833,7 +6854,11 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 	sd1idle = TRUE;
 	dhd_readahead = TRUE;
 	retrydata = FALSE;
+#ifdef CUSTOMER_HW10
+	dhd_doflow = TRUE;
+#else
 	dhd_doflow = FALSE;
+#endif
 	dhd_dongle_memsize = 0;
 	dhd_txminmax = DHD_TXMINMAX;
 
@@ -6961,7 +6986,7 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 
 	DHD_INFO(("%s: completed!!\n", __FUNCTION__));
 
-#ifdef GET_CUSTOM_MAC_ENABLE
+#ifdef GET_CUSTOM_MAC_ENABLE_NOPE
 	/* Read MAC address from external customer place 	*/
 	memset(&ea_addr, 0, sizeof(ea_addr));
 	ret = dhd_custom_get_mac_address(ea_addr.octet);

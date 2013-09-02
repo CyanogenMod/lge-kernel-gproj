@@ -25,6 +25,10 @@
 #include "sd.h"
 #include "sd_ops.h"
 
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+#include "../host/msm_sdcc.h"
+#endif
+
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0
@@ -61,6 +65,9 @@ static const unsigned int tacc_mant[] = {
 /*
  * Given the decoded CSD structure, decode the raw CID to our CID structure.
  */
+#if defined(CONFIG_MACH_APQ8064_GKATT)
+int conflict_card_with_sensor = 0;
+#endif
 void mmc_decode_cid(struct mmc_card *card)
 {
 	u32 *resp = card->raw_cid;
@@ -85,6 +92,13 @@ void mmc_decode_cid(struct mmc_card *card)
 	card->cid.month			= UNSTUFF_BITS(resp, 8, 4);
 
 	card->cid.year += 2000; /* SD cards year offset */
+
+#if defined(CONFIG_MACH_APQ8064_GKATT)
+	if (card->cid.manfid == 2)
+		conflict_card_with_sensor = 1;
+	else
+		conflict_card_with_sensor = 0;
+#endif
 }
 
 /*
@@ -1084,7 +1098,14 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		/*
 		 * Set bus speed.
 		 */
+#if defined(CONFIG_MACH_APQ8064_GKATT)
+		if (conflict_card_with_sensor == 1)
+			mmc_set_clock(host, 24000000);
+		else
+			mmc_set_clock(host, mmc_sd_get_max_clock(card));
+#else
 		mmc_set_clock(host, mmc_sd_get_max_clock(card));
+#endif
 
 		/*
 		 * Switch to wider bus (if supported).
@@ -1184,6 +1205,11 @@ static void mmc_sd_detect(struct mmc_host *host)
  * Suspend callback from host.
  */
 static int mmc_sd_suspend(struct mmc_host *host)
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+{
+	return 0;
+}
+#else
 {
 	BUG_ON(!host);
 	BUG_ON(!host->card);
@@ -1202,7 +1228,7 @@ static int mmc_sd_suspend(struct mmc_host *host)
 
 	return 0;
 }
-
+#endif
 /*
  * Resume callback from host.
  *
@@ -1210,6 +1236,11 @@ static int mmc_sd_suspend(struct mmc_host *host)
  * and, if so, restore all state to it.
  */
 static int mmc_sd_resume(struct mmc_host *host)
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN    // do not re-init at resume time!
+{
+	return 0;
+}
+#else
 {
 	int err;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
@@ -1251,6 +1282,7 @@ static int mmc_sd_resume(struct mmc_host *host)
 
 	return err;
 }
+#endif
 
 static int mmc_sd_power_restore(struct mmc_host *host)
 {
@@ -1310,6 +1342,10 @@ int mmc_attach_sd(struct mmc_host *host)
 	u32 ocr;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	int retries;
+#endif
+
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+	struct msmsdcc_host *l_sdcc_host = mmc_priv(host);
 #endif
 
 	BUG_ON(!host);
@@ -1378,13 +1414,23 @@ int mmc_attach_sd(struct mmc_host *host)
 	while (retries) {
 		err = mmc_sd_init_card(host, host->ocr, NULL);
 		if (err) {
+// at this time, wanna control sd regulator on/off control
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+			l_sdcc_host->plat->vreg_data->vdd_data->always_on = 0;
+#endif
 			retries--;
 			mmc_power_off(host);
 			usleep_range(5000, 5500);
 			mmc_power_up(host);
 			mmc_select_voltage(host, host->ocr);
+
+// at this time, wanna block sd regulator on/off control
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+			l_sdcc_host->plat->vreg_data->vdd_data->always_on = 1;
+#endif
 			continue;
 		}
+
 		break;
 	}
 

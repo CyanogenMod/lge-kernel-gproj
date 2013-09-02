@@ -1,0 +1,17 @@
+config BOARD_HEADER_FILE
+	string "LGE board specific header file name"
+	default ""
+
+config MACH_APQ8064_GVKT
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GVKT"
+	help
+	  Support for the LGE GV device.
+
+config MACH_APQ8064_GV_KR
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "APQ8064 GV KR"
+	help
+	  Support for the LGE GVK device.

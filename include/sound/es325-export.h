@@ -28,6 +28,7 @@ int es325_remote_close_slim_rx(int dai_id);
 int es325_remote_close_slim_tx(int dai_id);
 int es325_remote_add_codec_controls(struct snd_soc_codec *codec);
 int es325_remote_route_enable(struct snd_soc_dai *dai);
+int es325_get_tx1_enabled(void);
 int es325_codec_sleep(void);
 int es325_codec_wakeup(void);
 

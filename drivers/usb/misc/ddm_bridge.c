@@ -131,7 +131,7 @@ static void ddm_bridge_read_cb(struct urb *urb)
 	struct ddm_bridge	*dev = urb->context;
 	struct ddm_bridge_ops	*cbs = dev->ops;
 	
-	dev_info(&dev->udev->dev, "%s: status:%d actual:%d\n", __func__,
+	dev_dbg(&dev->udev->dev, "%s: status:%d actual:%d\n", __func__,
 			urb->status, urb->actual_length);
 
 	if (urb->status == -EPROTO) {
@@ -167,6 +167,9 @@ int ddm_bridge_read(char *data, int size)
 	struct ddm_bridge	*dev = ddm_bridge_dev;
 	int			ret;
 
+	if(dev == NULL)
+		return -ENODEV;
+	
 	dev_dbg(&dev->udev->dev, "%s:\n", __func__);
 
 	if (!size) {
@@ -296,6 +299,7 @@ int ddm_bridge_write(char *data, int size)
 	if (!urb) {
 		dev_err(&dev->ifc->dev, "unable to allocate urb\n");
 		ret = -ENOMEM;
+		goto error;
 	}
 
 	ret = usb_autopm_get_interface(dev->ifc);
@@ -478,7 +482,7 @@ MODULE_DEVICE_TABLE(usb, ddm_bridge_ids);
 /* ddm driver struct */
 
 static struct usb_driver ddm_bridge_driver = {
-	.name =		"DDM Bridge",
+	.name =		"ddm_bridge",
 	.probe =	ddm_bridge_probe,
 	.disconnect =	ddm_bridge_disconnect,
 	.suspend = ddm_bridge_suspend,

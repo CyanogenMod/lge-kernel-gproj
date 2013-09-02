@@ -298,15 +298,31 @@ __setup("lge.batt_info=", battery_information_setup);
 #endif
 
 #ifdef CONFIG_LGE_KCAL
+#if defined (CONFIG_MACH_APQ8064_GKU) || defined (CONFIG_MACH_APQ8064_GKKT) || defined (CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+int g_kcal_r = 248;
+int g_kcal_g = 248;
+int g_kcal_b = 255;
+#elif defined (CONFIG_MACH_APQ8064_GVDCM)
+int g_kcal_r = 250;
+int g_kcal_g = 250;
+int g_kcal_b = 255;
+#else
 int g_kcal_r = 255;
 int g_kcal_g = 255;
 int g_kcal_b = 255;
+#endif
 static int __init display_kcal_setup(char *kcal)
 {
 		char vaild_k = 0;
         sscanf(kcal, "%d|%d|%d|%c", &g_kcal_r, &g_kcal_g, &g_kcal_b, &vaild_k );
         printk(KERN_INFO "kcal is %d|%d|%d|%c\n",
                                         g_kcal_r, g_kcal_g, g_kcal_b, vaild_k);
+
+#if defined (CONFIG_MACH_APQ8064_GKU) || defined (CONFIG_MACH_APQ8064_GKKT) || defined (CONFIG_MACH_APQ8064_GKSK) || defined (CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+       g_kcal_r = g_kcal_r < 248 ? 248 : g_kcal_r;
+       g_kcal_g = g_kcal_g < 248 ? 248 : g_kcal_g;
+       g_kcal_b = g_kcal_b < 253 ? 253 : g_kcal_b;
+#endif
 
         if(vaild_k != 'K') {
                 printk(KERN_INFO "kcal not calibrated yet : %d\n", vaild_k);

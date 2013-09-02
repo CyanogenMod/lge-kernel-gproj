@@ -41,7 +41,7 @@
 #include "devices.h"
 #include "clock.h"
 
-#define CHARM_MODEM_TIMEOUT	6000
+#define CHARM_MODEM_TIMEOUT	20000 //QCT 6000
 #define CHARM_HOLD_TIME		4000
 #define CHARM_MODEM_DELTA	100
 

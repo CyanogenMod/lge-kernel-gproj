@@ -5443,7 +5443,7 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("mem_clk",		rpm_msg_ram_p_clk.c,	""),
 #if defined(CONFIG_MACH_LGE)
 /* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver, 2012.07.20, gayoung85.lee@lge.com */
-#if defined(CONFIG_MACH_APQ8064_GKKT) ||defined(CONFIG_MACH_APQ8064_GKSK) ||defined(CONFIG_MACH_APQ8064_GKU) ||defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM)
+#if defined(CONFIG_MACH_APQ8064_GKKT) ||defined(CONFIG_MACH_APQ8064_GKSK) ||defined(CONFIG_MACH_APQ8064_GKU) ||defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,		"4-0078"), /* GSBI4, Slave Addr: 0x78, ce1702 */
 	CLK_LOOKUP("cam_clk",		cam2_clk.c, 		"4-006c"), /* GSBI4, Slave Addr: 0x6e, imx132 */
 #endif
@@ -5638,7 +5638,6 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("core_clk",		gfx3d_axi_clk.c,	"msm_iommu.10"),
 
 	CLK_LOOKUP("core_clk",		vcap_axi_clk.c,		"msm_iommu.11"),
-
 	CLK_LOOKUP("mdp_iommu_clk", mdp_axi_clk.c,	"msm_vidc.0"),
 	CLK_LOOKUP("rot_iommu_clk",	rot_axi_clk.c,	"msm_vidc.0"),
 	CLK_LOOKUP("vcodec_iommu0_clk", vcodec_axi_a_clk.c, "msm_vidc.0"),
@@ -5824,7 +5823,7 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("mem_clk",		rpm_msg_ram_p_clk.c,	""),
 #if defined(CONFIG_MACH_LGE)
 /* LGE_CHANGE_S, For GV/GK 13M & 2.4M camera driver, 2012.07.20, gayoung85.lee@lge.com */
-#if defined(CONFIG_MACH_APQ8064_GKKT) ||defined(CONFIG_MACH_APQ8064_GKSK) ||defined(CONFIG_MACH_APQ8064_GKU) ||defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKKT) ||defined(CONFIG_MACH_APQ8064_GKSK) ||defined(CONFIG_MACH_APQ8064_GKU) ||defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	CLK_LOOKUP("cam_clk",		cam0_clk.c, "4-0078"), /* GSBI4, Slave Addr: 0x78, ce1702 */
 	CLK_LOOKUP("cam_clk",		cam1_clk.c, "4-006c"), /* GSBI4, Slave Addr: 0x6c, imx132 */
 #endif

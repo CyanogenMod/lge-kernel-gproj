@@ -47,7 +47,6 @@
 #include <linux/spinlock.h>
 #include <linux/cpu.h>
 #include <mach/rpm-regulator.h>
-#include <mach/board_lge.h>
 
 #define MSM_USB_BASE (hcd->regs)
 #define USB_REG_START_OFFSET 0x90
@@ -833,9 +832,7 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 		mehci->wakeup_irq_enabled = 0;
 	}
 	spin_unlock_irqrestore(&mehci->wakeup_lock, flags);
-
 	wake_lock(&mehci->wlock);
-
 	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
 		mehci->bus_vote = true;
 		queue_work(ehci_wq, &mehci->bus_vote_w);
@@ -1075,6 +1072,7 @@ static void ehci_hsic_reset_sof_bug_handler(struct usb_hcd *hcd, u32 val)
 	u32 __iomem *status_reg = &ehci->regs->port_status[0];
 	unsigned long flags;
 	int retries = 0, ret, cnt = RESET_SIGNAL_TIME_USEC;
+	u32 cmd;
 
 	if (pdata && pdata->swfi_latency)
 		pm_qos_update_request(&mehci->pm_qos_req_dma,
@@ -1092,6 +1090,15 @@ retry:
 	pr_debug("reset begin %d\n", retries);
 	mehci->reset_again = 0;
 	spin_lock_irqsave(&ehci->lock, flags);
+
+	cmd = ehci_readl(ehci, &ehci->regs->command);
+	cmd &= ~CMD_RUN;
+	ehci_writel(ehci, cmd, &ehci->regs->command);
+	
+	if (handshake(ehci, &ehci->regs->status,
+			STS_HALT, STS_HALT, 16 * 125))
+					ehci_info(ehci, "controller halt failed\n");
+	
 	ehci_writel(ehci, val, status_reg);
 	ehci_writel(ehci, GPT_LD(RESET_SIGNAL_TIME_USEC - 1),
 					&mehci->timer->gptimer0_ld);
@@ -1748,16 +1755,9 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to create HCD\n");
 		return  -ENOMEM;
 	}
-#if defined CONFIG_USB_G_LGE_ANDROID && defined CONFIG_LGE_PM
-	if(!lge_get_charger_logo_state()){
-		hcd_to_bus(hcd)->skip_resume = true;
-	} else {
-		hcd_to_bus(hcd)->skip_resume = false;
-		pr_info("hcd_skip_resume is false in chargerlogo\n");
-	}
-#else
+
 	hcd_to_bus(hcd)->skip_resume = true;
-#endif
+
 	hcd->irq = platform_get_irq(pdev, 0);
 	if (hcd->irq < 0) {
 		dev_err(&pdev->dev, "Unable to get IRQ resource\n");
@@ -1866,15 +1866,7 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 1);
 	wake_lock_init(&mehci->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
-#if defined CONFIG_USB_G_LGE_ANDROID && defined CONFIG_LGE_PM
-	if(!lge_get_charger_logo_state()){
-		wake_lock(&mehci->wlock);
-	} else {
-		pr_info("skip wake_lock in chargerlogo\n");
-	}
-#else
 	wake_lock(&mehci->wlock);
-#endif
 	if (mehci->peripheral_status_irq) {
 		ret = request_threaded_irq(mehci->peripheral_status_irq,
 			NULL, hsic_peripheral_status_change,
@@ -1964,6 +1956,10 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
+
+#ifdef CONFIG_MACH_LGE
+	__mehci = NULL;
+#endif
 
 	if (pdata && pdata->standalone_latency)
 		pm_qos_remove_request(&mehci->pm_qos_req_dma);

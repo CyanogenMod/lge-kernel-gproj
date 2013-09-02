@@ -69,9 +69,9 @@ void ddm_write_test_timer_init(struct timer_info *timer, unsigned long expires);
 
 void ddm_write_test_timer_cb(unsigned long arg){
 	struct timer_info *ti = NULL;	
-	pr_info("Queuing dummy data");
+	pr_debug("Queuing dummy data");
 	queue_work(ddm_drv->ddm_wq, &ddm_drv->write_w);
-	pr_info("Added Timer,  arg = %lu", arg);
+	pr_debug("Added Timer,  arg = %lu", arg);
 	if(arg != 0){
 		ti = (struct timer_info *)arg;
 		ddm_write_test_timer_init(ti, TIMER_PERIODIC);
@@ -82,7 +82,7 @@ void ddm_write_test_timer_stop(struct timer_info *timer){
 }
 void ddm_write_test_timer_init(struct timer_info *timer, unsigned long expires){
 
-	pr_info("Test Timer on");
+	pr_debug("Test Timer on");
 	init_timer(&(timer->write_timer));
 	timer->write_timer.expires = get_jiffies_64() + expires;
 	timer->write_timer.data = (unsigned long)timer;
@@ -116,8 +116,8 @@ ddm_process_read(void *buff, int size)
 	}
 	else //test mode
 	{
-		pr_info("ddm bridge : 2012.12.20 I received some data....! \n");
-		pr_info("ddm bridge : 2012.12.20 14:57  Data Size = %d , sizeof(buff) = %d, strlen = %d", size, sizeof(buff), strlen(buff));
+		pr_debug("ddm bridge : 2012.12.20 I received some data....! \n");
+		pr_debug("ddm bridge : 2012.12.20 14:57  Data Size = %d , sizeof(buff) = %d, strlen = %d", size, sizeof(buff), strlen(buff));
 #if 0
 		gP_ddm_tx = (sddm_TX_Data *)buff;
 		gP_ddm_Tx_data.tx_data = *((sddm_TX_Data *)buff);
@@ -144,14 +144,18 @@ ddm_read_complete_callback(void *d, void *buf, int size, int actual)
 {
 	ddm_drv->in_busy_hsic_read = 0;
 
-	if(actual > 0){
-		if(!buf)
-			pr_err("Out of memory \n");
+	if(actual > 0 && buf){
 		memcpy(lge_ddm_tty->read_buf, buf, actual);
 		lge_ddm_tty->read_length = actual;
 
 		lge_ddm_tty->set_logging = 1;
 		wake_up_interruptible(&lge_ddm_tty->waitq);
+	}
+	else {
+		if(!buf)
+			pr_err("Out of memory\n");
+		else
+			pr_err("unlinking URB\n");
 	}
 }
 
@@ -197,7 +201,7 @@ static void ddm_write_work(struct work_struct *w)
 	}
 	if(!ddm_drv->in_busy_hsic_write){
 		int err_ret;
-		pr_info("called ddm_bridge_write\n");		
+		pr_debug("called ddm_bridge_write\n");		
 		ddm_drv->in_busy_hsic_write = 1;
 		err_ret = ddm_bridge_write(tx_msg, tx_length);
 		if(err_ret){
@@ -222,7 +226,7 @@ ddm_write_complete_callback(void *d, void *buf, int size, int actual)
 		if(!buf)
 			pr_err("Out of memory \n");
 	}
-	pr_info("%s : is called write cb\n", __func__);
+	pr_debug("%s : is called write cb\n", __func__);
 }
 
 static int ddm_suspend(void *ctxt)
@@ -245,6 +249,7 @@ static void ddm_resume(void *ctxt)
 static int ddm_remove(struct platform_device *pdev)
 {
 	ddm_bridge_close();
+	destroy_workqueue(ddm_drv->ddm_wq);
 
 	return 0;
 }
@@ -394,6 +399,19 @@ static int ddm_probe(struct platform_device *pdev)
 /* This function should work in SSR Level=3, Secheol.pyo@lge.com */
 	ddm_drv->in_busy_hsic_read = 0;
 	ddm_drv->loopback_mode = 0;
+
+	ddm_drv->ddm_wq = create_singlethread_workqueue("ddm_wq");
+	if (!ddm_drv->ddm_wq){
+		pr_err("%s: singlethread work queue creation failed\n",
+				__func__);
+		kfree(dev);
+		return -ENODEV;
+	}	
+#ifdef LG_FW_WAIT_QUEUE	
+	init_waitqueue_head(&ddm_drv->read_wait_queue);
+#endif
+	INIT_WORK(&ddm_drv->read_w, ddm_read_work);
+	INIT_WORK(&ddm_drv->write_w, ddm_write_work);
 	
 	ret = ddm_bridge_open(&ddm_ops);
 	if (ret)
@@ -459,18 +477,13 @@ static int __init ddm_init(void)
 	}
 
 	dev->ops.ctxt = dev;
-	ddm_drv->ddm_wq = create_singlethread_workqueue("ddm_wq");
-#ifdef LG_FW_WAIT_QUEUE	
-	init_waitqueue_head(&ddm_drv->read_wait_queue);
-#endif
-	INIT_WORK(&ddm_drv->read_w, ddm_read_work);
-	INIT_WORK(&ddm_drv->write_w, ddm_write_work);
 
 	ret = platform_driver_register(&ddm);
-	if (ret)
+	if (ret){
 		pr_err("%s: platform driver %s register failed %d\n",
 				__func__, ddm.driver.name, ret);
-
+		kfree(dev);
+	}
 
 	return ret;
 }

@@ -33,8 +33,10 @@ extern u32 dbg_force_ov0_blt;
 extern u32 dbg_force_ov1_blt;
 
 extern u64 mdp_max_bw;
-#define MDP4_BW_AB_FACTOR (115)	/* 1.15 */
-#define MDP4_BW_IB_FACTOR (125)	/* 1.25 */
+extern u32 mdp_bw_ab_factor;
+extern u32 mdp_bw_ib_factor;
+#define MDP4_BW_AB_DEFAULT_FACTOR (115)	/* 1.15 */
+#define MDP4_BW_IB_DEFAULT_FACTOR (125)	/* 1.25 */
 #define MDP_BUS_SCALE_AB_STEP (0x4000000)
 #define MDP_BUS_SCALE_INIT (0x10000000)
 
@@ -53,7 +55,7 @@ extern u64 mdp_max_bw;
 #define CS_CONTROLLER_0 0x0707ffff
 #define CS_CONTROLLER_1 0x03073f3f
 
-#if defined (CONFIG_MACH_APQ8064_GKATT) //invert color
+#if defined (CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL) //invert color
 #define CSC_RESTORE
 #define CMAP_RESTORE
 #endif

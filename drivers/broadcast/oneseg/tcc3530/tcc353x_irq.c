@@ -81,20 +81,22 @@ static irqreturn_t TcbdIrqThreadfn(int _irq, void* _param)
 	ktime_t st, et, delta_t;
 	long delta;
 #endif
-	if (TcbdIrqData.isIrqEnable == 0)
-	{
-		TcpalPrintStatus((I08S *)"TcbdIrqThreadfn isIrqEnable value is zero return\n");
-		return IRQ_HANDLED;
-	}
 #ifdef INT_TIME_CHECK
 	st = ktime_get();
 #endif
 
 	TcpalSemaphoreLock(&Tcc353xDrvSem);
-
+	if (TcbdIrqData.isIrqEnable == 0)
+	{
+		TcpalPrintStatus((I08S *)"TcbdIrqThreadfn isIrqEnable value is zero return\n");
+		TcpalSemaphoreUnLock(&Tcc353xDrvSem);
+		return IRQ_HANDLED;
+	}
 	fifoSize = Tcc353xInterruptProcess();
 	if(fifoSize)
+	{
 		Tcc353xInterruptGetStream(fifoSize);
+	}
 
 	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 	
@@ -149,7 +151,7 @@ int TcpalIrqEnable(void)
 
 int TcpalIrqDisable(void)
 {
-	disable_irq(TcbdIrqData.tcbd_irq);
+	disable_irq_nosync(TcbdIrqData.tcbd_irq);
 	TcbdIrqData.isIrqEnable = 0;
 	return 0;
 }

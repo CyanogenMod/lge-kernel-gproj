@@ -59,11 +59,11 @@ static const char *atcmd_ap[] = {
     "%PTNCLR","%REATTACH","%RESTART","%SATPC","%LOGSAVE","%SCHK","%WALLPAPER","%SERIALNO","%SIMID","%SIMOFF",
     "%SIMPWDINIT","%SLEN","%SLTYPE","%SPM","%SUFFIX","%SULC","%SWOV","%SWV","%TETHER","%TOTALCRC",
     "%TOUCHFWVER","%ULCV","%ULCW","%USB","%VCOIN","%VLC","%VLST","%VSLT","%WLAN","%WLANR","%WLANT",
-    "%TSENS","%BATMP","%MDMPVS",
+    "%TSENS","%BATMP","%MDMPVS","%LTEBANDEN",
     "+CATLIST","+CTACT","+CCLGS","+CDUR","+CDVOL","+CEMAIL","+CWAP","+CDCONT","+CSYNC","+CBLTH","+CALRM",
     "+CTMRV","+CSMCT","+CWLNT","+CKSUM","+CNPAD","+CTASK","+CMSG","+CTBCPS","+CRST",
     "+OMADM","+PRL","+FUMO","$PRL?",
-
+    "%SKDBLOCK",
     NULL
     //don't use "%QEM","+CKPD"
 };

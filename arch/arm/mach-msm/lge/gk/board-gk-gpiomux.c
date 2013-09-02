@@ -77,9 +77,19 @@ struct msm_gpiomux_config apq8064_ethernet_configs[] = {
 
 #if CONFIG_SWITCH_MAX1462X
 static struct gpiomux_setting ear_key_int = {
-	.func = GPIOMUX_FUNC_2,
+	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_UP,
+};
+
+struct msm_gpiomux_config apq8064_earjack_configs[] = {
+	{
+		.gpio = 23,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &ear_key_int,
+			[GPIOMUX_ACTIVE] = &ear_key_int,
+		}
+	},
 };
 #endif
 // [S] LGE_BT: ADD/ilbeom.kim/'12-10-24 - [GK] BRCM Solution bring-up
@@ -248,18 +258,10 @@ struct msm_gpiomux_config vcap_configs[] = {
 	},
 	{
 		.gpio = 23,
-       #ifdef CONFIG_SWITCH_MAX1462X
-		.settings = {
-			[GPIOMUX_SUSPENDED] =	&ear_key_int,
-			[GPIOMUX_ACTIVE] =		&ear_key_int,
-		}
-       #endif
-       #ifdef CONFIG_SWITCH_FSA8008
               .settings = {
 			[GPIOMUX_SUSPENDED] =	&gpio_vcap_config[2],
 			[GPIOMUX_ACTIVE] =		&gpio_vcap_config[2],
 		}
-       #endif
 	},
 	{
 		.gpio = 19,
@@ -1896,12 +1898,21 @@ static struct msm_gpiomux_config apq8064_sdc3_configs[] __initdata = {
 	},
 };
 //20120112 jungyub.jee@lge.com SD detect change
+#if defined(CONFIG_MACH_APQ8064_GKATT)
+
+static struct gpiomux_setting apq8064_sdc3_card_det_cfg_chg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+#else
 static struct gpiomux_setting apq8064_sdc3_card_det_cfg_chg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-
+#endif
 static struct msm_gpiomux_config apq8064_sdc3_configs_chg[] __initdata = {
 	{
 		.gpio      = 26,
@@ -2084,6 +2095,10 @@ void __init apq8064_init_gpiomux(void)
 		pr_err(KERN_ERR "msm_gpiomux_init failed %d\n", rc);
 		return;
 	}
+#if CONFIG_SWITCH_MAX1462X
+       msm_gpiomux_install(apq8064_earjack_configs,
+                            ARRAY_SIZE(apq8064_earjack_configs));
+#endif
 #ifndef CONFIG_MMC_MSM_SDC4_SUPPORT
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
@@ -2163,7 +2178,7 @@ void __init apq8064_init_gpiomux(void)
 		// LGE_START // featuring GPIO(MDM2AP_HSIC_READY) configuration for BCM4334
 		else{
 			lge_bd_rev = lge_get_board_revno();
-			if (lge_bd_rev == HW_REV_E || lge_bd_rev == HW_REV_C || lge_bd_rev == HW_REV_D)
+			if ((lge_bd_rev >= HW_REV_C) && (lge_bd_rev != HW_REV_F))
 			msm_gpiomux_install(mdm_configs_bcm,
 					ARRAY_SIZE(mdm_configs_bcm));
 			else
@@ -2192,7 +2207,7 @@ void __init apq8064_init_gpiomux(void)
 /* ehee.lee@lge.com [START] for NFC */
 #if defined(CONFIG_LGE_NFC)
 	lge_bd_rev = lge_get_board_revno();
-	if ((int)lge_bd_rev == HW_REV_E || (int)lge_bd_rev == HW_REV_C|| (int)lge_bd_rev == HW_REV_D)
+	if ((int)lge_bd_rev == HW_REV_E || (int)lge_bd_rev == HW_REV_C|| (int)lge_bd_rev == HW_REV_D||(int)lge_bd_rev == HW_REV_1_0)
 	{
 		msm_gpiomux_install(apq8064_nfc_configs_rev_e,
 		ARRAY_SIZE(apq8064_nfc_configs_rev_e));
@@ -2291,7 +2306,7 @@ void __init apq8064_init_gpiomux(void)
 				ARRAY_SIZE(apq8064_sdc3_configs_chg));
 	 }
 #ifdef CONFIG_LGE_WIRELESS_CHARGER
-	 if (lge_bd_rev != HW_REV_F) 
+	 if (lge_bd_rev != HW_REV_F && lge_bd_rev < HW_REV_1_0) 
 	 {
 	 	if(lge_bd_rev != HW_REV_A && lge_bd_rev != HW_REV_B)
 			gpio_wc_track_configs[0].gpio = 84;

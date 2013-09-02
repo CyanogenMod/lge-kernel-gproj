@@ -334,16 +334,35 @@ static int32_t msm_actuator_move_focus(
 		if ((dest_step_pos * sign_dir) <=
 			(step_boundary * sign_dir)) {
 
+/* LGE_CHANGE_S, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
+			struct damping_params_t damping_param, *usr_damping_param ; // namkyu2.kang
+/* LGE_CHANGE_E, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
 			target_step_pos = dest_step_pos;
 			target_lens_pos =
 				a_ctrl->step_position_table[target_step_pos];
+/* LGE_CHANGE_S, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
+			usr_damping_param = &(move_params->ringing_params[a_ctrl->curr_region_index]) ;
+			if (copy_from_user(&damping_param,
+					(void *)usr_damping_param,
+					sizeof(struct damping_params_t)))
+			{
+				pr_err("%s: ringing_param is on FAULT Address : %p\n",
+						__func__, (void *)usr_damping_param ) ;
+				return -EFAULT;
+			}
+/* LGE_CHANGE_E, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
+			//pr_err("%s:[1] usr_damping_param = %p", __func__, usr_damping_param);
+			//pr_err("%s:[1] &(move_params->ringing_params[a_ctrl->curr_region_index]) = %p\n",  __func__, &(move_params->ringing_params[a_ctrl->curr_region_index]));
 			rc = a_ctrl->func_tbl->
 				actuator_write_focus(
 					a_ctrl,
 					curr_lens_pos,
-					&(move_params->
-						ringing_params[a_ctrl->
-						curr_region_index]),
+/* LGE_CHANGE_S, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
+//					&(move_params->
+//						ringing_params[a_ctrl->
+//						curr_region_index]),
+					&damping_param, // namkyu2.kang
+/* LGE_CHANGE_E, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
 					sign_dir,
 					target_lens_pos);
 			if (rc < 0) {
@@ -358,16 +377,35 @@ static int32_t msm_actuator_move_focus(
 			// End LGE_BSP_CAMERA::seongjo.kim@lge.com 2012-08-10 Add log for debug AF issue & WorkAround
 
 		} else {
+/* LGE_CHANGE_S, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
+			struct damping_params_t damping_param, *usr_damping_param ; // namkyu2.kang
+/* LGE_CHANGE_E, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
 			target_step_pos = step_boundary;
 			target_lens_pos =
 				a_ctrl->step_position_table[target_step_pos];
+/* LGE_CHANGE_S, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
+			usr_damping_param = &(move_params->ringing_params[a_ctrl->curr_region_index]) ;
+			if (copy_from_user(&damping_param,
+					(void *)usr_damping_param,
+					sizeof(struct damping_params_t)))
+			{
+				pr_err("%s: ringing_param is on FAULT Address : %p\n",
+						__func__, (void *)usr_damping_param ) ;
+				return -EFAULT;
+			}
+/* LGE_CHANGE_E, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
+			//pr_err("%s:[2] usr_damping_param = %p", __func__, usr_damping_param);
+			//pr_err("%s:[2] &(move_params->ringing_params[a_ctrl->curr_region_index]) = %p\n",  __func__, &(move_params->ringing_params[a_ctrl->curr_region_index]));
 			rc = a_ctrl->func_tbl->
 				actuator_write_focus(
 					a_ctrl,
 					curr_lens_pos,
-					&(move_params->
-						ringing_params[a_ctrl->
-						curr_region_index]),
+/* LGE_CHANGE_S, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
+//					&(move_params->
+//						ringing_params[a_ctrl->
+//						curr_region_index]),
+					&damping_param, // namkyu2.kang
+/* LGE_CHANGE_E, fix kernel crash while AF from namkyu2.kang, 2012.01.21, jungryoul.choi@lge.com */
 					sign_dir,
 					target_lens_pos);
 			if (rc < 0) {

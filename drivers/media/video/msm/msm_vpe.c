@@ -560,6 +560,13 @@ int vpe_enable(uint32_t clk_rate, struct msm_cam_media_controller *mctl)
 		pr_err("%s: Device attach failed\n", __func__);
 		goto dst_attach_failed;
 	}
+/* LGE_CHANGE_S, Patch for ION free, 2013.1.8, gayoung85.lee[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	msm_camera_v4l2_get_ion_client(mctl->pcam_ptr);
+#endif
+#endif
+/* LGE_CHANGE_E, Patch for ION free, 2013.1.8, gayoung85.lee[End] */
 #endif
 	return rc;
 
@@ -594,6 +601,13 @@ int vpe_disable(struct msm_cam_media_controller *mctl)
 #ifdef CONFIG_MSM_IOMMU
 	iommu_detach_device(mctl->domain, vpe_ctrl->iommu_ctx_dst);
 	iommu_detach_device(mctl->domain, vpe_ctrl->iommu_ctx_src);
+/* LGE_CHANGE_S, Patch for ION free, 2013.1.8, gayoung85.lee[Start] */
+#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	msm_camera_v4l2_put_ion_client(mctl->pcam_ptr);
+#endif
+#endif	
+/* LGE_CHANGE_E, Patch for ION free, 2013.1.8, gayoung85.lee[End] */
 #endif
 	disable_irq(vpe_ctrl->vpeirq->start);
 	tasklet_kill(&vpe_tasklet);

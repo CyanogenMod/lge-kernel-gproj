@@ -1134,7 +1134,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 #endif
 
 #ifdef CONFIG_USB_G_LGE_ANDROID
-		if (ctrl->bRequest == MTP_REQ_CANCEL && w_index == mtp_interface_desc.bInterfaceNumber
+		if (ctrl->bRequest == MTP_REQ_CANCEL &&(w_index == 0 || w_index == mtp_interface_desc.bInterfaceNumber)
 				&& w_value == 0) {
 #else
 		if (ctrl->bRequest == MTP_REQ_CANCEL && w_index == 0
@@ -1160,7 +1160,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 			value = w_length;
 #ifdef CONFIG_USB_G_LGE_ANDROID
 		} else if (ctrl->bRequest == MTP_REQ_GET_DEVICE_STATUS
-				&& w_index == mtp_interface_desc.bInterfaceNumber && w_value == 0) {
+				&& (w_index == 0 ||w_index == mtp_interface_desc.bInterfaceNumber) && w_value == 0) {
 #else
 		} else if (ctrl->bRequest == MTP_REQ_GET_DEVICE_STATUS
 				&& w_index == 0 && w_value == 0) {

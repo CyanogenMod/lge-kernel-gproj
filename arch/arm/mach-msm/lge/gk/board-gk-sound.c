@@ -209,9 +209,10 @@ static struct max1462x_platform_data lge_hs_pdata = {
 	.gpio_swd	= GPIO_EAR_KEY_INT,		       // .gpio_key    = GPIO_EAR_KEY_INT,										
 	.external_ldo_mic_bias	= GPIO_MIC_BIAS_CONTROL,	// .gpio_jpole  = GPIO_EARPOL_DETECT
 
-       .gpio_set_value_func = gpio_set_value_cansleep,         //If gpio connect the PMIC, function use cansleep
-       .gpio_get_value_func = gpio_get_value,                  //if gpio connect the AP, function don't use cansleep
+	.gpio_set_value_func = gpio_set_value_cansleep,         //If gpio connect the PMIC, function use cansleep
+	.gpio_get_value_func = gpio_get_value,                  //if gpio connect the AP, function don't use cansleep
 	.latency_for_detection = 75,
+	.latency_for_key = 50,                                 //latency for key detect (ms)
 };
 
 static struct platform_device lge_hsd_device = {
@@ -229,7 +230,8 @@ static int __init lge_hsd_max1462x_init(void)
     printk(KERN_INFO "lge_hsd_max1462x_init\n");
 
     lge_bd_rev = lge_get_board_revno();
-    gpio_tlmm_config(GPIO_CFG(GPIO_EAR_KEY_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+//#ifndef CONFIG_MACH_APQ8064_GKATT
+#if !(defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)) 
     if (lge_bd_rev == HW_REV_1_0) {
         lge_hs_pdata.set_headset_mic_bias = set_headset_mic_bias_l10;
         printk(KERN_INFO "lge_bd_rev : %d, >= bd_rev : %d\n", lge_bd_rev, bd_rev);
@@ -238,6 +240,10 @@ static int __init lge_hsd_max1462x_init(void)
         lge_hs_pdata.set_headset_mic_bias = NULL;
         printk(KERN_INFO "lge_bd_rev : %d, < bd_rev : %d\n", lge_bd_rev, bd_rev);
     }
+#else /* #ifndef CONFIG_MACH_APQ8064_GKATT */
+    lge_hs_pdata.set_headset_mic_bias = NULL;
+    printk(KERN_INFO "lge_bd_rev : %d, < bd_rev : %d\n", lge_bd_rev, bd_rev);
+#endif /* #ifndef CONFIG_MACH_APQ8064_GKATT */
 	return platform_device_register(&lge_hsd_device);
 }
 

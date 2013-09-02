@@ -697,6 +697,17 @@ wl_cfgp2p_enable_discovery(struct wl_priv *wl, struct net_device *dev,
 	s32 ret = BCME_OK;
 	s32 bssidx = (wl_to_prmry_ndev(wl) == dev) ?
 		wl_to_p2p_bss_bssidx(wl, P2PAPI_BSSCFG_DEVICE) : wl_cfgp2p_find_idx(wl, dev);
+
+// avoid wl_cfgp2p_set_p2p_mode :  -1 index out of range
+#if defined(CONFIG_LGE_BCM433X_PATCH)
+		if (bssidx < 0)
+		{
+				CFGP2P_ERR((" bssidx=%d is invalid \n", bssidx));
+							   ret = BCME_RANGE;
+				goto exit;
+		}
+#endif
+	
 	if (wl_get_p2p_status(wl, DISCOVERY_ON)) {
 		CFGP2P_INFO((" DISCOVERY is already initialized, we have nothing to do\n"));
 		goto set_ie;
@@ -2333,12 +2344,6 @@ static int wl_cfgp2p_do_ioctl(struct net_device *net, struct ifreq *ifr, int cmd
 
 static int wl_cfgp2p_if_open(struct net_device *net)
 {
-#ifdef CUSTOMER_HW10
-	struct wireless_dev *wdev = net->ieee80211_ptr;
-	WL_TRACE(("Enter\n"));
-	if (!wdev)
-		return -EINVAL;
-#else
 	extern struct wl_priv *wlcfg_drv_priv;
 	struct wireless_dev *wdev = net->ieee80211_ptr;
 	struct wl_priv *wl = NULL;
@@ -2346,7 +2351,7 @@ static int wl_cfgp2p_if_open(struct net_device *net)
 	wl = wlcfg_drv_priv;
 	if (!wdev || !wl || !wl->p2p)
 		return -EINVAL;
-#endif
+
 	/* If suppose F/W download (ifconfig wlan0 up) hasn't been done by now,
 	 * do it here. This will make sure that in concurrent mode, supplicant
 	 * is not dependent on a particular order of interface initialization.

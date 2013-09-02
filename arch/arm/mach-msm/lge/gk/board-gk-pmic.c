@@ -38,7 +38,7 @@
 #endif
 
 // [[LGE_BSP_AUDIO, jeremy.pi@lge.com, Audience eS325 ALSA SoC Audio driver
-#if defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #include <sound/esxxx.h>
 #endif /* CONFIG_MACH_APQ8064_GKATT */
 // ]]LGE_BSP_AUDIO, jeremy.pi@lge.com, Audience eS325 ALSA SoC Audio driver
@@ -299,7 +299,7 @@ struct pm_gpio pm_gpio_wlc_ts_ctrl = {
 	.out_strength = PM_GPIO_STRENGTH_NO,
 	.function = PM_GPIO_FUNC_NORMAL,
 	.inv_int_pol = 0,
-	.disable_pin = 0
+	.disable_pin = 1
 };
 #endif
 
@@ -351,7 +351,7 @@ void __init apq8064_configure_gpios(struct pm8xxx_gpio_init *data, int len)
 }
 
 // [[LGE_BSP_AUDIO, jeremy.pi@lge.com, Audience eS325 ALSA SoC Audio driver
-#if defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 int es325_gpio_init(void)
 {
 	struct pm_gpio es325_pm_gpio_param = {
@@ -479,7 +479,7 @@ void __init apq8064_pm8xxx_gpio_mpp_init(void)
 	}
 
 // [[LGE_BSP_AUDIO, jeremy.pi@lge.com, Audience eS325 ALSA SoC Audio driver
-#if defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	es325_gpio_init();
 #endif /* CONFIG_MACH_APQ8064_GKATT */
 // ]]LGE_BSP_AUDIO, jeremy.pi@lge.com, Audience eS325 ALSA SoC Audio driver
@@ -497,7 +497,7 @@ static struct pm8xxx_misc_platform_data apq8064_pm8921_misc_pdata = {
 
 
 #define PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #define PM8921_KEY_LED_MAX_CURRENT	16	/* I = 16mA */
 #else
 #define PM8921_KEY_LED_MAX_CURRENT	4	/* I = 4mA */
@@ -707,7 +707,7 @@ apq8064_pm8921_irq_pdata __devinitdata = {
 
 static struct pm8xxx_rtc_platform_data
 apq8064_pm8921_rtc_pdata = {
-	.rtc_write_enable       = false,
+	.rtc_write_enable       = true,
 	.rtc_alarm_powerup      = false,
 };
 
@@ -738,7 +738,11 @@ static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdat
 	 * This is also the minimum voltage the system operates at */
 	.min_voltage		= 3200,
 	/* the (mV) drop to wait for before resume charging after the battery has been fully charged */
-	.resume_voltage_delta	= 100, //50,
+#if defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	.resume_voltage_delta	= 100, //100, //50,
+#else
+	.resume_voltage_delta	= 50, //100, //50,
+#endif
 	.resume_charge_percent	= 99,
 	.term_current		= CHG_TERM_MA,
 
@@ -779,7 +783,7 @@ static struct pm8921_charger_platform_data apq8064_pm8921_chg_pdata __devinitdat
 	 *    Max charge current of the battery in mA
 	 *    Usually 70% of full charge capacity
 	 */
-	.max_bat_chg_current	= 1800,
+	.max_bat_chg_current	= 2000,//1800,
 
 	.cool_bat_voltage	= 4100,
 	.warm_bat_voltage	= 4100,
@@ -853,7 +857,7 @@ static unsigned int keymap[] = {
 	KEY(0, 0, KEY_VOLUMEUP),
 	KEY(0, 1, KEY_VOLUMEDOWN),
 	/* KEY_QUICK_CLIP, KEY_HOMEPAGE for GK_KR Rev. F  */
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	KEY(1, 0, KEY_QUICK_CLIP),
 	KEY(1, 1, KEY_HOMEPAGE),
 #endif
@@ -863,7 +867,7 @@ static struct matrix_keymap_data keymap_data = {
 	.keymap_size    = ARRAY_SIZE(keymap),
 	.keymap         = keymap,
 };
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 /* Keymap GK_KR except for Rev.F (EV board) */
 static unsigned int keymap_gk_kr[] = {
 	KEY(0, 0, KEY_VOLUMEDOWN),
@@ -881,7 +885,7 @@ static struct matrix_keymap_data keymap_data_gk_kr = {
 static struct pm8xxx_keypad_platform_data keypad_data = {
 	.input_name             = "gk-keypad-8064",
 	.input_phys_device      = "gk-keypad-8064/input0",
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	.num_rows               = 2,
 	.num_cols               = 5,
 #else
@@ -1041,7 +1045,7 @@ void __init apq8064_init_pmic(void)
 		apq8064_pm8921_platform_data.leds_pdata
 			= &apq8064_pm8921_leds_pdata_rev_f;
 		}
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	if (!(lge_get_board_revno() == HW_REV_F)){
 		keypad_data.keymap_data = &keymap_data_gk_kr;
 	}

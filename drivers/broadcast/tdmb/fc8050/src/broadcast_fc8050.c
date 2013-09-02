@@ -128,6 +128,7 @@ struct spi_device *tdmb_fc8050_get_spi_device(void)
 void tdmb_fc8050_set_userstop(int mode)
 {
 	user_stop_flg = mode;
+	printk("tdmb_fc8050_set_userstop, user_stop_flg = %d \n", user_stop_flg);
 }
 
 int tdmb_fc8050_mdelay(int32 ms)

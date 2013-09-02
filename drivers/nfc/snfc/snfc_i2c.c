@@ -32,6 +32,9 @@ void __snfc_i2c_control_set_status(_e_snfc_i2c_status i2c_status)
 
 	g_i2c_status = i2c_status;
 
+	if(current_status > I2C_STATUS_READY && g_i2c_status > I2C_STATUS_READY)
+		SNFC_DEBUG_MSG("[snfc_i2c_control] i2c status %d, but other device tries to use i2c \n", current_status);
+		
 	SNFC_DEBUG_MSG_MIDDLE("[snfc_i2c_control] i2c status %d -> %d\n", current_status, g_i2c_status );
 
 	return;

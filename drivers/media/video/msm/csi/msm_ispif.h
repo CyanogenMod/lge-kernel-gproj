@@ -59,4 +59,9 @@ struct ispif_isr_queue_cmd {
 #define VIDIOC_MSM_ISPIF_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct ispif_cfg_data*)
 
+//Start LGE_BSP_CAMERA : qcom-daemon - jonghwan.ko@lge.com
+#define VIDIOC_MSM_ISPIF_REL \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 19, struct ispif_cfg_data*)
+//End  LGE_BSP_CAMERA : qcom-daemon - jonghwan.ko@lge.com
+
 #endif

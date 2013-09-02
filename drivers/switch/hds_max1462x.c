@@ -140,7 +140,7 @@ struct hsd_info {
 	atomic_t btn_state;
 
 /* work for detect_work */
-	struct work_struct work;
+	struct delayed_work work;
 	struct delayed_work work_for_key_pressed;
 	struct delayed_work work_for_key_released;
 
@@ -191,7 +191,7 @@ static void button_pressed(struct work_struct *work)
 	int count = 3;
        struct ear_3button_info_table *table;
 	int table_size = ARRAY_SIZE(max1462x_ear_3button_type_data);
-//     if (gpio_get_value(hi->gpio_det) || (switch_get_state(&hi->sdev) != LGE_HEADSET)){
+
        if (hi->gpio_get_value_func(hi->gpio_det)){
 		HSD_ERR("button_pressed but ear jack is plugged out already! just ignore the event.\n");
 		return;
@@ -211,11 +211,11 @@ static void button_pressed(struct work_struct *work)
 		acc_read_value = (int)result.physical;
 		pr_info("%s: acc_read_value - %d\n", __func__, (int)result.physical);
 	}
-//	msleep(5);
        
        for (i = 0; i < table_size; i++) {
 			table = &max1462x_ear_3button_type_data[i];
-		if ((acc_read_value <= table->PERMISS_REANGE_MAX)&&(acc_read_value > table->PERMISS_REANGE_MIN)) {
+		// [AUDIO_BSP] 20130110, junday.lee, include min value '=' for 1 button earjack (ADC value= 0)
+		if ((acc_read_value <= table->PERMISS_REANGE_MAX)&&(acc_read_value >= table->PERMISS_REANGE_MIN)) {
 			HSD_DBG("button_pressed \n");
               	atomic_set(&hi->btn_state, 1);
               	       switch(table->ADC_HEADSET_BUTTON){
@@ -247,8 +247,8 @@ static void button_released(struct work_struct *work)
 	int table_size = ARRAY_SIZE(max1462x_ear_3button_type_data);
        int i;
 
-//	if (gpio_get_value(hi->gpio_det) || (switch_get_state(&hi->sdev) != LGE_HEADSET)){
-       if (hi->gpio_get_value_func(hi->gpio_det)){
+       // [AUDIO_BSP] 20130201, junday.lee, fix fake button_released return condition
+       if (hi->gpio_get_value_func(hi->gpio_det) && !atomic_read(&hi->btn_state)){
 		HSD_ERR("button_released but ear jack is plugged out already! just ignore the event.\n");
 		return;
 	}
@@ -282,13 +282,16 @@ static void insert_headset(struct hsd_info *hi)
 
 	HSD_DBG("insert_headset");
 
+       irq_set_irq_wake(hi->irq_key, 1);
+
 	if (hi->set_headset_mic_bias) {
 		hi->set_headset_mic_bias(TRUE);
        }
        else {
               hi->gpio_set_value_func(hi->external_ldo_mic_bias, 1);
        }
-	msleep(20);
+	gpio_direction_output(hi->gpio_mode, 1);
+	msleep(350);
 
 	// check if 3-pole or 4-pole
 	// 1. read gpio_swd
@@ -343,6 +346,7 @@ static void insert_headset(struct hsd_info *hi)
               else {
                      hi->gpio_set_value_func(hi->external_ldo_mic_bias, 0);
               }
+              gpio_direction_output(hi->gpio_mode, 0);
 		input_report_switch(hi->input, SW_HEADPHONE_INSERT, 1);
 		input_sync(hi->input);
 	}	
@@ -375,15 +379,25 @@ static void remove_headset(struct hsd_info *hi)
 	schedule_delayed_work(&(hi->work_for_key_released), hi->latency_for_key );
 #endif
 	input_report_switch(hi->input, SW_HEADPHONE_INSERT, 0);
-	if (has_mic == LGE_HEADSET)
-		input_report_switch(hi->input, SW_MICROPHONE_INSERT, 0);
+	if (has_mic == LGE_HEADSET) {
+              irq_set_irq_wake(hi->irq_key, 0);
+              input_report_switch(hi->input, SW_MICROPHONE_INSERT, 0);
+
+              if (hi->set_headset_mic_bias) {
+                     hi->set_headset_mic_bias(FALSE);
+              }
+              else {
+                     hi->gpio_set_value_func(hi->external_ldo_mic_bias, 0);
+              }
+       }
 	input_sync(hi->input);
 }
 
 static void detect_work(struct work_struct *work)
 {
 	int state;
-       struct hsd_info *hi = container_of(work, struct hsd_info, work);
+	struct delayed_work *dwork = container_of(work, struct delayed_work, work);
+	struct hsd_info *hi = container_of(dwork, struct hsd_info, work);
 
 	HSD_DBG("detect_work");
 
@@ -413,18 +427,12 @@ static irqreturn_t earjack_det_irq_handler(int irq, void *dev_id)
 
 	wake_lock_timeout(&ear_hook_wake_lock, 2 * HZ);
 
-       if (hi->set_headset_mic_bias) {
-		hi->set_headset_mic_bias(FALSE);
-       }
-       else {
-              hi->gpio_set_value_func(hi->external_ldo_mic_bias, 0);
-       }
 	HSD_DBG("earjack_det_irq_handler");
 
 #ifdef CONFIG_MAX1462X_USE_LOCAL_WORK_QUEUE
-	queue_work(local_max1462x_workqueue, &(hi->work));
+	queue_delayed_work(local_max1462x_workqueue, &(hi->work), HZ/2 /* 500ms */);
 #else
-	schedule_work(&(hi->work));
+	schedule_delayed_work(&(hi->work), HZ/2 /* 500ms */);
 #endif
 	return IRQ_HANDLED;
 }
@@ -488,9 +496,11 @@ static int lge_hsd_probe(struct platform_device *pdev)
 
 	hi->latency_for_detection = pdata->latency_for_detection;
 
-	hi->latency_for_key = msecs_to_jiffies(50); /* convert milli to jiffies */
+	HSD_DBG("latency_for_key : %d ms \n", pdata->latency_for_key);
+	hi->latency_for_key = msecs_to_jiffies(pdata->latency_for_key); /* convert milli to jiffies */
+
 	mutex_init(&hi->mutex_lock);
-	INIT_WORK(&hi->work, detect_work);
+	INIT_DELAYED_WORK(&hi->work, detect_work);
 	INIT_DELAYED_WORK(&hi->work_for_key_pressed, button_pressed);
 	INIT_DELAYED_WORK(&hi->work_for_key_released, button_released);
 
@@ -592,12 +602,6 @@ static int lge_hsd_probe(struct platform_device *pdev)
 
 	disable_irq(hi->irq_key);
 
-	ret = irq_set_irq_wake(hi->irq_key, 1);
-	if (ret < 0) {
-		HSD_ERR("Failed to set irq_key interrupt wake\n");
-		goto error_07;
-	}
-
 	/* initialize switch device */
 	hi->sdev.name = pdata->switch_name;
 	hi->sdev.print_state = lge_hsd_print_state;
@@ -671,9 +675,9 @@ static int lge_hsd_probe(struct platform_device *pdev)
 
 	if (!(hi->gpio_get_value_func(hi->gpio_det)))
 #ifdef CONFIG_MAX1462X_USE_LOCAL_WORK_QUEUE
-		queue_work(local_max1462x_workqueue, &(hi->work)); /* to detect in initialization with eacjack insertion */
+		queue_delayed_work(local_max1462x_workqueue, &(hi->work), 0); /* to detect in initialization with eacjack insertion */
 #else
-		schedule_work(&(hi->work)); /* to detect in initialization with eacjack insertion */
+		schedule_delayed_work(&(hi->work), 0); /* to detect in initialization with eacjack insertion */
 #endif
 
 #ifdef AT_TEST_GPKD

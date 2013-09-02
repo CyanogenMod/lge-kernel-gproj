@@ -147,20 +147,49 @@ void *TcpalMemcpy(void *_dest, const void *_src, I32U _cnt)
 /* For Semaphore */
 #define MAX_MUTEX_POOL 15
 static struct mutex MutexPool[MAX_MUTEX_POOL];
-static I32S MutexCount = 0;
+static I32U MutexAssignd[MAX_MUTEX_POOL] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+static I32S TcpalGetSemaphoreAddress(void)
+{
+	I32S i;
+	for(i=0; i<MAX_MUTEX_POOL; i++) {
+		if(MutexAssignd[i] == 0) {
+			MutexAssignd[i] = (I32U)(&MutexPool[i]);
+			return i;
+		}
+	}
+	return (-1);
+}
+
+static I32S TcpalFreeSemaphoreAddress(I32U _address)
+{
+	I32S i;
+	for(i=0; i<MAX_MUTEX_POOL; i++) {
+		if(MutexAssignd[i] == _address) {
+			MutexAssignd[i] = 0;
+			return i;
+		}
+	}
+	return (-1);
+}
 
 I32S TcpalCreateSemaphore(TcpalSemaphore_t * _semaphore, I08S * _name,
 			  I32U _initialCount)
 {
 	struct mutex *lock;
+	I32S index;
 
-	if(MutexCount >= MAX_MUTEX_POOL-1) {
-		TcpalPrintErr((I08S *)"######## MutexCount :%d \n", (int)MutexCount);
+	index = TcpalGetSemaphoreAddress();
+	if(index<0) {
+		TcpalPrintErr((I08S *)"######## Mutex Get Fail :%d \n", (int)index);
 		return TCC353X_RETURN_FAIL;
 	}
 
-	lock = &MutexPool[MutexCount++];
+	lock = &MutexPool[index];
 	mutex_init(lock);
+
+	TcpalPrintErr((I08S *)"######## MutexC %s [%d] \n", _name, (int)(lock));
+
 	*_semaphore = (TcpalSemaphore_t)lock;
 	return TCC353X_RETURN_SUCCESS;
 }
@@ -168,16 +197,23 @@ I32S TcpalCreateSemaphore(TcpalSemaphore_t * _semaphore, I08S * _name,
 I32S TcpalDeleteSemaphore(TcpalSemaphore_t * _semaphore)
 {
 	struct mutex *lock = (struct mutex*)*_semaphore;
-
+	I32U address;
+	I32S index;
+	
 	if(lock == NULL) 
 		return TCC353X_RETURN_FAIL;
-	if(MutexCount <= 0) 
-	{ 
-		TcpalPrintErr((I08S *)"####### MutexCount:%d \n", (int)MutexCount);
+
+	address = (I32U)(lock);
+	index = TcpalFreeSemaphoreAddress(address);
+	if(index < 0)
+	{
+		TcpalPrintErr((I08S *)"####### Mutex Delete Fail :%d \n", (int)index);
 		return TCC353X_RETURN_FAIL;
 	}
-	MutexCount--;
+	
+	TcpalPrintErr((I08S *)"######## MutexR [%d] \n", (int)(lock));
 
+	mutex_destroy(lock);
 	*_semaphore = 0;
 	return TCC353X_RETURN_SUCCESS;
 }

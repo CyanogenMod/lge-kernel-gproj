@@ -161,6 +161,7 @@ int FirmwareUpgrade(struct synaptics_ts_data *ts, const char* fw_path){
 		case GK_IC7020_G1F: 		/* GK */
 		case GK_IC7020_GFF_SUNTEL:	/* GK */
 		case GK_IC7020_GFF_LGIT:	/* GK */
+		case GK_IC7020_GFF_LGIT_HYBRID:	/* GK */
 			if(!strcmp(ts->fw_info.product_id, fw_image_product_id)) {
 				TOUCH_INFO_MSG("TOUCH FIRMWARE UPGRADE ts->ic_panel_type=%d\n", ts->ic_panel_type);
 			} else {

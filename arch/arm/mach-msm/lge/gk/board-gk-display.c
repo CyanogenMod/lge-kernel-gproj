@@ -254,8 +254,8 @@ static struct msm_bus_vectors mdp_ui_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,    // 602603520 * 2,
-		.ib = 2000000000,    // 753254400 * 2,
+		.ab = 577474560 * 2,//.ab = 2000000000,    // 602603520 * 2,
+		.ib = 866211840 * 2,//.ib = 2000000000,    // 753254400 * 2,
 	},
 };
 
@@ -264,8 +264,8 @@ static struct msm_bus_vectors mdp_vga_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,    // 602603520 * 2,
-		.ib = 2000000000,    // 753254400 * 2,
+		.ab = 605122560 * 2,//.ab = 2000000000,    // 602603520 * 2,
+		.ib = 756403200 * 2,//.ib = 2000000000,    // 753254400 * 2,
 	},
 };
 
@@ -274,8 +274,8 @@ static struct msm_bus_vectors mdp_720p_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,    // 602603520 * 2,
-		.ib = 2000000000,    // 753254400 * 2,
+		.ab = 660418560 * 2,//.ab = 2000000000,    // 602603520 * 2,
+		.ib = 825523200 * 2,//.ib = 2000000000,    // 753254400 * 2,
 	},
 };
 
@@ -284,8 +284,8 @@ static struct msm_bus_vectors mdp_1080p_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_MDP_PORT0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2000000000,    // 602603520 * 2,
-		.ib = 2000000000,    // 753254400 * 2,
+		.ab = 764098560 * 2,//.ab = 2000000000,    // 602603520 * 2,
+		.ib = 955123200 * 2,//.ib = 2000000000,    // 753254400 * 2,
 	},
 };
 
@@ -325,6 +325,9 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
 	.mdp_max_clk = 266667000,
+	.mdp_max_bw = 3050000000UL,
+	.mdp_bw_ab_factor = 200,
+	.mdp_bw_ib_factor = 210,
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 	.mdp_rev = MDP_REV_44,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -494,8 +497,8 @@ static int mipi_dsi_panel_power(int on)
                             return -ENODEV;
                      }
 		}
-		else if (lge_get_board_revno() == HW_REV_C ||
-                            lge_get_board_revno() == HW_REV_D || lge_get_board_revno() == HW_REV_E)
+		else if (lge_get_board_revno() == HW_REV_C || lge_get_board_revno() == HW_REV_D
+                            || lge_get_board_revno() == HW_REV_E || lge_get_board_revno() == HW_REV_1_0)
               {
 
                      gpio22 = PM8921_GPIO_PM_TO_SYS(22);
@@ -589,8 +592,8 @@ static int mipi_dsi_panel_power(int on)
                      gpio_direction_output(gpio42, 1);
                      mdelay(10);
               }
-		else if (lge_get_board_revno() == HW_REV_C ||
-                            lge_get_board_revno() == HW_REV_D || lge_get_board_revno() == HW_REV_E)
+		else if (lge_get_board_revno() == HW_REV_C || lge_get_board_revno() == HW_REV_D
+                            || lge_get_board_revno() == HW_REV_E || lge_get_board_revno() == HW_REV_1_0)
               {
                      /* LCD RESET LOW */
                      gpio_direction_output(gpio42, 0);
@@ -700,8 +703,8 @@ static int mipi_dsi_panel_power(int on)
                             return -EINVAL;
                      }
               }
-		else if (lge_get_board_revno() == HW_REV_C ||
-                            lge_get_board_revno() == HW_REV_D || lge_get_board_revno() == HW_REV_E)
+		else if (lge_get_board_revno() == HW_REV_C || lge_get_board_revno() == HW_REV_D
+                            || lge_get_board_revno() == HW_REV_E || lge_get_board_revno() == HW_REV_1_0)
               {
                      rc = regulator_disable(reg_l2);	//DSI
                      if (rc) {
@@ -765,15 +768,6 @@ static int mipi_dsi_panel_power(int on)
 	}
 	return 0;
 }
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
-void mipi_dsi_panel_power_off_shutdown(void)
-{
-    printk("[LCD][DEBUG] mipi_dsi_panel_power_off_shutdown started\n");
-	mipi_dsi_panel_power(0);
-    printk("[LCD][DEBUG] mipi_dsi_panel_power_off_shutdown ended\n");
-}
-EXPORT_SYMBOL(mipi_dsi_panel_power_off_shutdown);
-#endif
 
 static char mipi_dsi_splash_is_enabled(void)
 {
@@ -1355,51 +1349,52 @@ static char interface_setting           [7] = {0xB3, 0x14, 0x00, 0x00, 0x00, 0x0
 
 static char dsi_ctrl                    [3] = {0xB6, 0x3A, 0xD3};
 
+#if defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 static char display_setting_1          [35] = {
 					0xC1,
-					0x84, 0x60, 0x50, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x0C,
+					0x84, 0x60, 0x50, 0xEB, 0xFF,
+					0x6F, 0xCE, 0xFF, 0xFF, 0x0F,
 					0x01, 0x58, 0x73, 0xAE, 0x31,
-					0x20, 0x06, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x10, 0x10,
+					0x20, 0xC6, 0xFF, 0xFF, 0x1F,
+					0xF3, 0xFF, 0x5F, 0x10, 0x10,
 					0x10, 0x10, 0x00, 0x00, 0x00,
 					0x22, 0x02, 0x02, 0x00
 					};
 
-#if defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK)
 static char display_setting_2           [8] = {
 					0xC2,
 					0x32, 0xF7, 0x80, 0x0A, 0x08,
 					0x00, 0x00
 					};
-#else
-static char display_setting_2           [8] = {
-					0xC2,
-					0x30, 0xF7, 0x80, 0x0A, 0x08,
-					0x00, 0x00
+
+static char display_setting_3          [10] = {
+					0xCB,
+					0x31, 0xFC, 0x3F, 0x8C, 0x00,
+					0x00, 0x00, 0x00, 0xC0
 					};
-#endif
 
 static char source_timing_setting      [23] = {
 					0xC4,
-					0x70, 0x00, 0x00, 0x00, 0x00,
-					0x04, 0x00, 0x00, 0x00, 0x11,
+					0x70, 0x00, 0x00, 0x00, 0x07,
+					0x03, 0x03, 0x07, 0x07, 0x0C,
 					0x06, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x04, 0x00, 0x00, 0x00,
-					0x11, 0x06
+					0x07, 0x03, 0x03, 0x07, 0x07,
+					0x0C, 0x06
 					};
 
 static char ltps_timing_setting        [41] = {
 					0xC6,
-					0x06, 0x6D, 0x06, 0x6D, 0x06,
-					0x6D, 0x00, 0x00, 0x00, 0x00,
-					0x06, 0x6D, 0x06, 0x6D, 0x06,
-					0x6D, 0x15, 0x19, 0x07, 0x00,
-					0x01, 0x06, 0x6D, 0x06, 0x6D,
-					0x06, 0x6D, 0x00, 0x00, 0x00,
-					0x00, 0x06, 0x6D, 0x06, 0x6D,
-					0x06, 0x6D, 0x15, 0x19, 0x07
+					0x00, 0x69, 0x00, 0x69, 0x00,
+					0x69, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x69, 0x00, 0x69, 0x00,
+					0x69, 0x10, 0x19, 0x07, 0x00,
+					0x01, 0x00, 0x69, 0x00, 0x69,
+					0x00, 0x69, 0x00, 0x00, 0x00,
+					0x00, 0x00, 0x69, 0x00, 0x69,
+					0x00, 0x69, 0x10, 0x19, 0x07
 					};
+#endif
+
 
 static char gamma_setting_a            [25] = {
 					0xC7,
@@ -1430,21 +1425,12 @@ static char gamma_setting_c            [25] = {
 
 static char panel_interface_ctrl        [2] = {0xCC, 0x09};
 
-#if defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK)
-static char pwr_setting_chg_pump       [15] = {
-					0xD0,
-					0x00, 0x00, 0x19, 0x18, 0x99,
-					0x9C, 0x1C, 0x01, 0x89, 0x00,
-					0x55, 0x19, 0x99, 0x01
-					};
-#else
 static char pwr_setting_chg_pump       [15] = {
 					0xD0,
 					0x00, 0x00, 0x19, 0x18, 0x99,
 					0x99, 0x19, 0x01, 0x89, 0x00,
 					0x55, 0x19, 0x99, 0x01
 					};
-#endif
 
 static char pwr_setting_internal_pwr   [27] = {
 					0xD3,
@@ -1456,19 +1442,13 @@ static char pwr_setting_internal_pwr   [27] = {
 					0x00
 					};
 					
-static char vcom_setting_on_1           [8] = {
-					0xD5,
-					0x06, 0x00, 0x00, 0x01, 0xC8,
-					0x01, 0xC8
-					};
-
-static char vcom_setting_on_2           [8] = {
+static char vcom_setting                [8] = {
 					0xD5,
 					0x06, 0x00, 0x00, 0x01, 0x2C,
 					0x01, 0x2C
 					};
 
-static char vcom_setting_off            [8] = {
+static char vcom_setting_for_suspend    [8] = {
 					0xD5,
 					0x06, 0x00, 0x00, 0x00, 0x48,
 					0x00, 0x48
@@ -1482,17 +1462,17 @@ static char enter_sleep_mode            [2] = {0x10,0x00};
 
 static char deep_standby_mode           [2] = {0xB1,0x01};
 
-/*     static char vsync_setting               [4] = {0xC3, 0x01, 0x00, 0x00};    */
+static char vsync_setting               [4] = {0xC3, 0x00, 0x00, 0x00};
 
 #if defined(CONFIG_LGE_R63311_COLOR_ENGINE)
 static char color_enhancement          [33] = {
                                    0xCA,
-                                   0x01, 0x70, 0xB0, 0xFF, 0xFF,
-                                   0xB0, 0x98, 0x78, 0x3F, 0x3F,
-                                   0x80, 0x80, 0x08, 0x38, 0x08,
+                                   0x01, 0x70, 0x90, 0xA0, 0xB0,
+                                   0x98, 0x90, 0x90, 0x3F, 0x3F,
+                                   0x80, 0x78, 0x08, 0x38, 0x08,
                                    0x3F, 0x08, 0x90, 0x0C, 0x0C,
                                    0x0A, 0x06, 0x04, 0x04, 0x00,
-                                   0xC0, 0x10, 0x10, 0x3F, 0x3F,
+                                   0xC8, 0x10, 0x10, 0x3F, 0x3F,
                                    0x3F, 0x3F
                                    };
 
@@ -1519,7 +1499,7 @@ static char auto_contrast_off           [7] = {
                                    0x55
                                    };
 
-static char sharpening_control          [3] = {0xDD, 0x21, 0x45};
+static char sharpening_control          [3] = {0xDD, 0x01, 0x95};
 
 static char sharpening_control_off      [3] = {0xDD, 0x20, 0x45};
 #endif // color engine apply
@@ -1540,7 +1520,7 @@ static char write_cabc_still_on      [2] = {0x55, 0x02};
 static char write_cabc_off           [2] = {0x55, 0x00};
 
 static char backlight_ctrl_ui          [8] = {0xBA, 0x00, 0x3F, 0x04, 0x40, 0x9F, 0x1F, 0xD7};
-static char backlight_ctrl_movie_still [8] = {0xB9, 0x00, 0x3F, 0x18, 0x18, 0x9F, 0x1F, 0x80};
+static char backlight_ctrl_movie_still [8] = {0xB9, 0x00, 0x02, 0x18, 0x18, 0x9F, 0x1F, 0x80};
 static char backlight_ctrl_common      [26]= {0xB8,
                                        0x18, 0x80, 0x18, 0x18,
                                        0xCF, 0x1F, 0x00, 0x0C,
@@ -1561,7 +1541,10 @@ static struct dsi_cmd_desc lgit_power_on_set_1[] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dsi_ctrl), dsi_ctrl},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(display_setting_1), display_setting_1},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(display_setting_2),display_setting_2},
-/*     {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vsync_setting), vsync_setting}, */
+#if defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(display_setting_3),display_setting_3},
+#endif
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vsync_setting), vsync_setting},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(source_timing_setting), source_timing_setting},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(ltps_timing_setting), ltps_timing_setting},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(gamma_setting_a), gamma_setting_a},
@@ -1570,8 +1553,8 @@ static struct dsi_cmd_desc lgit_power_on_set_1[] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(panel_interface_ctrl), panel_interface_ctrl},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pwr_setting_chg_pump), pwr_setting_chg_pump},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pwr_setting_internal_pwr), pwr_setting_internal_pwr},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_on_1), vcom_setting_on_1},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_on_1), vcom_setting_on_1},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting), vcom_setting},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting), vcom_setting},
 #if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT)
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 20, sizeof(set_address_mode),set_address_mode},
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
@@ -1599,8 +1582,6 @@ static struct dsi_cmd_desc lgit_power_on_set_2[] = {
 };
 #if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
 static struct dsi_cmd_desc lgit_power_on_set_3[] = {
-	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_on_2), vcom_setting_on_2},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, 20, sizeof(vcom_setting_on_2), vcom_setting_on_2},
        {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_display_brightness), write_display_brightness},
 };
 #endif //CONFIG_LGE_R63311_BACKLIGHT_CABC
@@ -1617,20 +1598,24 @@ static struct dsi_cmd_desc lgit_color_engine_off[3] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(sharpening_control_off), sharpening_control_off},
 };
 #endif //CONFIG_LGIT_COLOR_ENGINE_SWITCH
-#if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-static struct dsi_cmd_desc lgit_cabc_off[] = {
-      {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_off), write_cabc_off},
-};
-#endif // CABC apply
 
 static struct dsi_cmd_desc lgit_power_off_set[] = {
-	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_off), vcom_setting_off},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, 20, sizeof(vcom_setting_off), vcom_setting_off},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_for_suspend), vcom_setting_for_suspend},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 20, sizeof(vcom_setting_for_suspend), vcom_setting_for_suspend},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 20, sizeof(display_off), display_off},
+#if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
+       {DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(write_cabc_off), write_cabc_off},
+#endif // CABC apply
 	{DTYPE_DCS_WRITE, 1, 0, 0, 100, sizeof(enter_sleep_mode), enter_sleep_mode},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 40, sizeof(deep_standby_mode), deep_standby_mode}
 };
 /* LGE_CHANGE_END */
+
+static struct dsi_cmd_desc lgit_shutdown_set[] = {
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_for_suspend), vcom_setting_for_suspend},
+       {DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcom_setting_for_suspend), vcom_setting_for_suspend},
+       {DTYPE_DCS_WRITE, 1, 0, 0, 0,  sizeof(display_off), display_off},
+};
 
 static struct msm_panel_common_pdata mipi_lgit_pdata = {
 	.backlight_level = mipi_lgit_backlight_level,
@@ -1648,13 +1633,10 @@ static struct msm_panel_common_pdata mipi_lgit_pdata = {
 	.color_engine_off = lgit_color_engine_off,
 	.color_engine_off_size = ARRAY_SIZE(lgit_color_engine_off),
 #endif //CONFIG_LGIT_COLOR_ENGINE_SWITCH
-#if defined(CONFIG_LGE_R63311_BACKLIGHT_CABC)
-	.cabc_off = lgit_cabc_off,
-	.cabc_off_size = ARRAY_SIZE(lgit_cabc_off),
-#endif // CABC apply
 	.power_off_set_1 = lgit_power_off_set,
 	.power_off_set_size_1 = ARRAY_SIZE(lgit_power_off_set),
-
+       .power_off_set_2 = lgit_shutdown_set,
+       .power_off_set_size_2 = ARRAY_SIZE(lgit_shutdown_set),
 };
 
 static struct platform_device mipi_dsi_lgit_panel_device = {

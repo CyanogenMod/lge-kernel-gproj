@@ -495,7 +495,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 	mutex_lock(s_ctrl->msm_sensor_mutex);
 	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
 		s_ctrl->sensordata->sensor_name, cdata.cfgtype);
-#if !(defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM))
+#if !(defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)) 
 //LGE_UPDATE_S 0828 add messages to debug timeout error yt.jeon@lge.com
 	pr_err("%s: cfgtype = %d\n", __func__, cdata.cfgtype);
 //LGE_UPDATE_E 0828 add messages to debug timeout error yt.jeon@lge.com
@@ -860,6 +860,15 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			rc = s_ctrl->func_tbl->sensor_set_asd_enable(s_ctrl, cdata.cfg.asd_onoff);
 			break;	
 /* LGE_CHANGE_E, Add the Auto Scene Detection for GK porject, 2012.11.6, gayoung85.lee[End] */
+/* LGE_CHANGE_S, fixed cts failure!, 2013.01.07 junghee.eim@lge.com */
+		case CFG_SET_EXIF_THUMBNAIL_SIZE:
+			if (s_ctrl->func_tbl->sensor_set_exif_thumbnail_size == NULL) {
+				rc = -EFAULT;
+				break;
+			}
+			s_ctrl->func_tbl->sensor_set_exif_thumbnail_size(s_ctrl, &cdata.cfg.dimension);
+			break;
+/* LGE_CHANGE_E, fixed cts failure!, 2013.01.07 junghee.eim@lge.com */
 
 		default:
 			rc = -EFAULT;
@@ -1764,6 +1773,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	pr_err( " %s : E sensor name is %s \n",__func__, s_ctrl->sensordata->sensor_name);
 	pr_err( " %s : lgcam_commit on 121230 \n",__func__); /* LGE_CHANGE, check merged date , 2012.12.30, jungryoul.choi@lge.com */
 	pr_err( " %s : lgcam_commit increase JPEG_ENC] on 130113 [ \n",__func__); /* LGE_CHANGE, check merged date , 2013.01.13, seongjo.kim@lge.com */
+	pr_err( " %s : lgcam_commit fix AF kernel crash on 130121 [ \n",__func__); /* LGE_CHANGE, check merged date , 2013.01.21, jungryoul.choi@lge.com */
 
 	rc = msm_camera_request_gpio_table(data, 1);
 	if (rc < 0) {

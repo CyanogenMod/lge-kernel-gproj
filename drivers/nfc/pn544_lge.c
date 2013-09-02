@@ -5,6 +5,8 @@
 #include <linux/nfc/pn544_lge.h>
 // seokmin.hong@lge.com    header file added for removing depedency of platform and managing LGE modification
 #include "pn544_lge_hwadapter.h"
+#include <mach/board_lge.h>
+//130509 urim.kim@lge.com To know boot mode
 
 #ifdef CONFIG_LGE_NFC_MULTICORE_FASTBOOT
 #include <linux/kthread.h>
@@ -22,6 +24,8 @@ static bool cancle_read = false;//DY_TEST
 
 static int	stReadIntFlag;
 static struct i2c_client *pn544_client;
+static enum lge_boot_mode_type boot_mode;
+//130509 urim.kim@lge.com To know boot mode
 
 static void pn544_disable_irq(struct pn544_dev *pn544_dev)
 {
@@ -31,9 +35,9 @@ static void pn544_disable_irq(struct pn544_dev *pn544_dev)
 	if (pn544_dev->irq_enabled) {
 		disable_irq_nosync(pn544_get_irq_pin(pn544_dev));
 // 20120831, jh.heo@lge.com Fix to irq interrupt in sleep mode.
-#if !defined(CONFIG_LGE_NFC_HW_QCT_MSM8660)&&!defined(CONFIG_LGE_NFC_HW_QCT_MSM8255)
-		disable_irq_wake(pn544_get_irq_pin(pn544_dev));
-#endif
+//#if !defined(CONFIG_LGE_NFC_HW_QCT_MSM8660)&&!defined(CONFIG_LGE_NFC_HW_QCT_MSM8255)
+//		disable_irq_wake(pn544_get_irq_pin(pn544_dev));
+//#endif
 		pn544_dev->irq_enabled = false;
 	}
 	spin_unlock_irqrestore(&pn544_dev->irq_enabled_lock, flags);
@@ -165,7 +169,7 @@ static int __pn544_kread(void *dev, unsigned int length)
 #ifdef READ_IRQ_MODIFY
         do_reading=0;//DY_TEST
 #endif
-        enable_irq_wake(pn544_get_irq_pin(pn544_dev));
+//        enable_irq_wake(pn544_get_irq_pin(pn544_dev));
         enable_irq(pn544_get_irq_pin(pn544_dev));
 #ifdef READ_IRQ_MODIFY
         ret = wait_event_interruptible(pn544_dev->read_wq, do_reading);
@@ -300,9 +304,9 @@ static ssize_t pn544_dev_read(struct file *filp, char __user *buf,
 		do_reading=0;//DY_TEST
 #endif
 // 20120831, jh.heo@lge.com Fix to irq interrupt in sleep mode.
-#if !defined(LGE_NFC_HW_QCT_MSM8660)
-			enable_irq_wake(pn544_get_irq_pin(pn544_dev));
-#endif
+//#if !defined(LGE_NFC_HW_QCT_MSM8660)
+//			enable_irq_wake(pn544_get_irq_pin(pn544_dev));
+//#endif
 			enable_irq(pn544_get_irq_pin(pn544_dev));
 #ifdef LGE_NFC_READ_IRQ_MODIFY
 		ret = wait_event_interruptible(pn544_dev->read_wq, do_reading);
@@ -417,12 +421,17 @@ static long pn544_dev_unlocked_ioctl(struct file *filp, unsigned int cmd, unsign
 			gpio_set_value(pn544_dev->firm_gpio, 0);
 			gpio_set_value(pn544_dev->ven_gpio, 1);
 			msleep(10);
+			// enable irq.
+			irq_set_irq_wake(pn544_dev->client->irq,1);
 		} else  if (arg == 0) {
 			/* power off */
 			dprintk(PN544_DRV_NAME ":%s power off\n", __func__);
 			gpio_set_value(pn544_dev->firm_gpio, 0);
 			gpio_set_value(pn544_dev->ven_gpio, 0);
 			msleep(10);
+
+			// disable irq.
+			irq_set_irq_wake(pn544_dev->client->irq,0);
 
 #ifdef LGE_NFC_READ_IRQ_MODIFY
 		} else if (arg == 3) {//DY_TEST
@@ -556,9 +565,9 @@ static int pn544_probe(struct i2c_client *client,
 		dev_err(&client->dev, "request_irq failed\n");
 		goto err_request_irq_failed;
 	}
-#if !defined(LGE_NFC_HW_QCT_MSM8660)&&!defined(CONFIG_LGE_NFC_HW_QCT_MSM8255)
-	enable_irq_wake(pn544_get_irq_pin(pn544_dev));
-#endif
+//#if !defined(LGE_NFC_HW_QCT_MSM8660)&&!defined(CONFIG_LGE_NFC_HW_QCT_MSM8255)
+//	enable_irq_wake(pn544_get_irq_pin(pn544_dev));
+//#endif
 	pn544_disable_irq(pn544_dev);
 	i2c_set_clientdata(client, pn544_dev);
 	dprintk(PN544_DRV_NAME ": pn544_probe() dprintk\n");	
@@ -570,20 +579,27 @@ static int pn544_probe(struct i2c_client *client,
  * 
  * byungchul.park@lge.com 20120328
  */
+//130509 urim.kim@lge.com To know boot mode [START]
+    boot_mode = lge_get_boot_mode();
+    
+	printk("pn544_probe() boot_mode : %d\n",boot_mode);
+    if (boot_mode == LGE_BOOT_MODE_FACTORY || boot_mode == LGE_BOOT_MODE_FACTORY2) {
 #ifdef CONFIG_LGE_NFC_MULTICORE_FASTBOOT
-	{
-		struct task_struct *th;
-		th = kthread_create(pn544_factory_standby_set_thread, NULL, "pn544_factory_standby");
-		if (IS_ERR(th)) {
-			ret = PTR_ERR(th);
-			goto err_request_irq_failed;
-		}
-		wake_up_process(th);
-	}
+    	{
+    		struct task_struct *th;
+    		th = kthread_create(pn544_factory_standby_set_thread, NULL, "pn544_factory_standby");
+    		if (IS_ERR(th)) {
+    			ret = PTR_ERR(th);
+    			goto err_request_irq_failed;
+    		}
+    		wake_up_process(th);
+    	}
 #else
-	pn544_factory_standby_set();
+    	pn544_factory_standby_set();
 #endif
 /* LGE_CHANGE_E */
+    }
+//130509 urim.kim@lge.com To know boot mode [END]
 	return 0;
 
 err_request_irq_failed:

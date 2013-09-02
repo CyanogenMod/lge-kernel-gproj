@@ -72,8 +72,7 @@ static int fc8050_set_filter(HANDLE hDevice)
 #endif
 
 	for(i=0; i<10; i++) {
-		if(!msWait(5))
-			return BBM_NOK;
+		msMustWait(5);
 		
 		fc8050_read(hDevice, 0x33, &cal_mon);
 		if( (cal_mon & 0xC0) == 0xC0) 

@@ -265,6 +265,7 @@ static int max17043_read_config(struct i2c_client *client)
 	if (value < 0)
 		return value;
 
+	pr_info("Sleep-%d, ALSC-%d, ALRT-%d, ATHD-%d\n", value&0x80, value&0x40, value&0x20, value&0x1F);
 	chip->config = value;
 
 	return 0;
@@ -300,7 +301,7 @@ static int max17043_get_capacity_from_soc(void)
 	batt_soc = ((buf[0]*256)+buf[1])*19531; /* 0.001953125 */
 	pr_info("%s: batt_soc is %d(0x%02x:0x%02x):%ld\n", __func__, (int)(batt_soc/10000000), buf[0], buf[1], batt_soc);
 
-	adjust_soc = 9500000;
+	adjust_soc = 9300000;
 	batt_soc /= adjust_soc;
 	pr_info("adjust_soc = %ld, batt_soc = %ld\n", adjust_soc, batt_soc);
 
@@ -497,6 +498,30 @@ static int max17043_update(struct i2c_client *client)
 /* BEGIN: hiro.kwon@lge.com 2011-12-22 RCOMP update when the temperature of the cell changes */
 	max17043_set_rcomp_by_temperature();
 /* END: hiro.kwon@lge.com 2011-12-22 */
+
+#if 1 /*For Debug */
+{	
+	u8 org_ocv_msb, org_ocv_lsb;
+	u8 values[2];
+	int batt_mv;
+
+	/* Unlock Model Access */
+	values[0] = 0x4A; values[1] = 0x57;
+	max17043_write_data(client, 0x3E, &values[0], 2);
+
+	/*Read OCV */
+	max17043_read_data(client, 0x0E, &values[0], 2);
+	org_ocv_msb = values[0]; org_ocv_lsb = values[1];
+	batt_mv = ((values[0] << 4) + (values[1] >> 4));
+	batt_mv = (batt_mv*125)/100;
+	pr_info("%s : ocv is 0x%02x%02x - %d\n", __func__, org_ocv_msb, org_ocv_lsb, batt_mv);
+
+	/*Lock Model Access */
+	values[0] = 0x00; values[1] = 0x00;
+	max17043_write_data(client, 0x3E, &values[0], 2);
+}
+#endif
+
 	ret = max17043_read_vcell(client);
 	if (ret < 0)
 		return ret;
@@ -1016,7 +1041,11 @@ int max17043_set_rcomp_by_temperature(void)
 	if (temp > 20)
 		newRcomp = startingRcomp + (int)((temp - 20)*tempCoHot/1000);
 	else if (temp < 20){
+#if !defined(CONFIG_MACH_APQ8064_GV_KR)
 		newRcomp = startingRcomp + (int)((temp - 20)*tempCoCold/100);
+#else
+		newRcomp = startingRcomp + (int)((temp - 20)*tempCoCold/1000);
+#endif
 		}
 	else
 		newRcomp = startingRcomp;
@@ -1048,8 +1077,9 @@ int max17043_set_operation(void)
 	int ret = ENABLE_MAX17043_WORK;
 
 #ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
-	if (lge_battery_info == BATT_DS2704_N || lge_battery_info == BATT_DS2704_L ||
-		lge_battery_info == BATT_ISL6296_N || lge_battery_info == BATT_ISL6296_L)
+	if (lge_battery_info == BATT_ID_DS2704_N || lge_battery_info == BATT_ID_DS2704_L ||
+		lge_battery_info == BATT_ID_ISL6296_N || lge_battery_info == BATT_ID_ISL6296_L ||
+		lge_battery_info == BATT_ID_DS2704_C || lge_battery_info == BATT_ID_ISL6296_C)
 	{
 		ret = ENABLE_MAX17043_WORK;
 	}
@@ -1336,6 +1366,8 @@ static int max17043_resume(struct i2c_client *client)
 {
 	struct max17043_chip *chip = i2c_get_clientdata(client);
 	int ret = 0;
+
+	printk("%s \n", __func__);
 /* 20111222, hiro.kwon@lge.com, fuel gauge not working without batt  [START] */
 	ret = max17043_set_operation();
 	if(!ret)
@@ -1345,7 +1377,7 @@ static int max17043_resume(struct i2c_client *client)
 	}
 /* 20111222, hiro.kwon@lge.com, fuel gauge not working without batt [END] */
 
-	schedule_delayed_work(&chip->work, HZ/2);
+	schedule_delayed_work(&chip->work, 0);
 	client->dev.power.power_state = PMSG_ON;
 	/* mansu.lee@lge.com 2011-12-28 refresh config reg values */
 	max17043_read_config(client);

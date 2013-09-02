@@ -147,6 +147,8 @@ static unsigned short es325_algo_paramid[] = {
 	0x0050, /* BWE_HIGH_BAND_GAIN */
 	0x0051, /* BWE_MAX_SNR */
 	0x0052, /* BWE_POST_EQ_ENABLE */
+	0x001e, /* POS_SUPP_TRADEOFF */
+	0x0037, /* TX_INTR_LEVEL */
 };
 
 static unsigned short es325_dev_paramid[] = {

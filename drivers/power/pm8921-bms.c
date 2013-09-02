@@ -1785,6 +1785,7 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 static void very_low_voltage_check(struct pm8921_bms_chip *chip,
 					int ibat_ua, int vbat_uv)
 {
+#if !defined(CONFIG_BATTERY_MAX17047) && !defined(CONFIG_BATTERY_MAX17043)
 	/*
 	 * if battery is very low (v_cutoff voltage + 20mv) hold
 	 * a wakelock untill soc = 0%
@@ -1802,6 +1803,7 @@ static void very_low_voltage_check(struct pm8921_bms_chip *chip,
 		chip->low_voltage_wake_lock_held = 0;
 		wake_unlock(&chip->low_voltage_wake_lock);
 	}
+#endif
 }
 
 static int last_soc_est = -EINVAL;
@@ -2112,7 +2114,7 @@ static bool is_shutdown_soc_within_limits(struct pm8921_bms_chip *chip, int soc)
 * Last safe code for low volt under 5%.
 */
 
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #define CUTOFF_SET		(3600000)
 #else
 #define CUTOFF_SET		(3350000)
@@ -2512,7 +2514,7 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 #endif
 
 #ifdef LGE_REPORT_SOC_ONE
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	if(last_soc <= 10 )
 		return LGE_Report_ONE(chip,last_soc);
 #else

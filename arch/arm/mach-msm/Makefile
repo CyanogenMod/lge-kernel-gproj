@@ -49,8 +49,7 @@ else
 endif
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 
-obj-$(CONFIG_MSM_CPU_AVS) += avs.o
-obj-$(CONFIG_MSM_AVS_HW) += avs_hw.o
+obj-$(CONFIG_MSM_AVS_HW) += avs.o
 obj-$(CONFIG_CPU_V6) += idle-v6.o
 obj-$(CONFIG_CPU_V7) += idle-v7.o
 obj-$(CONFIG_MSM_JTAG) += jtag.o
@@ -397,3 +396,4 @@ obj-$(CONFIG_MSM_VP_REGULATOR) += msm_vp.o
 ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
+obj-$(CONFIG_MSM_CPU_PWRCTL) +=  msm_cpu_pwrctl.o

@@ -46,6 +46,10 @@
 #include <mach/board_lge.h>
 #endif
 
+#ifdef CONFIG_LGE_NFC_SONY_CXD2235AGG
+extern int snfc_poweroff_flag;
+#endif
+
 #define MDM_PBLRDY_CNT		20
 
 static int mdm_debug_mask;
@@ -125,6 +129,10 @@ static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
 		}
 		msleep(100);
 	}
+
+#ifdef CONFIG_LGE_NFC_SONY_CXD2235AGG
+	snfc_poweroff_flag = 1;
+#endif
 
 #ifdef CONFIG_LGE_PM_LOW_BATT_CHG
 	/* temp fix : mdm power off failure when chargerlogo exit. force down mdm ps-hold */

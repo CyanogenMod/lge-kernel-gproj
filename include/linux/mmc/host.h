@@ -18,6 +18,7 @@
 
 #include <linux/mmc/core.h>
 #include <linux/mmc/pm.h>
+#include <linux/err.h>
 
 struct mmc_ios {
 	unsigned int	clock;			/* clock rate */
@@ -43,7 +44,9 @@ struct mmc_ios {
 #define MMC_POWER_OFF		0
 #define MMC_POWER_UP		1
 #define MMC_POWER_ON		2
-
+#ifdef CONFIG_LGE_SD_LIFETIME_STRENGTHEN
+#define MMC_POWER_STAY_AT_RESUME		3
+#endif
 	unsigned char	bus_width;		/* data bus width */
 
 #define MMC_BUS_WIDTH_1		0
@@ -433,7 +436,10 @@ static inline void mmc_signal_sdio_irq(struct mmc_host *host)
 {
 	host->ops->enable_sdio_irq(host, 0);
 	host->sdio_irq_pending = true;
-	wake_up_process(host->sdio_irq_thread);
+
+	if(!atomic_read(&host->sdio_irq_thread_abort)
+		&& !IS_ERR_OR_NULL(host->sdio_irq_thread))
+		wake_up_process(host->sdio_irq_thread);
 }
 
 struct regulator;

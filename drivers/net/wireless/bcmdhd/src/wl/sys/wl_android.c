@@ -268,6 +268,11 @@ int wl_cfg80211_set_p2p_ps(struct net_device *net, char* buf, int len)
 { return 0; }
 #endif /* WL_CFG80211 */
 
+#if defined(CUSTOMER_HW10)
+extern int dhdsdio_func_blocksize(dhd_pub_t *dhd, int function_num, int block_size);
+extern struct wl_priv *wlcfg_drv_priv;
+#endif
+
 extern int dhd_os_check_wakelock(void *dhdp);
 extern int dhd_os_check_if_up(void *dhdp);
 extern void *bcmsdh_get_drvdata(void);
@@ -1263,6 +1268,15 @@ int wl_android_wifi_on(struct net_device *dev)
 	int ret = 0;
 	int retry = POWERUP_MAX_RETRY;
 
+#if defined(CUSTOMER_HW10)
+	struct wl_priv *wl = wlcfg_drv_priv;
+	dhd_pub_t *dhd = NULL;
+
+	if (wl) {
+		dhd = (dhd_pub_t *)(wl->pub);
+	}
+#endif
+
 	printk("%s in\n", __FUNCTION__);
 	if (!dev) {
 		DHD_ERROR(("%s: dev is null\n", __FUNCTION__));
@@ -1292,6 +1306,13 @@ int wl_android_wifi_on(struct net_device *dev)
 			goto exit;
 		}
 #endif
+
+#if defined(CUSTOMER_HW10) && defined(USE_DYNAMIC_F2_BLKSIZE)
+		if (wl && dhd && wl_get_drv_status(wl, AP_CREATING, dev)) {
+			dhdsdio_func_blocksize(dhd, 2, DYNAMIC_F2_BLKSIZE_FOR_NONLEGACY);
+		}
+#endif /* CUSTOMER_HW4 && USE_DYNAMIC_F2_BLKSIZE */
+
 		sdioh_start(NULL, 1);
 		if (!ret) {
 			if (dhd_dev_init_ioctl(dev) < 0)
@@ -1403,6 +1424,9 @@ wl_android_set_auto_channel(struct net_device *dev, const char* string_num,
 	int chosen = 0;
 	int retry = 0;
 	int ret = 0;
+#ifdef CUSTOMER_HW10
+	int ap = 1;
+#endif
 
 	/* Restrict channel to 1 - 7: 2GHz, 20MHz BW, No SB */
 	u32 req_buf[8] = {7, 0x2B01, 0x2B02, 0x2B03, 0x2B04, 0x2B05, 0x2B06,
@@ -1410,6 +1434,15 @@ wl_android_set_auto_channel(struct net_device *dev, const char* string_num,
 
 	/* Auto channel select */
 	wl_uint32_list_t request;
+
+#ifdef CUSTOMER_HW10
+	ret = wldev_ioctl(dev, WLC_SET_AP, &ap, sizeof(s32), true);
+	if (ret < 0) {
+		DHD_ERROR(("%s: can't set AP, err = %d\n", __FUNCTION__, ret));
+		channel = 1;
+		goto done;
+	}
+#endif
 
 	channel = bcm_atoi(string_num);
 	DHD_INFO(("%s : HAPD_AUTO_CHANNEL = %d\n", __FUNCTION__, channel));

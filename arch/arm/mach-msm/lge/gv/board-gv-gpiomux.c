@@ -346,6 +346,7 @@ struct msm_gpiomux_config vcap_configs[] = {
 			[GPIOMUX_ACTIVE] =		&gpio_vcap_config[5],
 		}
 	},
+#if !defined(CONFIG_LGE_IRRC)
 	{
 		.gpio = 82,
 		.settings = {
@@ -360,6 +361,7 @@ struct msm_gpiomux_config vcap_configs[] = {
 			[GPIOMUX_ACTIVE] =		&gpio_vcap_config[4],
 		}
 	},
+#endif
 	{
 		.gpio = 87,
 		.settings = {
@@ -522,17 +524,29 @@ static struct gpiomux_setting snfc_hvdd_cfg = {
 
 #endif
 #ifdef CONFIG_LGE_IRDA
-static struct gpiomux_setting gsbi4_uart = {
+static struct gpiomux_setting gsbi4_uart_tx = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_KEEPER,
+	.dir = GPIOMUX_OUT_HIGH,
+};
+static struct gpiomux_setting gsbi4_uart_tx_active = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-static struct gpiomux_setting gsbi4_uart_active = {
+static struct gpiomux_setting gsbi4_uart_rx = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+static struct gpiomux_setting gsbi4_uart_rx_active = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 #endif
+#if !defined(CONFIG_LGE_IRRC)
 static struct gpiomux_setting gsbi7_func1_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -544,7 +558,7 @@ static struct gpiomux_setting gsbi7_func2_cfg = {
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-
+#endif
 #if defined(CONFIG_LGE_IRRC)
 static struct gpiomux_setting gsbi7_irrc_TXD = {
        .func = GPIOMUX_FUNC_2,
@@ -951,7 +965,7 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 		},
 	},
 #endif	 /* CONFIG_LGE_BROADCAST_ONESEG */
-
+#if !defined(CONFIG_LGE_IRRC)
 	{
 		.gpio      = 82,	/* GSBI7 UART2 TX */
 		.settings = {
@@ -964,6 +978,7 @@ static struct msm_gpiomux_config apq8064_gsbi_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gsbi7_func1_cfg,
 		},
 	},
+#endif
 };
 
 #if !defined(CONFIG_MACH_LGE)
@@ -1204,20 +1219,19 @@ static struct msm_gpiomux_config apq8064_irda_configs[] __initdata = {
        {
 		.gpio      = 10,		/* GSBI4 UART TX */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi4_uart,
-			[GPIOMUX_ACTIVE] = &gsbi4_uart_active
+			[GPIOMUX_SUSPENDED] = &gsbi4_uart_tx,
+			[GPIOMUX_ACTIVE] = &gsbi4_uart_tx_active
 		},
 	},
 	{
 		.gpio      = 11,		/* GSBI4 UART RX */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi4_uart,
-			[GPIOMUX_ACTIVE] = &gsbi4_uart_active
+			[GPIOMUX_SUSPENDED] = &gsbi4_uart_rx,
+			[GPIOMUX_ACTIVE] = &gsbi4_uart_rx_active
 		},
 	},
 };
 #endif
-			
 
 #ifdef CONFIG_LGE_IRRC
 static struct msm_gpiomux_config apq8064_irrc_configs[] __initdata = {

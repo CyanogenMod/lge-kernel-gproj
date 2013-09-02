@@ -71,6 +71,9 @@ unsigned char F54_FullRawCap(int mode)
 	} else if(!strncmp(product_id, "PLG121", 6)) {
 		printk("set limit array to PLG121 value.\n");
 		memcpy(Limit, Limit_PLG121, sizeof(Limit_PLG121));
+	} else if(!strncmp(product_id, "PLG184", 6)) {
+		printk("set limit array to PLG184 value.\n");
+		memcpy(Limit, Limit_PLG184, sizeof(Limit_PLG184));
 	} else {
 		printk("set limit array to LGIT value.\n");
 	}

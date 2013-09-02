@@ -121,6 +121,8 @@ static ssize_t snfc_cen_read(struct file *fp, char *buf, size_t count, loff_t *p
   if(rc)
   {
     SNFC_DEBUG_MSG("[snfc_cen][read] snfc_i2c_read : %d \n",rc);
+	if(rc == 149)
+		return -10;
     return -1;
   }
 

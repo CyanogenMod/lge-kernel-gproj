@@ -45,7 +45,7 @@ config LGE_KCAL_QLUT
 
 config EARJACK_DEBUGGER
 	bool "Earjack UART debugger support"
-	depends on MACH_APQ8064_GKU || MACH_APQ8064_GKKT || MACH_APQ8064_GKSK
+	depends on MACH_APQ8064_GKU || MACH_APQ8064_GKKT || MACH_APQ8064_GKSK || MACH_APQ8064_GVKT
 	default n
 	help
 	  Saying Y here will support earjack type UART debugger cable

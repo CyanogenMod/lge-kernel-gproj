@@ -374,7 +374,9 @@ module_param(op_mode, int, 0644);
 extern int wl_control_wl_start(struct net_device *dev);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 struct semaphore dhd_registration_sem;
+#ifndef CUSTOMER_HW10 //moon-wifi@lge.com by kwisuk.kwon 20120208 : F260S TD 302818
 struct semaphore dhd_chipup_sem;
+#endif
 int dhd_registration_check = FALSE;
 
 #define DHD_REGISTRATION_TIMEOUT  12000  /* msec : allowed time to finished dhd registration */
@@ -1568,6 +1570,17 @@ dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pktbuf)
 #endif /* !CUSTOMER_HW4 */
 		pktsetprio(pktbuf, FALSE);
 
+#ifdef BG_PKTPRIO_OVERRIDE
+#ifdef CUSTOMER_HW10
+	if (dhdp->op_mode & DHD_FLAG_HOSTAP_MODE) {
+		if (PKTPRIO(pktbuf) == 2) {
+			PKTSETPRIO(pktbuf, 0);
+		}
+	}
+#endif
+#endif
+
+
 #ifdef PROP_TXSTATUS
 	if (dhdp->wlfc_state) {
 		/* store the interface ID */
@@ -2207,6 +2220,10 @@ dhd_dpc_thread(void *data)
 
 	/*  signal: thread has started */
 	complete(&tsk->completed);
+#endif
+
+#ifdef CUSTOM_DPC_CPUCORE
+	set_cpus_allowed_ptr(current, cpumask_of(CUSTOM_DPC_CPUCORE));
 #endif
 
 	/* Run until signal received */
@@ -3047,9 +3064,11 @@ dhd_osl_detach(osl_t *osh)
 #if 1 && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	dhd_registration_check = FALSE;
 	up(&dhd_registration_sem);
+#ifndef CUSTOMER_HW10	//moon-wifi@lge.com by kwisuk.kwon 20120208 : F260S TD 302818
 #if	defined(BCMLXSDMMC)
 	up(&dhd_chipup_sem);
 #endif
+#endif 
 #endif 
 }
 
@@ -3589,6 +3608,7 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 	int roam_env_mode = AP_ENV_INDETERMINATE;
 #endif /* ROAM_AP_ENV_DETECTION */
 
+printk("dhd preinit: %s\n",name);
 	if (!strcmp(name, "country")) {
 		revstr = strchr(value, '/');
 		if (revstr) {
@@ -3789,6 +3809,7 @@ static int dhd_preinit_config(dhd_pub_t *dhd, int ifidx)
 		(len = dhd_os_get_image_block(buf, stat.size, fp)) < 0)
 		goto err;
 
+printk("dhd preinit: %d\n",__LINE__);
 	buf[stat.size] = '\0';
 	for (p = buf; *p; p++) {
 		if (isspace(*p))
@@ -3799,6 +3820,7 @@ static int dhd_preinit_config(dhd_pub_t *dhd, int ifidx)
 				p++;
 				for (value = p; *p && !isspace(*p); p++);
 				*p = '\0';
+printk("dhd preinit: %s:%s\n",name, value);
 				if ((ret = dhd_preinit_proc(dhd, ifidx, name, value)) < 0) {
 					printk(KERN_ERR "%s: %s=%s\n",
 							bcmerrorstr(ret), name, value);
@@ -4939,7 +4961,9 @@ dhd_module_init(void)
 {
 	int error = 0;
 
-#if 1 && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+//moon-wifi@lge.com by kwisuk.kwon 20120208 : F260S TD 302818
+//#if 1 && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+#if !defined(CUSTOMER_HW10) && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	int retry = POWERUP_MAX_RETRY;
 	int chip_up = 0;
 #endif 
@@ -4964,7 +4988,9 @@ dhd_module_init(void)
 	} while (0);
 #endif 
 
-#if 1 && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+//moon-wifi@lge.com by kwisuk.kwon 20120208 : F260S TD 302818
+//#if 1 && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+#if !defined(CUSTOMER_HW10) && defined(BCMLXSDMMC) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	do {
 		sema_init(&dhd_chipup_sem, 0);
 		dhd_bus_reg_sdio_notify(&dhd_chipup_sem);

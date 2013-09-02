@@ -129,7 +129,7 @@ static void slimport_cable_plug_proc(struct anx7808_data *anx7808)
 	struct anx7808_platform_data *pdata = anx7808->pdata;
 
 	if (gpio_get_value_cansleep(pdata->gpio_cbl_det)) {
-		msleep(50);
+		msleep(100);
 		if (gpio_get_value_cansleep(pdata->gpio_cbl_det)) {
 			if (sp_tx_pd_mode) {
 				sp_tx_pd_mode = 0;
@@ -150,26 +150,47 @@ static void slimport_cable_plug_proc(struct anx7808_data *anx7808)
 					sp_tx_link_config_done = 0;
 					sp_tx_hw_lt_enable = 0;
 					sp_tx_hw_lt_done = 0;
-					sp_tx_rx_anx7730 = 0;
-					sp_tx_rx_mydp = 0;
+					sp_tx_rx_type = RX_NULL;
+					sp_tx_rx_type_backup = RX_NULL;
 					sp_tx_set_sys_state(STATE_CABLE_PLUG);
 					return;
 				}
+				sp_tx_rx_type_backup = sp_tx_rx_type;
 			}
-			if (sp_tx_rx_anx7730) {
-				if (sp_tx_get_hdmi_connection())
+
+			switch(sp_tx_rx_type) {
+			case RX_HDMI:
+				if(sp_tx_get_hdmi_connection())
 					sp_tx_set_sys_state(STATE_PARSE_EDID);
-			} else if (sp_tx_rx_mydp) {
-				if (sp_tx_get_dp_connection())
+				break;
+			case RX_DP:
+				if(sp_tx_get_dp_connection())
 					sp_tx_set_sys_state(STATE_PARSE_EDID);
-			} else {
-				if (sp_tx_get_vga_connection()) {
-					sp_tx_send_message(MSG_CLEAR_IRQ);
+				break;
+			case RX_VGA:
+				if(sp_tx_get_vga_connection()){
+					sp_tx_send_message(MSG_CLEAR_IRQ); 
 					sp_tx_set_sys_state(STATE_PARSE_EDID);
 				}
+				break;
+			case RX_NULL:
+			default:
+				break;
 			}
-		}
-	} else if (sp_tx_pd_mode == 0) {
+		    } else if (sp_tx_pd_mode == 0) {
+                        sp_tx_vbus_powerdown();
+                        sp_tx_power_down(SP_TX_PWR_REG);
+                        sp_tx_power_down(SP_TX_PWR_TOTAL);
+                        sp_tx_hardware_powerdown();
+                        sp_tx_pd_mode = 1;
+                        sp_tx_link_config_done = 0;
+                        sp_tx_hw_lt_enable = 0;
+                        sp_tx_hw_lt_done = 0;
+                        sp_tx_rx_type = RX_NULL;
+                        sp_tx_rx_type_backup = RX_NULL;
+                        sp_tx_set_sys_state(STATE_CABLE_PLUG);
+	            }
+        }else if (sp_tx_pd_mode == 0) {
 		sp_tx_vbus_powerdown();
 		sp_tx_power_down(SP_TX_PWR_REG);
 		sp_tx_power_down(SP_TX_PWR_TOTAL);
@@ -178,8 +199,8 @@ static void slimport_cable_plug_proc(struct anx7808_data *anx7808)
 		sp_tx_link_config_done = 0;
 		sp_tx_hw_lt_enable = 0;
 		sp_tx_hw_lt_done = 0;
-		sp_tx_rx_anx7730 = 0;
-		sp_tx_rx_mydp = 0;
+		sp_tx_rx_type = RX_NULL;
+		sp_tx_rx_type_backup = RX_NULL;
 		sp_tx_set_sys_state(STATE_CABLE_PLUG);
 	}
 }
@@ -239,8 +260,8 @@ static void slimport_main_proc(struct anx7808_data *anx7808)
 
 	if (sp_tx_system_state == STATE_HDCP_AUTH) {
 		if ( hdcp_enable &&
-           ((sp_tx_rx_anx7730 )//&& g_hdmi_dvi_status) 
-           || sp_tx_rx_mydp)) {
+			((sp_tx_rx_type == RX_HDMI) ||
+			( sp_tx_rx_type ==RX_DP))) {
 			sp_tx_hdcp_process();
 		} else {
 			sp_tx_power_down(SP_TX_PWR_HDCP);
@@ -263,14 +284,10 @@ static uint8_t anx7808_chip_detect(void)
 
 static void anx7808_chip_initial(void)
 {
-#ifdef EYE_TEST
-	sp_tx_eye_diagram_test();
-#else
 	sp_tx_variable_init();
 	sp_tx_vbus_powerdown();
 	sp_tx_hardware_powerdown();
 	sp_tx_set_sys_state(STATE_CABLE_PLUG);
-#endif
 }
 
 static void anx7808_free_gpio(struct anx7808_data *anx7808)
@@ -507,17 +524,33 @@ bool slimport_is_connected(void)
 }
 EXPORT_SYMBOL(slimport_is_connected);
 
-unchar get_link_bw(void)
+unchar sp_get_link_bw(void)
 {
 	return slimport_link_bw;
 }
-EXPORT_SYMBOL(get_link_bw);
+EXPORT_SYMBOL(sp_get_link_bw);
 
-void set_link_bw(unchar link_bw)
+void sp_set_link_bw(unchar link_bw)
 {
 	slimport_link_bw = link_bw;
 }
-EXPORT_SYMBOL(set_link_bw);
+EXPORT_SYMBOL(sp_set_link_bw);
+
+/*unchar sp_get_ds_cable_type(void)
+{
+	return sp_tx_rx_type;
+}
+EXPORT_SYMBOL(sp_get_ds_cable_type);*/
+
+bool slimport_is_vga_mode(void)
+{
+	return (sp_tx_rx_type == 0x03) ? TRUE : FALSE;
+}
+/*  0x01: hdmi device is attached
+    0x02: DP device is attached
+    0x03: VGA device is attached
+    0x00: unknow device            */
+EXPORT_SYMBOL(slimport_is_vga_mode);
 
 static int anx7808_i2c_remove(struct i2c_client *client)
 {

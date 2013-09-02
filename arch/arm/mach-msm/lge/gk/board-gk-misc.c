@@ -24,11 +24,13 @@
 #include <mach/gpiomux.h>
 //#include <linux/regulator/gpio-regulator.h>
 #include <mach/board_lge.h>
+#include <mach/msm_xo.h>
 
 #include "devices.h"
 #include <linux/android_vibrator.h>
 
 #include <linux/i2c.h>
+#include <linux/mutex.h>
 
 #ifdef CONFIG_SLIMPORT_ANX7808
 #include <linux/platform_data/slimport_device.h>
@@ -68,9 +70,8 @@
 
 /* Vibrator GPIOs */
 #ifdef CONFIG_ANDROID_VIBRATOR
-#define GPIO_LIN_MOTOR_EN                33
-#define GPIO_LIN_MOTOR_PWR               47
-#define GPIO_LIN_MOTOR_PWM               3
+#define GPIO_MOTOR_EN		PM8921_GPIO_PM_TO_SYS(33)
+#define GPIO_MOTOR_PWM		3
 
 #define GP_CLK_ID                        0 /* gp clk 0 */
 #define GP_CLK_M_DEFAULT                 1
@@ -78,109 +79,140 @@
 #define GP_CLK_D_MAX                     GP_CLK_N_DEFAULT
 #define GP_CLK_D_HALF                    (GP_CLK_N_DEFAULT >> 1)
 
-#define MOTOR_AMP                        120
+#define MOTOR_AMP                        88
 #endif
 
 #if defined(CONFIG_ANDROID_VIBRATOR)
-static struct gpiomux_setting vibrator_suspend_cfg = {
+static struct gpiomux_setting vibrator_suspend_cfg_gpio3 = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-/* gpio 3 */
-static struct gpiomux_setting vibrator_active_cfg_gpio3 = {
+static struct gpiomux_setting vibrator_active_cfg = {
 	.func = GPIOMUX_FUNC_2, /*gp_mn:2 */
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct msm_gpiomux_config gpio2_vibrator_configs[] = {
-	{
-		.gpio = 3,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &vibrator_active_cfg_gpio3,
-			[GPIOMUX_SUSPENDED] = &vibrator_suspend_cfg,
-		},
-	},
+static struct msm_gpiomux_config gpio3_vibrator_configs[] = {
+        {
+                .gpio = GPIO_MOTOR_PWM,
+                .settings = {
+                        [GPIOMUX_ACTIVE]    = &vibrator_active_cfg,
+                        [GPIOMUX_SUSPENDED] = &vibrator_suspend_cfg_gpio3,
+                },
+        },
 };
 
-static int gpio_vibrator_en = 33;
-static int gpio_vibrator_pwm = 3;
+static struct msm_xo_voter *vib_clock;
+static int gpio_vibrator_en = GPIO_MOTOR_EN;
 static int gp_clk_id = 0;
+static DEFINE_MUTEX(vib_lock);
 
-static int vibrator_gpio_init(void)
+static void vibrator_clock_init(void)
 {
-	gpio_vibrator_en = GPIO_LIN_MOTOR_EN;
-	gpio_vibrator_pwm = GPIO_LIN_MOTOR_PWM;
-	return 0;
+	/* Vote for XO clock */
+	vib_clock = msm_xo_get(MSM_XO_TCXO_D0, "vib_clock");
+	if (IS_ERR(vib_clock)) {
+		pr_warn("%s: Couldn't get TCXO_D0 vote for vibrator\n",
+				__func__);
+	}
+}
+
+static inline void vibrator_clock_on(void)
+{
+	if (msm_xo_mode_vote(vib_clock, MSM_XO_MODE_ON) < 0)
+		pr_warn("%s: Failed to vote for TCX0_D0_ON\n", __func__);
+}
+
+static inline void vibrator_clock_off(void)
+{
+	if (msm_xo_mode_vote(vib_clock, MSM_XO_MODE_OFF) < 0)
+		pr_warn("%s: Failed to vote for TCX0_D0_OFF\n", __func__);
 }
 #endif
 
 #ifdef CONFIG_ANDROID_VIBRATOR
 static struct regulator *vreg_l16 = NULL;
-static bool snddev_reg_8921_l16_status = false;
+static int vibrator_enabled = 0;
 
 static int vibrator_power_set(int enable)
 {
-	int rc = -EINVAL;
-	if (NULL == vreg_l16) {
-		vreg_l16 = regulator_get(NULL, "vibrator");   //2.6 ~ 3V
-		INFO_MSG("enable=%d\n", enable);
-
-		if (IS_ERR(vreg_l16)) {
-			pr_err("%s: regulator get of vibrator failed (%ld)\n"
-					, __func__, PTR_ERR(vreg_l16));
-			printk("woosock ERROR\n");
-			rc = PTR_ERR(vreg_l16);
-			return rc;
-		}
-	}
-	rc = regulator_set_voltage(vreg_l16, 2800000, 2800000);
-	
-	if (enable == snddev_reg_8921_l16_status)
+	int rc;
+	if (enable == vibrator_enabled)
 		return 0;
 
+	mutex_lock(&vib_lock);
+
+	rc = regulator_set_voltage(vreg_l16, 2800000, 2800000);
+	
+	if (rc < 0)
+		pr_err("%s: regulator_set_voltage failed\n", __func__);
+
+	vibrator_enabled = enable;
+
 	if (enable) {
-		rc = regulator_set_voltage(vreg_l16, 2800000, 2800000);
-		if (rc < 0)
-			pr_err("LGE:  VIB %s: regulator_set_voltage(l1) failed (%d)\n",
-			__func__, rc);
 			
 		rc = regulator_enable(vreg_l16);
 
 		if (rc < 0)
-			pr_err("LGE: VIB %s: regulator_enable(l1) failed (%d)\n", __func__, rc);
-		snddev_reg_8921_l16_status = true;
-
+			pr_err("%s: regulator_enable failed\n", __func__);
+		else {
+			rc = gpio_request(GPIO_MOTOR_PWM, "motor_pwm");
+			if (rc < 0)
+				pr_warn("%s: gpio_request failed\n", __func__);
+			vibrator_clock_on();
+		}
 	} else {
-		rc = regulator_disable(vreg_l16);
-		if (rc < 0)
-			pr_err("%s: regulator_disable(l1) failed (%d)\n", __func__, rc);
-		snddev_reg_8921_l16_status = false;
+		if (regulator_is_enabled(vreg_l16) > 0 ) {
+			vibrator_clock_off();
+			gpio_free(GPIO_MOTOR_PWM);
+			rc = regulator_disable(vreg_l16);
+			if (rc < 0)
+				pr_err("%s: regulator_disable failed\n", __func__);
+		}
 	}	
 
-	return 0;
+	mutex_unlock(&vib_lock);
+
+	return rc;
+}
+
+static inline int vibrator_adjust_amp(int amp)
+{
+	int level = 0;
+	bool minus = false;
+
+	if (amp < 0) {
+		minus = true;
+		amp = -amp;
+	}
+
+	level = (2 * amp * (GP_CLK_D_HALF-2) + 100) / (2 * 100);
+	if (!level && amp)
+		level = 1;
+
+	if (minus && level)
+		level = -level;
+
+	return level;
 }
 
 static int vibrator_pwm_set(int enable, int amp, int n_value)
 {
-	/* TODO: set clk for amp */
 	uint M_VAL = GP_CLK_M_DEFAULT;
-	uint D_VAL = GP_CLK_D_MAX;
-	uint D_INV = 0;                 /* QCT support invert bit for msm8960 */
+	uint D_VAL = 0;
+	uint D_INV = 0;
 	uint clk_id = gp_clk_id;
 
-	INFO_MSG("amp=%d, n_value=%d\n", amp, n_value);
+	pr_debug("amp=%d, n_value=%d\n", amp, n_value);
 
 	if (enable) {
-		D_VAL = ((GP_CLK_D_MAX * amp) >> 7);
+		if (amp)
+			D_VAL = vibrator_adjust_amp(amp) + GP_CLK_D_HALF;
 		if (D_VAL > GP_CLK_D_HALF) {
-			if (D_VAL == GP_CLK_D_MAX) {      /* Max duty is 99% */
-				D_VAL = 2;
-			} else {
-				D_VAL = GP_CLK_D_MAX - D_VAL;
-			}
+			D_VAL = GP_CLK_D_MAX - D_VAL;
 			D_INV = 1;
 		}
 
@@ -200,7 +232,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 			(3U << 3U) +   /* PRE_DIV_SEL[4:3]  : Div-4 (3) */
 			(5U << 0U)),   /* SRC_SEL[2:0]      : CXO (5)  */
 			GPn_NS_REG(clk_id));
-		INFO_MSG("GPIO_LIN_MOTOR_PWM is enable with M=%d N=%d D=%d\n",
+		pr_debug("GPIO_LIN_MOTOR_PWM is enable with M=%d N=%d D=%d\n",
 				M_VAL, n_value, D_VAL);
 	} else {
 		REG_WRITEL(
@@ -214,7 +246,7 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 			(3U << 3U) +   /* PRE_DIV_SEL[4:3]  : Div-4 (3) */
 			(5U << 0U)),   /* SRC_SEL[2:0]      : CXO (5)  */
 			GPn_NS_REG(clk_id));
-		INFO_MSG("GPIO_LIN_MOTOR_PWM is disalbe \n");
+		pr_debug("GPIO_LIN_MOTOR_PWM is disalbe \n");
 	}
 
 	return 0;
@@ -222,15 +254,12 @@ static int vibrator_pwm_set(int enable, int amp, int n_value)
 
 static int vibrator_ic_enable_set(int enable)
 {
-	int gpio_lin_motor_en = 0;
-	gpio_lin_motor_en = PM8921_GPIO_PM_TO_SYS(GPIO_LIN_MOTOR_EN);
-
-	INFO_MSG("enable=%d\n", enable);
+	pr_debug("enable=%d\n", enable);
 
 	if (enable)
-		gpio_direction_output(gpio_lin_motor_en, 1);
+		gpio_set_value(gpio_vibrator_en, 1);
 	else
-		gpio_direction_output(gpio_lin_motor_en, 0);
+		gpio_set_value(gpio_vibrator_en, 0);
 
 	return 0;
 }
@@ -238,34 +267,35 @@ static int vibrator_ic_enable_set(int enable)
 static int vibrator_init(void)
 {
 	int rc;
-	int gpio_motor_en = 0;
-	int gpio_motor_pwm = 0;
-
-	gpio_motor_en = gpio_vibrator_en;
-	gpio_motor_pwm = gpio_vibrator_pwm;
 
 	/* GPIO function setting */
-	msm_gpiomux_install(gpio2_vibrator_configs,
-			ARRAY_SIZE(gpio2_vibrator_configs));
+	msm_gpiomux_install(gpio3_vibrator_configs,
+			ARRAY_SIZE(gpio3_vibrator_configs));
 
-	/* GPIO setting for Motor EN in pmic8921 */
-	gpio_motor_en = PM8921_GPIO_PM_TO_SYS(GPIO_LIN_MOTOR_EN);
-	rc = gpio_request(gpio_motor_en, "lin_motor_en");
+	rc = gpio_request_one(gpio_vibrator_en, GPIOF_OUT_INIT_LOW, "motor_en");
 	if (rc) {
-		ERR_MSG("GPIO_LIN_MOTOR_EN %d request failed\n", gpio_motor_en);
-		return 0;
+		pr_err("GPIO_LIN_MOTOR_EN %d request failed\n", gpio_vibrator_en);
+		return rc;
 	}
 
-	/* gpio init */
-	rc = gpio_request(gpio_motor_pwm, "lin_motor_pwm");
-	if (unlikely(rc < 0))
-		ERR_MSG("not able to get gpio\n");
+	vreg_l16 = regulator_get(NULL, "8921_l16");   //2.6 ~ 3V
+	if (IS_ERR(vreg_l16)) {
+		rc = PTR_ERR(vreg_l16);
+		pr_err("%s: regulator get of vibrator failed\n",
+				__func__);
+		goto err_regulator_get;
+	}
 
+	vibrator_clock_init();
 	vibrator_ic_enable_set(0);
 	vibrator_pwm_set(0, 0, GP_CLK_N_DEFAULT);
 	vibrator_power_set(0);
 
 	return 0;
+
+err_regulator_get:
+	gpio_free(gpio_vibrator_en);
+	return rc;
 }
 
 static struct android_vibrator_platform_data vibrator_data = {
@@ -587,10 +617,6 @@ void __init apq8064_init_misc(void)
        rc = regulator_enable(vreg_l9);
 #endif
 //LGE_CHANGE_E, ar0804.han@lge.com
-#if defined(CONFIG_ANDROID_VIBRATOR)
-	vibrator_gpio_init();
-#endif
-
 	platform_add_devices(misc_devices, ARRAY_SIZE(misc_devices));
 
 #ifdef CONFIG_SLIMPORT_ANX7808

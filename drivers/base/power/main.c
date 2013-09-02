@@ -1060,6 +1060,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	if (async_error)
 		goto Complete;
+
 	/*
 	 * If a device configured to wake up the system from sleep states
 	 * has been suspended at run time and there's a resume request pending
@@ -1140,7 +1141,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	del_timer_sync(&timer);
 	destroy_timer_on_stack(&timer);
 
-Complete:
+ Complete:
 	complete_all(&dev->power.completion);
 
 	if (error)

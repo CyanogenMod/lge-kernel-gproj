@@ -32,8 +32,11 @@
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
 
-#define READ_HSIC_BUF_SIZE 2048
+#ifdef CONFIG_MACH_LGE
+#include "mtsk_tty.h"
+#endif /* CONFIG_MACH_LGE */
 
+#define READ_HSIC_BUF_SIZE 2048
 
 #ifdef CONFIG_LGE_USB_DIAG_DISABLE
 #include "diag_lock.h"
@@ -52,6 +55,9 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	int err = 0;
 	int write_ptrs_available;
 
+#ifdef CONFIG_MACH_LGE
+	if (mtsk_tty->run == 0) {
+#endif /* CONFIG_MACH_LGE */
 #ifdef CONFIG_LGE_USB_DIAG_DISABLE
 	if(diag_enable == 0)
 	{
@@ -59,6 +65,10 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 		return;
 	}
 #endif
+#ifdef CONFIG_MACH_LGE
+	}
+#endif /* CONFIG_MACH_LGE */
+
 	if (!driver->hsic_ch) {
 		pr_err("DIAG in %s: driver->hsic_ch == 0\n", __func__);
 		return;
@@ -82,6 +92,14 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	}
 #endif
 
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE) {
+			write_ptrs_available = driver->poolsize_hsic_write -
+						driver->num_hsic_buf_tbl_entries;
+		}
+#endif
+
+
 	/*
 	 * Queue up a read on the HSIC for all available buffers in the
 	 * pool, exhausting the pool.
@@ -95,6 +113,13 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 			break;
 
 		write_ptrs_available--;
+
+		/*
+		 * No sense queuing a read if the hsic bridge was
+		 * closed in another thread
+		 */
+		if (!driver->hsic_ch)
+			break;
 
 		buf_in_hsic = diagmem_alloc(driver, READ_HSIC_BUF_SIZE,
 							POOL_TYPE_HSIC);
@@ -132,7 +157,8 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 	 * (-ENODEV is an unrecoverable error), then set up the next read
 	 */
 	if ((driver->count_hsic_pool < driver->poolsize_hsic) &&
-		(num_reads_submitted == 0) && (err != -ENODEV))
+		(num_reads_submitted == 0) && (err != -ENODEV) &&
+		(driver->hsic_ch != 0))
 		queue_work(driver->diag_bridge_wq,
 				 &driver->diag_read_hsic_work);
 }
@@ -163,6 +189,17 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 	}
 #endif
 
+#ifdef CONFIG_LGE_DM_DEV
+		if ((actual_size == 0) &&
+			(driver->logging_mode == DM_DEV_MODE)) {
+			diagmem_free(driver, buf, POOL_TYPE_HSIC);
+			queue_work(driver->diag_bridge_wq,
+				&driver->diag_read_hsic_work);
+			return;
+		}
+#endif
+
+
 	/*
 	 * Note that zero length is valid and still needs to be sent to
 	 * the USB only when we are logging data to the USB
@@ -177,11 +214,25 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 			 * appropriate device, e.g. USB MDM channel
 			 */
 			driver->write_len_mdm = actual_size;
+#ifdef CONFIG_MACH_LGE
+#ifdef DIAG_DEBUG
+			print_hex_dump(KERN_DEBUG, "HSIC DATA ",
+					DUMP_PREFIX_OFFSET, 16, 1,
+					buf, actual_size, 1);
+#endif
+			if (mtsk_tty->run) {
+				mtsk_tty_process(buf, actual_size);
+				diagmem_free(driver, buf, POOL_TYPE_HSIC);
+				queue_work(driver->diag_bridge_wq,
+						&driver->diag_read_hsic_work);
+				return;
+			}
+#endif /* CONFIG_MACH_LGE */
 			err = diag_device_write((void *)buf, HSIC_DATA, NULL);
 			/* If an error, return buffer to the pool */
 			if (err) {
 				diagmem_free(driver, buf, POOL_TYPE_HSIC);
-				pr_err("diag: In %s, error calling diag_device_write, err: %d\n",
+				pr_err_ratelimited("diag: In %s, error calling diag_device_write, err: %d\n",
 					__func__, err);
 			}
 		}
@@ -212,6 +263,13 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 		queue_work(driver->diag_bridge_wq,
 				 &driver->diag_read_hsic_work);
 #endif
+
+#ifdef CONFIG_LGE_DM_DEV
+	if (err && (driver->logging_mode == DM_DEV_MODE))
+		queue_work(driver->diag_bridge_wq,
+				 &driver->diag_read_hsic_work);
+#endif
+
 
 }
 
@@ -245,10 +303,21 @@ static int diag_hsic_suspend(void *ctxt)
 	if (driver->logging_mode == MEMORY_DEVICE_MODE)
 		return -EBUSY;
 
+#ifdef CONFIG_MACH_LGE
+	if(mtsk_tty->run)
+		return -EBUSY;
+#endif /* CONFIG_MACH_LGE */
+
 #ifdef CONFIG_LGE_DM_APP
 	if (driver->logging_mode == DM_APP_MODE)
 		return -EBUSY;
 #endif
+
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE)
+			return -EBUSY;
+#endif
+
 
 	driver->hsic_suspend = 1;
 
@@ -267,6 +336,15 @@ static void diag_hsic_resume(void *ctxt)
 		return;
 	}
 #endif
+
+#ifdef CONFIG_LGE_DM_DEV
+	if (driver->logging_mode == DM_DEV_MODE) {
+		queue_work(driver->diag_bridge_wq,
+			 &driver->diag_read_hsic_work);
+		return;
+	}
+#endif
+
 
 #ifdef CONFIG_USB_G_LGE_ANDORID
 	/*
@@ -352,6 +430,15 @@ int diagfwd_connect_bridge(int process_cable)
 	}
 #endif
 
+#ifdef CONFIG_LGE_DM_DEV
+		if ((process_cable) && (driver->logging_mode == DM_DEV_MODE)) {
+			printk(KERN_DEBUG "diag: USB connected in DM_APP_MODE\n");
+			driver->usb_mdm_connected = 1;
+			return 0;
+		}
+#endif
+
+
 	mutex_lock(&driver->bridge_mutex);
 	/* If the usb cable is being connected */
 	if (process_cable) {
@@ -429,6 +516,15 @@ int diagfwd_disconnect_bridge(int process_cable)
 		return 0;
 	}
 #endif
+
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE) {
+			printk(KERN_DEBUG "diag: USB connected in DM_DEV_MODE\n");
+			driver->usb_mdm_connected = 0;
+			return 0;
+		}
+#endif
+
 
 	mutex_lock(&driver->bridge_mutex);
 
@@ -598,7 +694,9 @@ static void diag_read_mdm_work_fn(struct work_struct *work)
 		usb_diag_read(driver->mdm_ch, driver->usb_read_mdm_ptr);
 		return;
 	}
-
+#ifdef CONFIG_MACH_LGE
+	if (mtsk_tty->run == 0) {
+#endif /* CONFIG_MACH_LGE */
 #ifdef CONFIG_LGE_USB_DIAG_DISABLE
 	if (diag_enable == 0)
 	{
@@ -606,6 +704,9 @@ static void diag_read_mdm_work_fn(struct work_struct *work)
 		return;
 	}
 #endif
+#ifdef CONFIG_MACH_LGE
+	}
+#endif /* CONFIG_MACH_LGE */
 
 	/* if SMUX not enabled, check for HSIC */
 	if (!driver->hsic_ch) {
@@ -725,6 +826,42 @@ static int diag_hsic_probe(struct platform_device *pdev)
 				 &driver->diag_read_hsic_work);
 	}
 #endif
+
+#ifdef CONFIG_LGE_DM_DEV
+		else if (driver->logging_mode == DM_DEV_MODE) {
+			if (driver->hsic_device_opened) {
+				/* should not happen. close it before re-opening */
+				pr_warn("diag: HSIC channel already opened in probe\n");
+				diag_bridge_close();
+			}
+	
+			err = diag_bridge_open(&hsic_diag_bridge_ops);
+			if (err) {
+				pr_err("diag: could not open HSIC, err: %d\n", err);
+				driver->hsic_device_opened = 0;
+				mutex_unlock(&driver->bridge_mutex);
+				return err;
+			}
+	
+			pr_info("diag: opened HSIC channel\n");
+			driver->hsic_device_opened = 1;
+			driver->hsic_ch = 1;
+	
+			driver->in_busy_hsic_read_on_device = 0;
+			driver->in_busy_hsic_write = 0;
+	
+			if (driver->usb_mdm_connected) {
+				/* Poll USB mdm channel to check for data */
+				queue_work(driver->diag_bridge_wq,
+						 &driver->diag_read_mdm_work);
+			}
+	
+			/* Poll HSIC channel to check for data */
+			queue_work(driver->diag_bridge_wq,
+					 &driver->diag_read_hsic_work);
+		}
+#endif
+
 
 	/* The hsic (diag_bridge) platform device driver is enabled */
 	driver->hsic_device_enabled = 1;
@@ -877,3 +1014,9 @@ void diagfwd_bridge_exit(void)
 	kfree(driver->usb_read_mdm_ptr);
 	destroy_workqueue(driver->diag_bridge_wq);
 }
+
+#ifdef CONFIG_MACH_LGE
+int mtsk_tty_send_mask(struct diag_request *diag_read_ptr) {
+	return diagfwd_read_complete_bridge(diag_read_ptr);
+}
+#endif /* CONFIG_MACH_LGE */

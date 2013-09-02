@@ -811,7 +811,8 @@ apq8064_rpm_regulator_init_data[] __devinitdata = {
 /* LGE_CHANGE_S sungwoo.cho@lge.com 
  * It is setting for HEADSET MICBIAS that is always on */
  //[LGE] seungkyu.joo, 2012-12-18 , HW Request for enabling apple headset mic
-#if defined(CONFIG_MACH_APQ8064_J1SK)|| defined(CONFIG_MACH_APQ8064_J1KT)|| defined(CONFIG_MACH_APQ8064_J1U)
+#if 1//defined(CONFIG_MACH_APQ8064_J1SK)|| defined(CONFIG_MACH_APQ8064_J1KT)|| defined(CONFIG_MACH_APQ8064_J1U)|| defined(CONFIG_MACH_APQ8064_J1A)
+	//||defined(CONFIG_MACH_APQ8064_J1R) || defined(CONFIG_MACH_APQ8064_J1B) || defined(CONFIG_MACH_APQ8064_J1TL) || defined(CONFIG_MACH_APQ8064_J1SP)
 	RPM_LDO(L29, 0, 1, 1, 2700000, 2700000, NULL,          0,     0), //8921_l29
 #else
 	RPM_LDO(L29, 0, 1, 1, 2000000, 2000000, NULL,          0,     0), //8921_l29

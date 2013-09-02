@@ -184,6 +184,7 @@ struct msm_sensor_fn_t {
 	int8_t (*sensor_set_exif_rotation)(struct msm_sensor_ctrl_t *, int);					//Insert Rotation Information In EXIF by jungki.kim@lge.com
 	int8_t (*sensor_set_exif_gps)(struct msm_sensor_ctrl_t *, struct k_exif_gps_t*);		//Set GPS Exif Tags For GK/GV by jungki.kim@lge.com
 	int8_t (*sensor_set_asd_enable)(struct msm_sensor_ctrl_t *, int32_t);					//Support ASD for CE1702 by gayoung85.lee
+	int32_t (*sensor_set_exif_thumbnail_size) (struct msm_sensor_ctrl_t *, struct dimen_t*);
 /* LGE_CHANGE_E, Added For CE1702 For GK/GV, 2012.10.22, jungki.kim[End] */
 };
 

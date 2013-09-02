@@ -16,6 +16,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
+#include <linux/ratelimit.h>
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
 #include <linux/diagchar.h>
@@ -39,6 +40,9 @@
 #endif
 #include "diag_dci.h"
 
+#ifndef DIAG_DEBUG
+#include <mach/board_lge.h>
+#endif
 #define MODE_CMD		41
 #define RESET_ID		2
 #define ALL_EQUIP_ID		100
@@ -48,6 +52,11 @@
 #ifdef CONFIG_LGE_DM_APP
 #include "lg_dm_tty.h"
 #endif
+
+#ifdef CONFIG_LGE_DM_DEV
+#include "lg_dm_dev_tty.h"
+#endif /*CONFIG_LGE_DM_DEV*/
+
 
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
@@ -421,6 +430,16 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			print_hex_dump(KERN_DEBUG, "Written Packet Data to"
 					   " USB: ", 16, 1, DUMP_PREFIX_ADDRESS,
 					    buf, write_ptr->length, 1);
+#else
+			if(lge_get_boot_cable_type() == LGE_BOOT_LT_CABLE_56K || lge_get_boot_cable_type() == LGE_BOOT_LT_CABLE_910K || lge_get_boot_cable_type()==LGE_BOOT_LT_CABLE_130K){
+				if(((write_ptr->buf[0]) == 0xFA)||((write_ptr->buf[0])== 0xA1)){
+					printk(KERN_INFO "writing data to USB,"
+							"pkt length %d\n", write_ptr->length);
+					print_hex_dump(KERN_DEBUG, "Written Packet Data to"
+							" USB: ", 16, 1, DUMP_PREFIX_ADDRESS,
+							buf, (write_ptr->length > 16) ? 16:write_ptr->length , 1);
+				}
+			}
 #endif /* DIAG DEBUG */
 			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		} else if (proc_num == QDSP_DATA) {
@@ -460,7 +479,8 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 						diagmem_free(driver,
 							write_ptr_mdm,
 							POOL_TYPE_HSIC_WRITE);
-					pr_err("diag: HSIC write failure\n");
+						pr_err_ratelimited("diag: HSIC write failure, err: %d\n",
+							err);
 					}
 				} else {
 					pr_err("diag: allocate write fail\n");
@@ -535,6 +555,59 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 	}
 #endif
 
+//2012-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [START]
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE) {
+			/* only diag cmd #250 for supporting testmode tool */
+			if (proc_num == APPS_DATA) {
+				driver->write_ptr_svc = (struct diag_request *)
+				(diagmem_alloc(driver, sizeof(struct diag_request),
+					 POOL_TYPE_WRITE_STRUCT));
+				if (driver->write_ptr_svc) {
+					driver->write_ptr_svc->length = driver->used;
+					driver->write_ptr_svc->buf = buf;
+					queue_work(lge_dm_dev_tty->dm_dev_wq,
+						&(lge_dm_dev_tty->dm_dev_usb_work));
+					flush_work(&(lge_dm_dev_tty->dm_dev_usb_work));
+	
+				} else {
+					err = -1;
+				}
+				return err;
+			}
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+		else if (proc_num == HSIC_DATA) {
+			unsigned long flags;
+			int foundIndex = -1;
+			spin_lock_irqsave(&driver->hsic_spinlock, flags);
+			for (i = 0; i < driver->poolsize_hsic_write; i++) {
+				if (driver->hsic_buf_tbl[i].length == 0) {
+					driver->hsic_buf_tbl[i].buf = buf;
+					driver->hsic_buf_tbl[i].length =
+							driver->write_len_mdm;
+					driver->num_hsic_buf_tbl_entries++;
+					foundIndex = i;
+					break;
+				}
+			}
+			spin_unlock_irqrestore(&driver->hsic_spinlock, flags);
+			if (foundIndex == -1)
+				err = -1;
+			else
+			{
+//				pr_info("diag: ENQUEUE HSIC buf ptr and length is %x , %d\n",
+//					(unsigned int)buf,
+//					driver->write_len_mdm);
+			}
+			}
+#endif /*CONFIG_DIAG_BRIDGE_CODE*/
+		
+		lge_dm_dev_tty->set_logging = 1;
+		wake_up_interruptible(&lge_dm_dev_tty->waitq);
+
+	}
+#endif /*CONFIG_LGE_DM_DEV*/
+//2012-03-06 seongmook.yim(seongmook.yim@lge.com) [P6/MDMBSP] ADD LGODL [END]
     return err;
 }
 
@@ -1273,7 +1346,12 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 				diag_send_msg_mask_update(driver->ch_wcnss_cntl,
 					 ssid_first, ssid_last, WCNSS_PROC);
 			ENCODE_RSP_AND_SEND(8 + ssid_range - 1);
+#ifndef CONFIG_LGE_SLATE
+      printk(KERN_INFO "[SLATE] Key Logging mask received. NOT L2S, returning..");
 			return 0;
+#else
+      printk(KERN_INFO "[SLATE] Key Logging mask received. Propagate this msg to APPS..");
+#endif
 		} else
 			buf = temp;
 #endif
@@ -1797,6 +1875,24 @@ int diagfwd_connect(void)
 	}
 #endif
 
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE) {
+			printk(KERN_DEBUG "diag: USB connected in DM_APP_MODE\n");
+			driver->usb_connected = 1;
+	
+			err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
+					N_LEGACY_READ);
+			if (err)
+				printk(KERN_ERR "diag: unable to alloc USB req on legacy ch");
+	
+			/* Poll USB channel to check for data*/
+			queue_work(driver->diag_wq, &(driver->diag_read_work));
+	
+			return 0;
+		}
+#endif
+
+
 	printk(KERN_DEBUG "diag: USB connected\n");
 	err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
 			N_LEGACY_READ);
@@ -1844,6 +1940,17 @@ int diagfwd_disconnect(void)
 
 		return 0;
 	}
+#endif
+
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE) {
+			printk(KERN_DEBUG "diag: USB disconnected in DM_DEV_MODE\n");
+			driver->usb_connected = 0;
+	
+			usb_diag_free_req(driver->legacy_ch);
+	
+			return 0;
+		}
 #endif
 
 	printk(KERN_DEBUG "diag: USB disconnected\n");
@@ -1931,6 +2038,16 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 		print_hex_dump(KERN_DEBUG, "Read Packet Data from USB: ", 16, 1,
 		       DUMP_PREFIX_ADDRESS, diag_read_ptr->buf,
 		       diag_read_ptr->actual, 1);
+#else
+		if(lge_get_boot_cable_type() == LGE_BOOT_LT_CABLE_56K || lge_get_boot_cable_type() == LGE_BOOT_LT_CABLE_910K ||lge_get_boot_cable_type()==LGE_BOOT_LT_CABLE_130K){
+			if(((diag_read_ptr->buf[0]) == 0xFA)||((diag_read_ptr->buf[0])== 0xA1)){
+				printk(KERN_INFO "read data from USB, pkt length %d",
+						diag_read_ptr->actual);
+				print_hex_dump(KERN_DEBUG, "Read Packet Data from USB: ", 16, 1,
+						DUMP_PREFIX_ADDRESS, diag_read_ptr->buf,
+						(diag_read_ptr->actual>16)?16:diag_read_ptr->actual, 1);
+			}
+		}
 #endif /* DIAG DEBUG */
 		if (driver->logging_mode == USB_MODE) {
 			if (status != -ECONNRESET && status != -ESHUTDOWN)
@@ -1951,6 +2068,18 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 						 &(driver->diag_read_work));
 		}
 #endif
+
+#ifdef CONFIG_LGE_DM_DEV
+			if (driver->logging_mode == DM_DEV_MODE) {
+				if (status != -ECONNRESET && status != -ESHUTDOWN)
+					queue_work(driver->diag_wq,
+						&(driver->diag_proc_hdlc_work));
+				else
+					queue_work(driver->diag_wq,
+							 &(driver->diag_read_work));
+			}
+#endif
+
 
 	}
 #ifdef CONFIG_DIAG_SDIO_PIPE

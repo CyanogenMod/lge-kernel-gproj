@@ -25,7 +25,7 @@
 #include <linux/input/lge_touch_core.h>
 #include <linux/input/touch_synaptics.h>
 
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #include "SynaImage_for_GK.h"
 #elif defined(CONFIG_MACH_APQ8064_GVDCM)
 #include "SynaImage_for_DCM.h"
@@ -132,15 +132,6 @@
 #define BUTTON_COMMAND_REG				(ts->button_fc.dsc.command_base)
 #define BUTTON_DATA_REG					(ts->button_fc.dsc.data_base)			/* Button Data */
 
-#ifdef CONFIG_MACH_APQ8064_GK_KR
-#define BUTTON_CONTROL_REG				(ts->button_fc.dsc.control_base)
-#define BUTTON_PRESS_THRESHOLD			0x68
-#define BUTTON_RELEASE_THRESHOLD		0xCD
-#define BUTTON_PRESS_THRESH_REG_0	(BUTTON_CONTROL_REG+11)
-#define BUTTON_PRESS_THRESH_REG_1	(BUTTON_CONTROL_REG+12)
-#define BUTTON_RELEASE_THRESH_REG	(BUTTON_CONTROL_REG+15)
-#endif
-
 #define MAX_NUM_OF_BUTTON				4
 
 /* ANALOG_CONTROL */
@@ -208,7 +199,7 @@
 u8 pressure_zero = 0;
 extern int ts_charger_plug;
 extern int ts_charger_type;
-#ifdef G_ONLY
+#ifdef CUST_G_TOUCH_FREQ_HOPPING
 extern int cur_hopping_idx;
 int cns_en = 0;
 u8 hopping = 0;
@@ -287,18 +278,18 @@ int synaptics_ts_get_data(struct i2c_client *client, struct touch_data* data)
 	u8 index=0;
 	u8 buf=0;
 	u8 cnt;
-#ifdef G_ONLY
 	u8 buf2=0;
 	u16 alpha = 0;
 	u8 cns = 0;
 	u16 im = 0;
 	u16 vm = 0;
 	u16 aim = 0;
-	hopping = 0;
-#endif
 	data->total_num = 0;
 #ifdef CUST_G_TOUCH
 	pressure_zero = 0;
+#ifdef CUST_G_TOUCH_FREQ_HOPPING
+	hopping = 0;
+#endif
 #endif
 
 	if (unlikely(touch_debug_mask & DEBUG_TRACE))
@@ -462,8 +453,8 @@ int synaptics_ts_get_data(struct i2c_client *client, struct touch_data* data)
 	}
 	data->palm = buf & 0x2;
 
-#ifdef G_ONLY
-	if(ts_charger_plug == 1 && (data->prev_total_num != data->total_num)) {
+	if( (ts_charger_plug == 1 && (data->prev_total_num != data->total_num)) ||
+		(touch_debug_mask & DEBUG_NOISE) ) {
 		if (unlikely(synaptics_ts_page_data_read(client, ANALOG_PAGE, 0x0e, 1, &buf) < 0)) {
 			TOUCH_ERR_MSG("Alpha REG read fail\n");
 			goto err_synaptics_getdata;
@@ -478,11 +469,12 @@ int synaptics_ts_get_data(struct i2c_client *client, struct touch_data* data)
 			TOUCH_ERR_MSG("Current Noise State REG read fail\n");
 			goto err_synaptics_getdata;
 		}
+#ifdef CUST_G_TOUCH_FREQ_HOPPING
 		if(ts_charger_plug && cns >= 1) {
 			cns_en = 1;
 			if(cur_hopping_idx != 4){
 				buf = 0x84;
-				//synaptics_ts_page_data_write(client, 0x01, 0x04, 1, &buf);
+				synaptics_ts_page_data_write(client, 0x01, 0x04, 1, &buf);
 				cur_hopping_idx = 4;
 				hopping = 1;
 				TOUCH_INFO_MSG("cur_hopping_idx [ %s ] = %x %x \n", __func__, buf, hopping);
@@ -490,7 +482,7 @@ int synaptics_ts_get_data(struct i2c_client *client, struct touch_data* data)
 				hopping = 0;
 			}
 		}
-
+#endif
 		if (unlikely(synaptics_ts_page_data_read(client, ANALOG_PAGE, 0x05, 1, &buf) < 0)) {
 			TOUCH_ERR_MSG("Interference Metric REG read fail\n");
 			goto err_synaptics_getdata;
@@ -521,9 +513,8 @@ int synaptics_ts_get_data(struct i2c_client *client, struct touch_data* data)
 		}
 		aim = (buf2<<8)|buf;
 
-		TOUCH_INFO_MSG("A[%5d]   CNS[%d]   IM[%5d]   VM[%5d]   AIM[%5d]\n", alpha, cns, im, vm, aim);
+		TOUCH_INFO_MSG("  A[%5d]   CNS[%d]   IM[%5d]   VM[%5d]   AIM[%5d]\n", alpha, cns, im, vm, aim);
 	}
-#endif
 
 	return 0;
 
@@ -650,7 +641,7 @@ int get_ic_info(struct synaptics_ts_data* ts, struct touch_fw_info* fw_info)
 		return -EIO;
 	}
 
-	/* Product ID - G:TM2000, GJ:TM2372, GK:PLG124(LGIT G1F), PLG192(SUNTEL GFF) , PLG193(LGIT GFF), GV:PLG121(LGIT), PLG184(TPK) */
+	/* Product ID - G:TM2000, GJ:TM2372, GK:PLG124(LGIT G1F), PLG192(SUNTEL GFF) , PLG193(LGIT GFF), PLG207(LGIT GFF HYBRID), GV:PLG121(LGIT), PLG184(TPK) */
 	if (unlikely(touch_i2c_read(ts->client, PRODUCT_ID_REG,
 			sizeof(ts->fw_info.product_id) - 1, ts->fw_info.product_id) < 0)) {
 		TOUCH_ERR_MSG("PRODUCT_ID_REG read fail\n");
@@ -720,6 +711,10 @@ int get_ic_info(struct synaptics_ts_data* ts, struct touch_fw_info* fw_info)
 		ts->ic_panel_type = GK_IC7020_GFF_LGIT;
 		TOUCH_INFO_MSG("IC is 7020, H pattern, panel is GFF. LGIT");
 		ts->interrupt_mask.button = 0x10;
+	} else if(!strncmp(ts->fw_info.product_id, "PLG207", 6)) {	//GK PANEL LGIT GFF HYBRID
+		ts->ic_panel_type = GK_IC7020_GFF_LGIT_HYBRID;
+		TOUCH_INFO_MSG("IC is 7020, H pattern, panel is GFF. LGIT");
+		ts->interrupt_mask.button = 0x10;
 	} else if(!strncmp(ts->fw_info.product_id, "PLG121", 6)) {	//GV PANEL
 		ts->ic_panel_type = GV_IC7020_G2_H_PTN_LGIT;
 		TOUCH_INFO_MSG("IC is 7020, H pattern, panel is G2. LGIT");
@@ -764,7 +759,7 @@ int get_ic_info(struct synaptics_ts_data* ts, struct touch_fw_info* fw_info)
 			}
 #endif
 
-#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)
+#if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	switch(ts->ic_panel_type){
 		case GK_IC7020_G1F:
 			memcpy(&SynaFirmware[0], &SynaFirmware_PLG124[0], sizeof(SynaFirmware));
@@ -774,6 +769,9 @@ int get_ic_info(struct synaptics_ts_data* ts, struct touch_fw_info* fw_info)
 			break;
 		case GK_IC7020_GFF_LGIT:
 			memcpy(&SynaFirmware[0], &SynaFirmware_PLG193[0], sizeof(SynaFirmware));
+			break;
+		case GK_IC7020_GFF_LGIT_HYBRID:
+			memcpy(&SynaFirmware[0], &SynaFirmware_PLG207[0], sizeof(SynaFirmware));
 			break;
 		default:
 			TOUCH_ERR_MSG("UNKNOWN PANEL(GK). SynaImage set error");
@@ -830,7 +828,7 @@ int get_ic_info(struct synaptics_ts_data* ts, struct touch_fw_info* fw_info)
 		ts->fw_info.fw_rev = 0;
 		snprintf(ts->fw_info.config_id, sizeof(ts->fw_info.config_id), "ERR");
 #ifdef CUST_G_TOUCH
-		fw_info->fw_upgrade.fw_force_rework = true;
+		fw_info->fw_force_rework = true;
 #endif
 	}
 
@@ -864,7 +862,7 @@ int synaptics_ts_init(struct i2c_client* client, struct touch_fw_info* fw_info)
 			TOUCH_ERR_MSG("DEVICE_CONTROL_REG write fail\n");
 			return -EIO;
 		}
-#ifdef G_ONLY
+#ifdef CUST_G_TOUCH_FREQ_HOPPING
 		if (unlikely(synaptics_ts_page_data_read(client, 0x01, 0x04, 1, &buf) < 0)) {
 			TOUCH_ERR_MSG("Current Hopping Index read fail\n");
 			return -EIO;
@@ -880,7 +878,7 @@ int synaptics_ts_init(struct i2c_client* client, struct touch_fw_info* fw_info)
 			case 1:
 				if(cns_en && cur_hopping_idx != 4){
 					buf = 0x84;
-					//synaptics_ts_page_data_write(client, 0x01, 0x04, 1, &buf);
+					synaptics_ts_page_data_write(client, 0x01, 0x04, 1, &buf);
 					cur_hopping_idx = 4;
 					TOUCH_INFO_MSG("cur_hopping_idx [ %s ] = %x\n", __func__, buf);
 				}
@@ -979,53 +977,6 @@ int synaptics_ts_init(struct i2c_client* client, struct touch_fw_info* fw_info)
 		return -EIO;	// it is critical problem because interrupt will not occur on some FW.
 	}
 
-#ifdef CONFIG_MACH_APQ8064_GK_KR
-	if (unlikely(touch_i2c_write_byte(client, PAGE_SELECT_REG, 0x02) < 0)) {
-		TOUCH_ERR_MSG("PAGE_SELECT_REG write fail\n");
-		return -EIO;
-	}
-
-	if (ts->ic_panel_type == GK_IC7020_GFF_LGIT) {
-		TOUCH_INFO_MSG("Panel type is GK_IC7020_GFF_LGIT, write BUTTON_PRESS_THRESH_REG, BUTTON_RELEASE_THRESH_REG\n");
-		if (unlikely(touch_i2c_write_byte(client, BUTTON_PRESS_THRESH_REG_0, BUTTON_PRESS_THRESHOLD) < 0)) {
-			TOUCH_ERR_MSG("BUTTON_PRESS_THRESH_REG_0 write fail\n");
-			return -EIO;
-		}
-
-		if (unlikely(touch_i2c_write_byte(client, BUTTON_PRESS_THRESH_REG_1, BUTTON_PRESS_THRESHOLD) < 0)) {
-			TOUCH_ERR_MSG("BUTTON_PRESS_THRESH_REG_1 write fail\n");
-			return -EIO;
-		}
-
-		if (unlikely(touch_i2c_write_byte(client, BUTTON_RELEASE_THRESH_REG, BUTTON_RELEASE_THRESHOLD) < 0)) {
-			TOUCH_ERR_MSG("BUTTON_RELEASE_THRESH_REG write fail\n");
-			return -EIO;
-		}
-	} else {
-		TOUCH_INFO_MSG("Panel type is not GK_IC7020_GFF_LGIT\n");
-	}
-
-	if (unlikely(touch_i2c_read(client, BUTTON_PRESS_THRESH_REG_0, 1, &buf) < 0)) {
-		TOUCH_ERR_MSG("BUTTON_PRESS_THRESH_REG_0 read fail\n");
-		return -EIO;
-	}
-	printk("[TOUCH] BTN0 Threshold is : %d\n", buf);
-	if (unlikely(touch_i2c_read(client, BUTTON_PRESS_THRESH_REG_1, 1, &buf) < 0)) {
-		TOUCH_ERR_MSG("BUTTON_PRESS_THRESH_REG_1 read fail\n");
-		return -EIO;
-	}
-	printk("[TOUCH] BTN1 Threshold is : %d\n", buf);
-	if (unlikely(touch_i2c_read(client, BUTTON_RELEASE_THRESH_REG, 1, &buf) < 0)) {
-		TOUCH_ERR_MSG("BUTTON_RELEASE_THRESH_REG read fail\n");
-		return -EIO;
-	}
-	printk("[TOUCH] BTN Release Threshold is : %d\n", buf);
-
-	if (unlikely(touch_i2c_write_byte(client, PAGE_SELECT_REG, 0x00) < 0)) {
-		TOUCH_ERR_MSG("PAGE_SELECT_REG write fail\n");
-		return -EIO;
-	}
-#endif
 	ts->is_probed = 1;
 
 	return 0;

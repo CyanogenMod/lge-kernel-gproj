@@ -1168,7 +1168,10 @@ static struct resource resources_hsusb_host[] = {
 
 #if defined(CONFIG_MACH_APQ8064_GK_KR) || \
     defined(CONFIG_MACH_APQ8064_GKATT) || \
-    defined(CONFIG_MACH_APQ8064_GVDCM)
+    defined(CONFIG_MACH_APQ8064_GVDCM) || \
+    defined(CONFIG_MACH_APQ8064_GV_KR) || \
+	defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+	
 #define HSIC_MDM2AP_PBLRDY       81
 #else	// for J1 project
 #define HSIC_MDM2AP_PBLRDY	 46
