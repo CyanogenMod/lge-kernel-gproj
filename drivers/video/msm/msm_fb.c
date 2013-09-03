@@ -1755,8 +1755,8 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 #if defined(CONFIG_LGE_QC_LCDC_LUT)
 		lge_set_qlut();
 #endif
-//		if (load_888rle_image(INIT_IMAGE_FILE) < 0) /* Flip buffer */
-//			printk(KERN_WARNING "fail to load 888 rle image\n");
+		if (load_888rle_image(INIT_IMAGE_FILE"888") < 0) /* Flip buffer */
+			printk(KERN_WARNING "fail to load 888 rle image\n");
 
 #if defined(CONFIG_MACH_LGE)
         down(&mfd->sem);
