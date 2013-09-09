@@ -481,32 +481,13 @@ struct sg_table *ion_cp_heap_create_sg_table(struct ion_buffer *buffer)
 	if (!table)
 		return ERR_PTR(-ENOMEM);
 
-	if (buf->is_secure && IS_ALIGNED(buffer->size, SZ_1M)) {
-		int n_chunks;
-		int i;
-		struct scatterlist *sg;
+	ret = sg_alloc_table(table, 1, GFP_KERNEL);
+	if (ret)
+		goto err0;
 
-		/* Count number of 1MB chunks. Alignment is already checked. */
-		n_chunks = buffer->size >> 20;
-
-		ret = sg_alloc_table(table, n_chunks, GFP_KERNEL);
-		if (ret)
-			goto err0;
-
-		for_each_sg(table->sgl, sg, table->nents, i) {
-			sg_dma_address(sg) = buf->buffer + i * SZ_1M;
-			sg->length = SZ_1M;
-			sg->offset = 0;
-		}
-	} else {
-		ret = sg_alloc_table(table, 1, GFP_KERNEL);
-		if (ret)
-			goto err0;
-
-		table->sgl->length = buffer->size;
-		table->sgl->offset = 0;
-		table->sgl->dma_address = buffer->priv_phys;
-	}
+	table->sgl->length = buffer->size;
+	table->sgl->offset = 0;
+	table->sgl->dma_address = buffer->priv_phys;
 
 	return table;
 err0:
