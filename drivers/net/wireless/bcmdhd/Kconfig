@@ -52,3 +52,17 @@ config DHD_USE_SCHED_SCAN
 	default n
 	---help---
 	  Use CFG80211 sched scan
+
+config BROADCOM_WIFI_RESERVED_MEM
+       bool "BROADCOM Reserved memory for wifi device"
+       depends on BCMDHD
+       ---help---
+         This is a configuration for broadcom WLAN driver.
+
+config BCM4335BT
+       bool "BROADCOM BTLOCK Enable"
+       depends on BCM4335
+       default y
+       ---help---
+         This is a configuration for bt lock enable.
+
