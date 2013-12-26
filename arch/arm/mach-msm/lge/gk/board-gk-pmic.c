@@ -854,8 +854,13 @@ apq8064_pm8921_bms_pdata __devinitdata = {
 };
 
 static unsigned int keymap[] = {
+#if defined(CONFIG_MACH_APQ8064_GK) //Volume Keys are reversed on Optimus GK
+	KEY(0, 0, KEY_VOLUMEDOWN),
+	KEY(0, 1, KEY_VOLUMEUP),
+#else
 	KEY(0, 0, KEY_VOLUMEUP),
 	KEY(0, 1, KEY_VOLUMEDOWN),
+#endif
 	/* KEY_QUICK_CLIP, KEY_HOMEPAGE for GK_KR Rev. F  */
 #if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 	KEY(1, 0, KEY_QUICK_CLIP),
