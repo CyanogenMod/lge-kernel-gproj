@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/bootmem.h>
+#include <linux/syscalls.h>
 #include <asm/mach-types.h>
 #include <asm/mach/mmc.h>
 #include <mach/msm_bus_board.h>
@@ -582,22 +583,71 @@ static int bcm_wifi_carddetect(int val)
 	return 0;
 }
 
+#define ETHER_ADDR_LEN    6
+#define FILE_WIFI_MACADDR "/dev/block/platform/msm_sdcc.1/by-name/misc"
+
 static int bcm_wifi_get_mac_addr(unsigned char* buf)
 {
+	int ret = 0;
+
+	mm_segment_t oldfs;
+	int fp;
+	int readlen = 0;
+	char macread[128] = {0,};
 	uint rand_mac;
-	static unsigned char mymac[6] = {0,};
-	const unsigned char nullmac[6] = {0,};
-	pr_debug("%s: %p\n", __func__, buf);
+	static unsigned char mymac[ETHER_ADDR_LEN] = {0,};
+	const unsigned char nullmac[ETHER_ADDR_LEN] = {0,};
+	const unsigned char bcastmac[] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
 
 	printk("[%s] Entering...in Board-l1-mmc.c\n", __func__  );
 
 	if( buf == NULL ) return -EAGAIN;
 
-	if( memcmp( mymac, nullmac, 6 ) != 0 )
-	{
-		/* Mac displayed from UI are never updated..
+	memset(buf, 0x00, ETHER_ADDR_LEN);
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+
+	fp = sys_open(FILE_WIFI_MACADDR, O_RDONLY, 0);
+	if (fp < 0) {
+		pr_err("%s: Failed to read error %d for %s\n",
+				__FUNCTION__, fp, FILE_WIFI_MACADDR);
+		goto random_mac;
+	}
+
+	sys_lseek( fp, 0x3000, 0 );
+	readlen = sys_read(fp, macread, 6);
+	if (readlen > 0) {
+		unsigned char* macbin;
+		macbin = (unsigned char*)macread;
+		pr_info("%s: READ MAC ADDRESS %02X:%02X:%02X:%02X:%02X:%02X\n",
+				__FUNCTION__,
+				macbin[0], macbin[1], macbin[2],
+				macbin[3], macbin[4], macbin[5]);
+
+		if (memcmp(macbin, nullmac, ETHER_ADDR_LEN) == 0 ||
+				memcmp(macbin, bcastmac, ETHER_ADDR_LEN) == 0) {
+			sys_close(fp);
+			goto random_mac;
+		}
+		memcpy(buf, macbin, ETHER_ADDR_LEN);
+	} else {
+		sys_close(fp);
+		goto random_mac;
+	}
+
+	sys_close(fp);
+	return ret;
+
+random_mac:
+	set_fs(oldfs);
+
+	pr_debug("%s: %p\n", __func__, buf);
+
+	if (memcmp( mymac, nullmac, ETHER_ADDR_LEN) != 0) {
+		/* Mac displayed from UI is never updated..
 		   So, mac obtained on initial time is used */
-		memcpy( buf, mymac, 6 );
+		memcpy( buf, mymac, ETHER_ADDR_LEN );
 		return 0;
 	}
 

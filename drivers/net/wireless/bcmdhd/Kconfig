@@ -66,3 +66,47 @@ config BCM4335BT
        ---help---
          This is a configuration for bt lock enable.
 
+config BCM4334
+       tristate "Broadcom 4334 wireless cards support"
+       depends on BCMDHD
+       ---help---
+         This module adds support for wireless adapters based on
+         Broadcom 4334 chipset.
+
+config LGE_BCM433X_PATCH
+       bool "BCM433X Patch by LGE"
+       default y
+
+config BCMDHD_GPIO_WL_RESET
+       depends on BCMDHD
+       int "GPIO to the Reset"
+       default 29
+       ---help---
+         GPIO to the Reset
+
+config BCMDHD_HOSTWAKEUP_USE_GPIO
+       depends on BCMDHD
+       bool "Use GPIO to Host Wakeup"
+       ---help---
+         Use GPIO to Host Wakeup
+
+config BCMDHD_HOSTWAKEUP_USE_SDIO
+       depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = n
+       bool "Use SDIO pin to the Host Wakeup"
+       ---help---
+         Use SDIO pin to the Host Wakeup
+
+config BCMDHD_GPIO_WL_HOSTWAKEUP
+       depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = y
+       int "GPIO to the Host Wakeup"
+       default 34
+       ---help---
+         GPIO to the Host Wakeup
+
+config BCMDHD_HW_OOB
+       depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = y
+       bool "Use H/W OOB to the Host Wakeup"
+       default y
+        ---help---
+         Use H/W OOB to the Host Wakeup
+
