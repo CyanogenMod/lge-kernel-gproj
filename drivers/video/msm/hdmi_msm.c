@@ -953,11 +953,6 @@ int hdmi_msm_process_hdcp_interrupts(void)
 			link_status);
 		if (hdmi_msm_state->full_auth_done) {
 			SWITCH_SET_HDMI_AUDIO(0, 0);
-#ifdef CONFIG_MACH_LGE
-			switch_set_state(&external_common_state->sdev, 0);
-			DEV_INFO("Hdmi state switched to %d: %s\n",
-					external_common_state->sdev.state, __func__);
-#endif
 			envp[0] = "HDCP_STATE=FAIL";
 			envp[1] = NULL;
 			DEV_INFO("HDMI HPD:QDSP OFF\n");
@@ -3086,11 +3081,6 @@ static void hdmi_msm_hdcp_enable(void)
 		    KOBJ_CHANGE, envp);
 
 		SWITCH_SET_HDMI_AUDIO(1, 0);
-#ifdef CONFIG_MACH_LGE
-		switch_set_state(&external_common_state->sdev, 1);
-		DEV_INFO("Hdmi state switched to %d: %s\n",
-				external_common_state->sdev.state, __func__);
-#endif
 	}
 
 	return;
@@ -3110,11 +3100,6 @@ error:
 			    &hdmi_msm_state->hdcp_reauth_work);
 	}
 
-#ifdef CONFIG_MACH_LGE
-	switch_set_state(&external_common_state->sdev, 0);
-	DEV_INFO("Hdmi state switched to %d: %s\n",
-			external_common_state->sdev.state, __func__);
-#endif
 	mutex_lock(&hdmi_msm_state_mutex);
 	hdmi_msm_state->hdcp_activating = FALSE;
 	mutex_unlock(&hdmi_msm_state_mutex);
@@ -4569,17 +4554,12 @@ static int hdmi_msm_power_off(struct platform_device *pdev)
 		cancel_work_sync(&hdmi_msm_state->hdcp_reauth_work);
 		cancel_work_sync(&hdmi_msm_state->hdcp_work);
 		del_timer_sync(&hdmi_msm_state->hdcp_timer);
+		hdmi_msm_state->reauth = FALSE;
 
 		hdcp_deauthenticate();
-		hdmi_msm_state->reauth = FALSE;
 	}
 
 	SWITCH_SET_HDMI_AUDIO(0, 0);
-#ifdef CONFIG_MACH_LGE
-	switch_set_state(&external_common_state->sdev, 0);
-	DEV_INFO("Hdmi state switched to %d: %s\n",
-			external_common_state->sdev.state, __func__);
-#endif
 
 	if (!hdmi_msm_is_dvi_mode())
 		hdmi_msm_audio_off();
@@ -4923,8 +4903,6 @@ static int hdmi_msm_hpd_feature(int on)
 		rc = hdmi_msm_hpd_on();
 	} else {
 		if (external_common_state->hpd_state) {
-			external_common_state->hpd_state = 0;
-
 			/* Send offline event to switch OFF HDMI and HAL FD */
 			hdmi_msm_send_event(HPD_EVENT_OFFLINE);
 
@@ -4932,6 +4910,8 @@ static int hdmi_msm_hpd_feature(int on)
 			INIT_COMPLETION(hdmi_msm_state->hpd_event_processed);
 			wait_for_completion_interruptible_timeout(
 				&hdmi_msm_state->hpd_event_processed, HZ);
+
+			external_common_state->hpd_state = 0;
 		}
 
 		hdmi_msm_hpd_off();
