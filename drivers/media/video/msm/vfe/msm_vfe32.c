@@ -5555,38 +5555,10 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	struct vfe_cmd_stats_buf *scfg = NULL;
 	struct vfe_cmd_stats_ack *sack = NULL;
 
-//Start LGE_BSP_CAMERA : mediaserver recovery patch from QCT - jonghwan.ko@lge.com
-#if 0
 	if (!vfe32_ctrl->share_ctrl->vfebase) {
 		pr_err("%s: base address unmapped\n", __func__);
 		return -EFAULT;
 	}
-#else
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-	if (!vfe32_ctrl->share_ctrl->vfebase) {
-		pr_err("%s: base address unmapped\n", __func__);
-		return -EFAULT;
-	}
-#else
-       if (!vfe32_ctrl->share_ctrl->vfebase ) {
-            if(arg) {
-               vfe_params = (struct msm_camvfe_params *)arg;
-               cmd = vfe_params->vfe_cfg;
-               if (cmd->cmd_type != VFE_CMD_STATS_REQBUF &&
-                   cmd->cmd_type != VFE_CMD_STATS_ENQUEUEBUF &&
-                   cmd->cmd_type != VFE_CMD_STATS_FLUSH_BUFQ &&
-                   cmd->cmd_type != VFE_CMD_STATS_UNREGBUF) {
-                   pr_err("%s: base address unmapped\n", __func__);
-                   return -EFAULT;
-               }
-            }
-       else
-                return -EFAULT;
-	   }
-#endif   	
-#endif	
-//End  LGE_BSP_CAMERA : mediaserver recovery patch from QCT - jonghwan.ko@lge.com
-	
 	   
 	CDBG("%s\n", __func__);
 	if (subdev_cmd == VIDIOC_MSM_VFE_INIT) {

@@ -633,13 +633,6 @@ static void msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	pr_err("%s called X\n", __func__); /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 	p_mctl->hardware_running = 0; /* LGE_CHANGE, patch for IOMMU page fault, 2012.09.06, jungryoul.choi@lge.com */
 
-//Start LGE_BSP_CAMERA : qcom-daemon - jonghwan.ko@lge.com
-#if !(defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM)  || defined(CONFIG_MACH_APQ8064_GV_KR) || defined(CONFIG_MACH_APQ8064_GKGLOBAL))
-       pr_err(" %s : Call VIDIOC_MSM_ISPIF_REL  ",__func__);
-	v4l2_subdev_call(p_mctl->ispif_sdev,
-			core, ioctl, VIDIOC_MSM_ISPIF_REL, NULL);
-#endif
-//End  LGE_BSP_CAMERA : qcom-daemon - jonghwan.ko@lge.com
 	pm_qos_update_request(&p_mctl->pm_qos_req_list,
 				PM_QOS_DEFAULT_VALUE);
 	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
