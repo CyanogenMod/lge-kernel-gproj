@@ -21,6 +21,7 @@
 #define TRACE_INCLUDE_FILE adreno_trace
 
 #include <linux/tracepoint.h>
+#include "kgsl_device.h"
 
 TRACE_EVENT(adreno_cmdbatch_queued,
 	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, unsigned int queued),
@@ -29,15 +30,21 @@ TRACE_EVENT(adreno_cmdbatch_queued,
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
 		__field(unsigned int, queued)
+		__field(unsigned int, flags)
 	),
 	TP_fast_assign(
 		__entry->id = cmdbatch->context->id;
 		__entry->timestamp = cmdbatch->timestamp;
 		__entry->queued = queued;
+		__entry->flags = cmdbatch->flags;
 	),
 	TP_printk(
-		"ctx=%u ts=%u queued=%u",
-			__entry->id, __entry->timestamp, __entry->queued
+		"ctx=%u ts=%u queued=%u flags=%s",
+			__entry->id, __entry->timestamp, __entry->queued,
+			__entry->flags ? __print_flags(__entry->flags, "|",
+				{ KGSL_CONTEXT_SYNC, "SYNC" },
+				{ KGSL_CONTEXT_END_OF_FRAME, "EOF" })
+				: "none"
 	)
 );
 
@@ -147,17 +154,22 @@ DECLARE_EVENT_CLASS(adreno_drawctxt_template,
 	TP_printk("ctx=%u", __entry->id)
 );
 
-DEFINE_EVENT(adreno_drawctxt_template, adreno_context_sleep,
+DEFINE_EVENT(adreno_drawctxt_template, adreno_drawctxt_sleep,
 	TP_PROTO(struct adreno_context *drawctxt),
 	TP_ARGS(drawctxt)
 );
 
-DEFINE_EVENT(adreno_drawctxt_template, adreno_context_wake,
+DEFINE_EVENT(adreno_drawctxt_template, adreno_drawctxt_wake,
 	TP_PROTO(struct adreno_context *drawctxt),
 	TP_ARGS(drawctxt)
 );
 
 DEFINE_EVENT(adreno_drawctxt_template, dispatch_queue_context,
+	TP_PROTO(struct adreno_context *drawctxt),
+	TP_ARGS(drawctxt)
+);
+
+DEFINE_EVENT(adreno_drawctxt_template, adreno_drawctxt_invalidate,
 	TP_PROTO(struct adreno_context *drawctxt),
 	TP_ARGS(drawctxt)
 );
@@ -198,6 +210,26 @@ TRACE_EVENT(adreno_drawctxt_wait_done,
 	)
 );
 
+TRACE_EVENT(adreno_drawctxt_switch,
+	TP_PROTO(struct adreno_context *oldctx,
+		struct adreno_context *newctx,
+		unsigned int flags),
+	TP_ARGS(oldctx, newctx, flags),
+	TP_STRUCT__entry(
+		__field(unsigned int, oldctx)
+		__field(unsigned int, newctx)
+		__field(unsigned int, flags)
+	),
+	TP_fast_assign(
+		__entry->oldctx = oldctx ? oldctx->base.id : 0;
+		__entry->newctx = newctx ? newctx->base.id : 0;
+	),
+	TP_printk(
+		"oldctx=%u newctx=%u flags=%X",
+			__entry->oldctx, __entry->newctx, flags
+	)
+);
+
 TRACE_EVENT(adreno_gpu_fault,
 	TP_PROTO(unsigned int ctx, unsigned int ts,
 		unsigned int status, unsigned int rptr, unsigned int wptr,
@@ -231,6 +263,36 @@ TRACE_EVENT(adreno_gpu_fault,
 		__entry->ctx, __entry->ts, __entry->status, __entry->wptr,
 		__entry->rptr, __entry->ib1base, __entry->ib1size,
 		__entry->ib2base, __entry->ib2size)
+);
+
+TRACE_EVENT(kgsl_user_pwrlevel_constraint,
+
+	TP_PROTO(struct kgsl_device *device, unsigned int id, unsigned int type,
+		unsigned int sub_type),
+
+	TP_ARGS(device, id, type, sub_type),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, id)
+		__field(unsigned int, type)
+		__field(unsigned int, sub_type)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->id = id;
+		__entry->type = type;
+		__entry->sub_type = sub_type;
+	),
+
+	TP_printk(
+		"d_name=%s ctx=%u constraint_type=%s constraint_subtype=%s",
+		__get_str(device_name), __entry->id,
+		__print_symbolic(__entry->type, KGSL_CONSTRAINT_TYPES),
+		__print_symbolic(__entry->sub_type,
+		KGSL_CONSTRAINT_PWRLEVEL_SUBTYPES)
+	)
 );
 
 #endif /* _ADRENO_TRACE_H */

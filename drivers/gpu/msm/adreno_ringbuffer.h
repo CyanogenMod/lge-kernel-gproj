@@ -19,7 +19,6 @@
  */
 
 #define KGSL_RB_SIZE (32 * 1024)
-#define KGSL_RB_BLKSIZE 16
 
 /* CP timestamp register */
 #define	REG_CP_TIMESTAMP		 REG_SCRATCH_REG0
@@ -28,32 +27,16 @@
 struct kgsl_device;
 struct kgsl_device_private;
 
-#define GSL_RB_MEMPTRS_SCRATCH_COUNT	 8
-struct kgsl_rbmemptrs {
-	int  rptr;
-	int  wptr_poll;
-};
-
-#define GSL_RB_MEMPTRS_RPTR_OFFSET \
-	(offsetof(struct kgsl_rbmemptrs, rptr))
-
-#define GSL_RB_MEMPTRS_WPTRPOLL_OFFSET \
-	(offsetof(struct kgsl_rbmemptrs, wptr_poll))
-
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
 	uint32_t flags;
 
 	struct kgsl_memdesc buffer_desc;
 
-	struct kgsl_memdesc memptrs_desc;
-	struct kgsl_rbmemptrs *memptrs;
-
 	/*ringbuffer size */
 	unsigned int sizedwords;
 
 	unsigned int wptr; /* write pointer offset in dwords from baseaddr */
-	unsigned int rptr; /* read pointer offset in dwords from baseaddr */
 
 	unsigned int global_ts;
 };
@@ -70,15 +53,6 @@ struct adreno_ringbuffer {
 
 /* enable timestamp (...scratch0) memory shadowing */
 #define GSL_RB_MEMPTRS_SCRATCH_MASK 0x1
-
-/* mem rptr */
-#define GSL_RB_CNTL_NO_UPDATE 0x0 /* enable */
-#define GSL_RB_GET_READPTR(rb, data) \
-	do { \
-		*(data) = rb->memptrs->rptr; \
-	} while (0)
-
-#define GSL_RB_CNTL_POLL_EN 0x0 /* disable */
 
 /*
  * protected mode error checking below register address 0x800
@@ -99,7 +73,7 @@ int adreno_ringbuffer_init(struct kgsl_device *device);
 
 int adreno_ringbuffer_warm_start(struct adreno_ringbuffer *rb);
 
-int adreno_ringbuffer_start(struct adreno_ringbuffer *rb);
+int adreno_ringbuffer_cold_start(struct adreno_ringbuffer *rb);
 
 void adreno_ringbuffer_stop(struct adreno_ringbuffer *rb);
 

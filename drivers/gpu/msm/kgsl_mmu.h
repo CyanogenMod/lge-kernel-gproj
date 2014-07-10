@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,11 @@
  * These defines control the address range for allocations that
  * are mapped into all pagetables.
  */
+#ifndef CONFIG_MSM_KGSL_CFF_DUMP
 #define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
+#else
+#define KGSL_IOMMU_GLOBAL_MEM_BASE      (0x09F00000 - SZ_4M)
+#endif
 #define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_4M
 
 #define KGSL_MMU_ALIGN_MASK     (~((1 << PAGE_SHIFT) - 1))
@@ -144,11 +148,12 @@ struct kgsl_mmu_ops {
 	void (*mmu_pagefault_resume)
 			(struct kgsl_mmu *mmu);
 	void (*mmu_disable_clk_on_ts)
-		(struct kgsl_mmu *mmu, uint32_t ts, bool ts_valid);
-	int (*mmu_enable_clk)
-		(struct kgsl_mmu *mmu, int ctx_id);
+		(struct kgsl_mmu *mmu,
+		uint32_t ts, int unit);
+	void (*mmu_enable_clk)
+		(struct kgsl_mmu *mmu, int unit);
 	void (*mmu_disable_clk)
-		(struct kgsl_mmu *mmu);
+		(struct kgsl_mmu *mmu, int unit);
 	phys_addr_t (*mmu_get_default_ttbr0)(struct kgsl_mmu *mmu,
 				unsigned int unit_id,
 				enum kgsl_iommu_context_id ctx_id);
@@ -202,7 +207,7 @@ struct kgsl_mmu {
 	struct kgsl_pagetable  *hwpagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
 	void *priv;
-	int fault;
+	atomic_t fault;
 	unsigned long pt_base;
 	unsigned long pt_size;
 	bool pt_per_process;
@@ -317,26 +322,25 @@ static inline phys_addr_t kgsl_mmu_get_default_ttbr0(struct kgsl_mmu *mmu,
 		return 0;
 }
 
-static inline int kgsl_mmu_enable_clk(struct kgsl_mmu *mmu,
-					int ctx_id)
+static inline void kgsl_mmu_enable_clk(struct kgsl_mmu *mmu, int unit)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_enable_clk)
-		return mmu->mmu_ops->mmu_enable_clk(mmu, ctx_id);
+		mmu->mmu_ops->mmu_enable_clk(mmu, unit);
 	else
-		return 0;
+		return;
 }
 
-static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
+static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu, int unit)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk)
-		mmu->mmu_ops->mmu_disable_clk(mmu);
+		mmu->mmu_ops->mmu_disable_clk(mmu, unit);
 }
 
 static inline void kgsl_mmu_disable_clk_on_ts(struct kgsl_mmu *mmu,
-						unsigned int ts, bool ts_valid)
+						unsigned int ts, int unit)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk_on_ts)
-		mmu->mmu_ops->mmu_disable_clk_on_ts(mmu, ts, ts_valid);
+		mmu->mmu_ops->mmu_disable_clk_on_ts(mmu, ts, unit);
 }
 
 static inline unsigned int kgsl_mmu_get_int_mask(void)
@@ -429,7 +433,7 @@ static inline int kgsl_mmu_is_perprocess(struct kgsl_mmu *mmu)
  */
 static inline int kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
 {
-	return mmu->pt_per_process;
+	return mmu->use_cpu_map;
 }
 
 /*

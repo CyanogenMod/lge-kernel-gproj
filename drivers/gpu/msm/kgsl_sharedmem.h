@@ -67,7 +67,8 @@ int kgsl_sharedmem_set(struct kgsl_device *device,
 
 void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op);
 
-void kgsl_process_init_sysfs(struct kgsl_process_private *private);
+int kgsl_process_init_sysfs(struct kgsl_device *device,
+		struct kgsl_process_private *private);
 void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 
 int kgsl_sharedmem_init_sysfs(void);
@@ -145,13 +146,8 @@ static inline void *kgsl_sg_alloc(unsigned int sglen)
 
 	if ((sglen * sizeof(struct scatterlist)) <  PAGE_SIZE)
 		return kzalloc(sglen * sizeof(struct scatterlist), GFP_KERNEL);
-	else {
-		void *ptr = vmalloc(sglen * sizeof(struct scatterlist));
-		if (ptr)
-			memset(ptr, 0, sglen * sizeof(struct scatterlist));
-
-		return ptr;
-	}
+	else
+		return vmalloc(sglen * sizeof(struct scatterlist));
 }
 
 static inline void kgsl_sg_free(void *ptr, unsigned int sglen)
@@ -167,7 +163,7 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 		phys_addr_t physaddr, unsigned int size)
 {
 	memdesc->sg = kgsl_sg_alloc(1);
-	if (!memdesc->sg)
+	if (memdesc->sg == NULL)
 		return -ENOMEM;
 
 	kmemleak_not_leak(memdesc->sg);
