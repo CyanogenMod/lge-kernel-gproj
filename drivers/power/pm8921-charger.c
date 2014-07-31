@@ -2471,14 +2471,14 @@ static int pm_batt_power_get_property(struct power_supply *psy,
 		if(lge_get_board_revno() > HW_REV_A)
 			val->intval = max17047_get_batt_vol();
 		else
-			val->intval = get_prop_battery_uvolts(chip) / 1000;
+			val->intval = get_prop_battery_uvolts(chip);
 #else
 		val->intval = max17047_get_batt_vol();
 #endif
 #elif defined (CONFIG_BATTERY_MAX17043)
 		val->intval = max17043_get_voltage(chip);
 #else
-		val->intval = get_prop_battery_uvolts(chip) / 1000;
+		val->intval = get_prop_battery_uvolts(chip);
 #endif
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
