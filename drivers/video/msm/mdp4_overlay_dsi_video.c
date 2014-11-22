@@ -530,19 +530,6 @@ static void mdp4_dsi_video_tg_off(struct vsycn_ctrl *vctrl)
 	msleep(20);
 }
 
-int mdp4_dsi_video_splash_done(void)
-{
-	struct vsycn_ctrl *vctrl;
-	int cndx = 0;
-
-	vctrl = &vsync_ctrl_db[cndx];
-
-	mdp4_dsi_video_tg_off(vctrl);
-	mipi_dsi_controller_cfg(0);
-
-	return 0;
-}
-
 int mdp4_dsi_video_on(struct platform_device *pdev)
 {
 	int dsi_width;
@@ -645,6 +632,15 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 #endif
 
 	atomic_set(&vctrl->suspend, 0);
+
+	if (!(mfd->cont_splash_done)) {
+		mfd->cont_splash_done = 1;
+		mdp4_dsi_video_tg_off(vctrl);
+		mipi_dsi_controller_cfg(0);
+		/* Clks are enabled in probe.
+		   Disabling clocks now */
+		mdp_clk_ctrl(0);
+	}
 
 	pipe->src_height = fbi->var.yres;
 	pipe->src_width = fbi->var.xres;
