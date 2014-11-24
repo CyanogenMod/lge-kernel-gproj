@@ -120,6 +120,7 @@ static int msm_csid_config(struct csid_device *csid_dev,
 	return rc;
 }
 
+static void msm_csid_reset(struct csid_device *csid_dev);
 static irqreturn_t msm_csid_irq(int irq_num, void *data)
 {
 	uint32_t irq;
@@ -133,6 +134,9 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 		 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
 			complete(&csid_dev->reset_complete);
+#ifdef LGE_GK_CAMERA_BSP
+	else msm_csid_reset(csid_dev);
+#endif
 	msm_camera_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
 }

@@ -4304,12 +4304,21 @@ static void vfe32_process_common_error_irq(
 		pr_err("vfe32_irq: image master 6 bus overflow\n");
 
 	if (errStatus & VFE32_IMASK_AXI_ERROR)
+#ifdef LGE_GK_CAMERA_BSP
+	{
+#endif
 		pr_err("vfe32_irq: axi error\n");
 
 	v4l2_subdev_notify(&axi_ctrl->subdev, NOTIFY_VFE_ERROR,
 		(void *)NULL);
 	vfe32_send_isp_msg(&axi_ctrl->subdev,
 		axi_ctrl->share_ctrl->vfeFrameId, MSG_ID_VFE_ERROR);
+#ifdef LGE_GK_CAMERA_BSP
+	} else {
+		msm_camera_io_w(VFE_CLEAR_ALL_IRQS,
+			axi_ctrl->share_ctrl->vfebase + VFE_IRQ_CLEAR_1);
+	}
+#endif
 }
 
 
