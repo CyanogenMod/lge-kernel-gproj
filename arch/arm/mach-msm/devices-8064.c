@@ -137,7 +137,11 @@ struct platform_device msm8064_cpu_slp_status = {
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {
 	.pet_time = 10000,
+<<<<<<< HEAD
 	.bark_time = 16000,  //adjust bark time  11000,
+=======
+	.bark_time = 45000,
+>>>>>>> 9ca214f... Increase watchdog bark timeout to 45s
 	.has_secure = true,
 	.needs_expired_enable = true,
 	.base = MSM_TMR0_BASE + WDT0_OFFSET,
