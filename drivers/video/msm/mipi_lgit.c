@@ -33,6 +33,12 @@ static int __init mipi_lgit_lcd_init(void);
 
 #define DSV_ONBST 57
 
+// To prevent doubletap2wake 3 taps issue when suspended. - by jollaman999
+// - jollaman999 -
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+extern bool scr_suspended;
+#endif
+
 //LGE_UPDATE_S hojin.ryu@lge.com 20120629 IEF On/Off function for camera preview
 #define LGIT_IEF_SWITCH
 
@@ -140,7 +146,11 @@ int mipi_lgit_lcd_ief_on(void)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
 
 	printk(KERN_INFO "%s: mipi lgit lcd on ended \n", __func__);
-
+	// To prevent doubletap2wake 3 taps issue when suspended. - by jollaman999
+	// - jollaman999 -
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	scr_suspended = false;
+#endif
 	return cnt;
 }
 
@@ -192,7 +202,11 @@ int mipi_lgit_lcd_off(struct platform_device *pdev)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
 
 	printk(KERN_INFO"%s: mipi lgit lcd off ended \n", __func__);
-
+	// To prevent doubletap2wake 3 taps issue when suspended. - by jollaman999
+	// - jollaman999 -
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+	scr_suspended = true;
+#endif
 	return cnt;
 }
 

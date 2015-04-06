@@ -82,6 +82,14 @@ static unsigned suspend_short_count;
 static int wakelock_monitor_id;
 #endif
 
+// To prevent doubletap2wake 3 taps issue when suspended. - by jollaman999
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+#include <linux/hrtimer.h>
+#include <asm-generic/cputime.h>
+extern bool dt2w_suspend_enter;
+extern cputime64_t dt2w_suspend_exit_time;
+#endif
+
 #ifdef CONFIG_WAKELOCK_STAT
 static struct wake_lock deleted_wake_locks;
 static ktime_t last_sleep_time_update;
@@ -382,8 +390,13 @@ static void suspend(struct work_struct *work)
 	save_suspend_step(SUSPEND_START);
 	entry_event_num = current_event_num;
 	suspend_sys_sync_queue();
-	if (debug_mask & DEBUG_SUSPEND)
+	if (debug_mask & DEBUG_SUSPEND) {
 		pr_info("suspend: enter suspend\n");
+		// To prevent doubletap2wake 3 taps issue when suspended. - by jollaman999
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+		dt2w_suspend_enter = true;
+#endif
+	}
 	getnstimeofday(&ts_entry);
 #ifdef CONFIG_LGE_SUSPEND_TIME
 	suspend_time_suspend();
@@ -403,6 +416,10 @@ static void suspend(struct work_struct *work)
 			"(%d-%02d-%02d %02d:%02d:%02d.%09lu UTC)\n", ret,
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts_exit.tv_nsec);
+			// To prevent doubletap2wake 3 taps issue when suspended. - by jollaman999
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+			dt2w_suspend_exit_time = ktime_to_ms(ktime_get());
+#endif
 	}
 
 	if (ts_exit.tv_sec - ts_entry.tv_sec <= 1) {
