@@ -45,6 +45,7 @@
 #include <linux/debugobjects.h>
 #include <linux/sched.h>
 #include <linux/timer.h>
+#include <linux/freezer.h>
 
 #include <asm/uaccess.h>
 
@@ -704,6 +705,22 @@ static int hrtimer_switch_to_hres(void)
 	retrigger_next_event(NULL);
 	local_irq_restore(flags);
 	return 1;
+}
+
+static void clock_was_set_work(struct work_struct *work)
+{
+	clock_was_set();
+}
+
+static DECLARE_WORK(hrtimer_work, clock_was_set_work);
+
+/*
+ * Called from timekeeping and resume code to reprogramm the hrtimer
+ * interrupt device on all cpus.
+ */
+void clock_was_set_delayed(void)
+{
+	schedule_work(&hrtimer_work);
 }
 
 #else
