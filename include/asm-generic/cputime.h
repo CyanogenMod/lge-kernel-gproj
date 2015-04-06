@@ -13,6 +13,7 @@ typedef unsigned long __nocast cputime_t;
 
 typedef u64 __nocast cputime64_t;
 
+#define cputime64_sub(__a, __b)         ((__a) - (__b))
 #define cputime64_to_jiffies64(__ct)	(__force u64)(__ct)
 #define jiffies64_to_cputime64(__jif)	(__force cputime64_t)(__jif)
 
