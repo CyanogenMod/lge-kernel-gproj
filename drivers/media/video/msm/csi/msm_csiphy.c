@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,7 +105,8 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 	uint32_t irq;
 	int i;
 	struct csiphy_device *csiphy_dev = data;
-
+	if(!csiphy_dev || !csiphy_dev->base)
+		return IRQ_HANDLED;
 	for (i = 0; i < 8; i++) {
 		irq = msm_camera_io_r(
 			csiphy_dev->base +
@@ -430,7 +431,7 @@ static int __devinit csiphy_probe(struct platform_device *pdev)
 csiphy_no_resource:
 	mutex_destroy(&new_csiphy_dev->mutex);
 	kfree(new_csiphy_dev);
-	return 0;
+	return rc;
 }
 
 static const struct of_device_id msm_csiphy_dt_match[] = {

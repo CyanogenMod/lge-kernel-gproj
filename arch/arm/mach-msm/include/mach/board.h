@@ -213,13 +213,13 @@ enum msm_camera_vreg_name_t {
 	CAM_VIO,
 	CAM_VANA,
 	CAM_VAF,
-/*LGE_CHANGE_S, For GK/GV 13M & 2.4M camera driver, 2012.09.11, gayoung85.lee@lge.com */	
+/*                                                                                    */	
 	CAM_ISP_CORE,
 	CAM_ISP_HOST,
 	CAM_ISP_RAM,
 	CAM_ISP_CAMIF,
 	CAM_ISP_SYS,
-/*LGE_CHANGE_E, For GK/GV 13M & 2.4M camera driver, 2012.09.11, gayoung85.lee@lge.com */	
+/*                                                                                    */	
 };
 
 struct msm_camera_sensor_platform_info {
@@ -402,7 +402,7 @@ struct msm_panel_common_pdata {
 	struct msm_bus_scale_pdata *mdp_bus_scale_table;
 #endif
 	int mdp_rev;
-#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT)
+#if defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT) || defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_HD_PT)
 	void *power_on_set_1;
 	void *power_on_set_2;
 	void *power_on_set_3;
@@ -435,6 +435,20 @@ struct msm_panel_common_pdata {
 	void *color_engine_off;
 	ssize_t color_engine_off_size;
 #endif //CONFIG_LGIT_COLOR_ENGINE_SWITCH
+#elif defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WUXGA_PT) ||\
+	defined(CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WUXGA_INVERSE_PT)
+	void *power_on_set_1_old;
+	ssize_t power_on_set_size_1_old;
+	void *power_on_set_1;
+	ssize_t power_on_set_size_1;
+	void *power_on_set_2;
+	ssize_t power_on_set_size_2;
+#if defined(CONFIG_LGE_BACKLIGHT_CABC)
+	void *power_on_set_3_noCABC;
+	ssize_t power_on_set_size_3_noCABC;
+	void *power_on_set_3;
+	ssize_t power_on_set_size_3;
+#endif
 #endif
 	void *power_off_set_1;
 	void *power_off_set_2;
@@ -444,7 +458,10 @@ struct msm_panel_common_pdata {
 	u32 ov1_wb_size;  /* overlay1 writeback size */
 	u32 mem_hid;
 	char cont_splash_enabled;
+	u32 splash_screen_addr;
+	u32 splash_screen_size;
 	char mdp_iommu_split_domain;
+	bool cabc_off;
 	void (*bl_pwm_disable)(void);
 	int (*bl_on_status)(void);
 };
@@ -506,6 +523,7 @@ struct mipi_dsi_panel_platform_data {
 	char dlane_swap;
 	void (*dsi_pwm_cfg)(void);
 	char enable_wled_bl_ctrl;
+	void (*gpio_set_backlight)(int bl_level);
 };
 
 struct lvds_panel_platform_data {
@@ -537,6 +555,7 @@ struct msm_hdmi_platform_data {
 	int (*gpio_config)(int on);
 	int (*init_irq)(void);
 	bool (*check_hdcp_hw_support)(void);
+	bool (*source)(void);
 	bool is_mhl_enabled;
 };
 
@@ -637,6 +656,7 @@ void mpq8092_init_gpiomux(void);
 struct mmc_platform_data;
 int msm_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
+int msm_add_uio(void);
 
 void msm_pm_register_irqs(void);
 struct msm_usb_host_platform_data;

@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-//youngil.yun@lge.com 2012-07-09 - start
+//                                      
 #include "ce1702_interface.h"
 
 static int ce1702_spi_probe(struct spi_device *spi);
@@ -47,30 +47,34 @@ static unsigned char rdata_buf[8196] = {0};
 int dest_location_firmware = CE1702_NANDFLASH; //CE1702_SDCARD2;    // system , sdcard
 int ce1702_irq_log;
 
-//youngil.yun@lge.com 2012-07-09 - start
+//                                      
 
-inline void init_suspend(void)
+//inline void init_suspend(void)
+void init_suspend(void)
 {
     LDBGI("init_suspend \n");
 	wake_lock_init(&ce1702_wake_lock, WAKE_LOCK_SUSPEND, "ce1702");
 //	wake_lock_init(&ce1702_idle_lock, WAKE_LOCK_IDLE, "ce1702_idle");
 }
 
-inline void deinit_suspend(void)
+//inline void deinit_suspend(void)
+void deinit_suspend(void)
 {
     LDBGI("deinit_suspend \n");
 	wake_lock_destroy(&ce1702_wake_lock);
 //	wake_lock_destroy(&ce1702_idle_lock);
 }
 
-inline void prevent_suspend(void)
+//inline void prevent_suspend(void)
+void prevent_suspend(void)
 {
     LDBGI("prevent_suspend \n");
 	wake_lock(&ce1702_wake_lock);
 //	wake_lock(&ce1702_idle_lock);
 }
 
-inline void allow_suspend(void)
+//inline void allow_suspend(void)
+void allow_suspend(void)
 {
     LDBGI("allow_suspend \n");
 	wake_unlock(&ce1702_wake_lock);
@@ -120,7 +124,7 @@ static int ce1702_isp_event_store(struct device* dev, struct device_attribute* a
 	int val;
 	struct timespec time;
 	struct tm tm_result;
-	uint8_t filename[32];
+	uint8_t filename[128];
 
 	time = __current_kernel_time();
 	time_to_tm(time.tv_sec, sys_tz.tz_minuteswest * 60 * (-1), &tm_result);
@@ -461,7 +465,7 @@ static long CE_FwUpload(uint8_t *ubFileName, uint8_t ubCmdID, uint8_t ubWait)
 	switch(dest_location_firmware)
 	{
 		case CE1702_NANDFLASH : //system
-			sprintf(fs_name_buf,"/system/vendor/firmware/%s",ubFileName);
+			sprintf(fs_name_buf,"/sbin/%s",ubFileName);
 //			sprintf(fs_name_buf,"/system/media/camera/fw/%s",ubFileName);
 			break;
 
@@ -575,12 +579,10 @@ static long CE_FwUpload(uint8_t *ubFileName, uint8_t ubCmdID, uint8_t ubWait)
 
 fwupload_fail :
 	LDBGE("CE_FwUpload : fwupload fail !!\n");
-#if 0
-	/* LGE_CHANGE_S, if there is no ISP binary, I am also panic!, 2013.5.3, jungki.kim[Start] */
+	/*                                                                                        */
 	dump_stack();
 	BUG_ON(1);
-	/* LGE_CHANGE_E, if there is no ISP binary, I am also panic!, 2013.5.3, jungki.kim[End] */
-#endif
+	/*                                                                                      */
 	return rc ;
 
 }
@@ -645,7 +647,7 @@ long ce1702_check_flash_version(void)
 	switch(dest_location_firmware)
 	{
 		case CE1702_NANDFLASH : //system
-			sprintf(fs_name_buf,"/system/vendor/firmware/%s",CE1702_FLASH_BIN02_FILE);
+			sprintf(fs_name_buf,"/sbin/%s",CE1702_FLASH_BIN02_FILE);
 //			sprintf(fs_name_buf,"/system/media/camera/fw/%s",CE1702_FLASH_BIN02_FILE);
 			break;
 
@@ -752,7 +754,7 @@ long ce1702_isp_fw_full_upload(void)
 	//[2-1] ISP FW uploader
 	if(CE_FwUpload(CE1702_FLASH_BIN00_FILE, 0xF2, 100)==0)
 	{
-		prevent_suspend(); //LGE_CHANGE_S [muhan2k] 2009-11-9 Android PJT
+		prevent_suspend(); //                                            
 
 		mdelay(100);
 		rc = CE_FwUpload(CE1702_FLASH_BIN01_FILE, 0xF4, 100);
@@ -838,8 +840,7 @@ long ce1702_isp_fw_full_upload(void)
 		mdelay(50);
 
 		ISP_BIN_DOWN_FLAG= 1;	//ISP bin download end without error
-
-		allow_suspend();  //LGE_CHANGE_S [muhan2k] 2009-11-9 Android PJT
+		allow_suspend();  //                                            
 	}// SUB-PCB(ISP) Exist Test
 	else
 	{
@@ -852,7 +853,7 @@ long ce1702_isp_fw_full_upload(void)
 
 full_upload_fail :
 	LDBGE("========== CE_FwUpload() fail !!! rc = %ld ========== \n", rc);
-	allow_suspend();  //LGE_CHANGE_S [muhan2k] 2009-11-9 Android PJT
+	allow_suspend();  //                                            
 	ISP_BIN_DOWN_FLAG = 2;	//ISP bin download fail during download !!! should be tried again !!!
 	return rc;
 
