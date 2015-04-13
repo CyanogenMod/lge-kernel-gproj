@@ -1771,35 +1771,6 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	    ("FrameBuffer[%d] %dx%d size=%d bytes is registered successfully!\n",
 	     mfd->index, fbi->var.xres, fbi->var.yres, fbi->fix.smem_len);
 
-#ifdef CONFIG_FB_MSM_LOGO
-#if (defined(CONFIG_FB_MSM_DEFAULT_DEPTH_ARGB8888) ||\
-		defined(CONFIG_FB_MSM_DEFAULT_DEPTH_RGBA8888))
-	/* This function is used to load LG logo image in 888 rle format.
-	 * However, it is only allowed when MIPI LCD mode not other modes
-	 * such as HDMI, DTV etc.
-	 * it is also add early backlight on
-	 */
-	if (mfd->panel_info.type == MIPI_VIDEO_PANEL ||
-			mfd->panel_info.type == MIPI_CMD_PANEL){
-		msm_fb_open(mfd->fbi, 0);
-#if defined(CONFIG_LGE_QC_LCDC_LUT)
-		lge_set_qlut();
-#endif
-		if (load_888rle_image(INIT_IMAGE_FILE"888") < 0) /* Flip buffer */
-			printk(KERN_WARNING "fail to load 888 rle image\n");
-
-#if defined(CONFIG_MACH_LGE)
-        down(&mfd->sem);
-        msm_fb_set_backlight(mfd, 0);
-        up(&mfd->sem);
-#endif
-	}
-#else
-	/* Flip buffer */
-	if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported))
-		;
-#endif
-#endif
 	ret = 0;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
