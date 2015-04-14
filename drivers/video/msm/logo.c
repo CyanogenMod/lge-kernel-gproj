@@ -24,9 +24,16 @@
 #include <linux/irq.h>
 #include <asm/system.h>
 
+#include "mdp.h"
+#include "mdp4.h"
+
 #define fb_width(fb)	((fb)->var.xres)
+#define fb_linewidth(fb) \
+	((fb)->fix.line_length / (fb_depth(fb) == 2 ? 2 : 4))
 #define fb_height(fb)	((fb)->var.yres)
-#define fb_size(fb)	((fb)->var.xres * (fb)->var.yres * 2)
+#define fb_depth(fb)	((fb)->var.bits_per_pixel >> 3)
+#define fb_size(fb)	(fb_width(fb) * fb_height(fb) * fb_depth(fb))
+#define INIT_IMAGE_FILE "/initlogo.rle888"
 
 static void memset16(void *_ptr, unsigned short val, unsigned count)
 {
@@ -36,30 +43,22 @@ static void memset16(void *_ptr, unsigned short val, unsigned count)
 		*ptr++ = val;
 }
 
-#if (defined(CONFIG_FB_MSM_DEFAULT_DEPTH_ARGB8888) || \
-		defined(CONFIG_FB_MSM_DEFAULT_DEPTH_RGBA8888))
-static void memset32(void *_ptr, unsigned short val, unsigned count)
+static void memset32(void *_ptr, unsigned int val, unsigned count)
 {
-	char *ptr = _ptr;
-	char r = val & 0x001f;
-	char g = (val & 0x07e0)>>5;
-	char b = (val & 0xf800)>>11;
-	count >>= 1;
-	while (count--) {
-		*ptr++ = b<<3 | b>>2;
-		*ptr++ = g<<2 | g>>4;
-		*ptr++ = r<<3 | r>>2;
-		*ptr++ = 0xff;
-	}
+	unsigned int *ptr = _ptr;
+	count >>= 2;
+	while (count--)
+		*ptr++ = val;
 }
-#endif
+
 /* 565RLE image format: [count(2 bytes), rle(2 bytes)] */
 int load_565rle_image(char *filename, bool bf_supported)
 {
 	struct fb_info *info;
-	int fd, count, err = 0;
-	unsigned max;
-	unsigned short *data, *bits, *ptr;
+	int fd, err = 0;
+	unsigned count, max, width, stride, line_pos = 0;
+	unsigned short *data, *ptr;
+	unsigned char *bits;
 
 	info = registered_fb[0];
 	if (!info) {
@@ -90,23 +89,53 @@ int load_565rle_image(char *filename, bool bf_supported)
 		err = -EIO;
 		goto err_logo_free_data;
 	}
-
-	max = fb_width(info) * fb_height(info);
+	width = fb_width(info);
+	stride = fb_linewidth(info);
+	max = width * fb_height(info);
 	ptr = data;
 	if (bf_supported && (info->node == 1 || info->node == 2)) {
 		err = -EPERM;
-		pr_err("%s:%d no info->creen_base on fb%d!\n",
+		pr_err("%s:%d no info->screen_base on fb%d!\n",
 		       __func__, __LINE__, info->node);
 		goto err_logo_free_data;
 	}
-	bits = (unsigned short *)(info->screen_base);
+	bits = (unsigned char *)(info->screen_base);
 	while (count > 3) {
-		unsigned n = ptr[0];
+		int n = ptr[0];
+
 		if (n > max)
 			break;
-		memset16(bits, ptr[1], n << 1);
-		bits += n;
 		max -= n;
+		while (n > 0) {
+			unsigned int j =
+				(line_pos + n > width ? width-line_pos : n);
+
+			if (fb_depth(info) == 2)
+				memset16(bits, swab16(ptr[1]), j << 1);
+			else {
+				unsigned int widepixel = ptr[1];
+				/*
+				 * Format is RGBA, but fb is big
+				 * endian so we should make widepixel
+				 * as ABGR.
+				 */
+				widepixel =
+					/* red :   f800 -> 000000f8 */
+					(widepixel & 0xf800) >> 8 |
+					/* green : 07e0 -> 0000fc00 */
+					(widepixel & 0x07e0) << 5 |
+					/* blue :  001f -> 00f80000 */
+					(widepixel & 0x001f) << 19;
+				memset32(bits, widepixel, j << 2);
+			}
+			bits += j * fb_depth(info);
+			line_pos += j;
+			n -= j;
+			if (line_pos == width) {
+				bits += (stride-width) * fb_depth(info);
+				line_pos = 0;
+			}
+		}
 		ptr += 2;
 		count -= 4;
 	}
@@ -115,81 +144,31 @@ err_logo_free_data:
 	kfree(data);
 err_logo_close_file:
 	sys_close(fd);
+
 	return err;
 }
 
-#if (defined(CONFIG_FB_MSM_DEFAULT_DEPTH_ARGB8888) || \
-		defined(CONFIG_FB_MSM_DEFAULT_DEPTH_RGBA8888))
-int load_888rle_image(char *filename)
+static void draw_logo(void)
 {
-	struct fb_info *info;
-	int fd, count, err = 0;
-	unsigned max;
-	unsigned short *data, *ptr;
-	char *bits;
+	struct fb_info *fb_info;
 
-	printk(KERN_INFO "%s: load_888rle_image filename: %s\n",
-			__func__, filename);
-	info = registered_fb[0];
-	if (!info) {
-		printk(KERN_WARNING "%s: Can not access framebuffer\n",
-				__func__);
-		return -ENODEV;
+	fb_info = registered_fb[0];
+	if (fb_info && fb_info->fbops->fb_open) {
+		printk(KERN_INFO "Drawing logo.\n");
+		fb_info->fbops->fb_open(fb_info, 0);
+		fb_info->fbops->fb_pan_display(&fb_info->var, fb_info);
 	}
-
-	fd = sys_open(filename, O_RDONLY, 0);
-	if (fd < 0) {
-		printk(KERN_WARNING "%s: Can not open %s\n",
-				__func__, filename);
-		return -ENOENT;
-	}
-	count = sys_lseek(fd, (off_t)0, 2);
-	if (count <= 0) {
-		err = -EIO;
-		goto err_logo_close_file;
-	}
-	sys_lseek(fd, (off_t)0, 0);
-	data = kmalloc(count, GFP_KERNEL);
-	if (!data) {
-		printk(KERN_WARNING "%s: Can not alloc data\n", __func__);
-		err = -ENOMEM;
-		goto err_logo_close_file;
-	}
-	if (sys_read(fd, (char *)data, count) != count) {
-		printk(KERN_WARNING "%s: Can not read data\n", __func__);
-		err = -EIO;
-		goto err_logo_free_data;
-	}
-
-	max = fb_width(info) * fb_height(info);
-	ptr = data;
-	bits = (char *)(info->screen_base);
-
-	while (count > 3) {
-		unsigned n = ptr[0];
-
-		if (n > max)
-			break;
-		if (info->var.bits_per_pixel/8 == 4)
-			memset32(bits, ptr[1], n << 1);
-		else
-			memset16(bits, ptr[1], n << 1);
-
-		bits += info->var.bits_per_pixel/8*n;
-		max -= n;
-		ptr += 2;
-		count -= 4;
-	}
-
-err_logo_free_data:
-	kfree(data);
-err_logo_close_file:
-	sys_close(fd);
-	return err;
 }
-#endif
-EXPORT_SYMBOL(load_565rle_image);
-#if (defined(CONFIG_FB_MSM_DEFAULT_DEPTH_ARGB8888) || \
-		defined(CONFIG_FB_MSM_DEFAULT_DEPTH_RGBA8888))
-EXPORT_SYMBOL(load_888rle_image);
-#endif
+
+static int __init logo_init(void)
+{
+	boolean bf_supported;
+	bf_supported = mdp4_overlay_borderfill_supported();
+
+	if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported))
+		draw_logo();
+
+	return 0;
+}
+
+device_initcall_sync(logo_init);
