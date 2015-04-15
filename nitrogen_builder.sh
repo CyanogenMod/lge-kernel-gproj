@@ -16,8 +16,6 @@ mkdir ../builded/GEEB/system/lib
 mkdir ../builded/GEEB/system/modules
 echo Выбор конфига E975
 make e975_defconfig
-echo Настройка ядра
-make menuconfig
 echo Сборка ядра
 make -j8 -o4
 echo Копирование скомпилированного ядра
@@ -32,8 +30,6 @@ cp drivers/media/radio/radio-iris-transport.ko ../builded/GEEHRC/system/lib/modu
 cp drivers/scsi/scsi_wait_scan.ko ../builded/GEEHRC/system/lib/modules/scsi_wait_scan.ko
 echo Выбор конфига E970
 make e970_defconfig
-echo Настройка ядра
-make menuconfig
 echo Сборка ядра
 make -j8 -o4
 echo Копирование скомпилированного ядра
