@@ -1,7 +1,6 @@
 #!/bin/bash
 
 echo Автосборщик Nitrogen Kernel
-rmdir 
 mkdir builded
 mkdir builded/GEEHRC
 mkdir builded/GEEHRC/tmp
