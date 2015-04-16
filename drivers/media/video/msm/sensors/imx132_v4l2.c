@@ -13,22 +13,18 @@
 #include "msm_sensor.h"
 #include "msm_camera_i2c_mux.h"
 #include <linux/mfd/pm8xxx/pm8921.h>
-#ifdef CONFIG_MACH_APQ8064_GVDCM
-#include "../../../../../arch/arm/mach-msm/lge/gv/board-gv.h"
-#else
-#include "../../../../../arch/arm/mach-msm/lge/gk/board-gk.h"
-#endif
+#include "../../../../../arch/arm/mach-msm/lge/gvar/board-gvar.h"
 #include <mach/board_lge.h>
 #define SENSOR_NAME "imx132"
 #define PLATFORM_DRIVER_NAME "msm_camera_imx132"
 #define imx132_obj imx132_##obj
 
 #define MSM_VT_PWR_EN PM8921_GPIO_PM_TO_SYS(35)  //VT_PWR_EN
-/* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
+/*                                                                          */
 #define MSM_CAM2_RST_EN PM8921_GPIO_PM_TO_SYS(28)	//VTCAM_RST_N
-/* LGE_CHANGE_E, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[End] */
+/*                                                                        */
 
-/* LGE_CHANGE_S, Define Camera Log, 2012.10.18 jungki.kim@lge.com */
+/*                                                                */
 #define CAMERA_DEBUG 1
 #define LDBGE(fmt,args...) printk(KERN_EMERG "[CAM/E][ERR] "fmt,##args)
 #if (CAMERA_DEBUG)
@@ -36,9 +32,9 @@
 #else
 #define LDBGI(args...) do {} while(0)
 #endif
-/* LGE_CHANGE_E, Define Camera Log, 2012.10.18 jungki.kim@lge.com */
+/*                                                                */
 
-/*LGE_UPDATE_S Color Engine Switch for camera, 2012.11.19, elin.lee@lge.com*/
+/*                                                                         */
 #ifdef CONFIG_MACH_LGE
 #if defined (CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT) || defined (CONFIG_FB_MSM_MIPI_LGIT_VIDEO_FHD_INVERSE_PT_PANEL)
 #define LGIT_COLOR_ENGINE_SWITCH
@@ -48,10 +44,10 @@ extern int mipi_lgit_lcd_color_engine_on(void);
 #endif
 #endif
 #endif
-/*LGE_UPDATE_E Color Engine Switch for camera, 2012.11.19, elin.lee@lge.com*/
-    /* LGE_CHANGE_S, soojung.lim@lge.com, 2012-10-31, Wise screen / Because of the display engine  */
+/*                                                                         */
+    /*                                                                                             */
 extern int sub_cam_id_for_keep_screen_on;
-    /* LGE_CHANGE_E, soojung.lim@lge.com, 2012-10-31, Wise screen / Because of the display engine  */
+    /*                                                                                             */
 
 int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl);
 int32_t imx132_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl);
@@ -65,7 +61,7 @@ static struct pm_gpio gpio35_param = {
 		.out_strength   = PM_GPIO_STRENGTH_MED,
 		.function       = PM_GPIO_FUNC_NORMAL,
 };
-/* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
+/*                                                                          */
 static struct pm_gpio gpio28_param = {
 		.direction      = PM_GPIO_DIR_OUT,
 		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
@@ -75,7 +71,7 @@ static struct pm_gpio gpio28_param = {
 		.out_strength   = PM_GPIO_STRENGTH_MED,
 		.function       = PM_GPIO_FUNC_NORMAL,
 };
-/* LGE_CHANGE_E, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[End] */
+/*                                                                        */
 static struct msm_cam_clk_info imx132_cam_clk_info[] = {
 	{"cam_clk", MSM_SENSOR_MCLK_24HZ},
 };
@@ -177,9 +173,9 @@ static struct msm_camera_i2c_reg_conf imx132_recommend_settings[] = {
 	{0x312D, 0x13},
 	/* black level setting */
 	{0x3032, 0x40},
-/* LGE_CHANGE
- * Fix the rotaion issue for Recorded moive on Windows.
- * 2012-01-13, soojung.lim@lge.com
+/*           
+                                                       
+                                  
  */
 	{0x0101, 0x03},
 };
@@ -284,9 +280,9 @@ static struct msm_sensor_fn_t imx132_func_tbl = {
 	.sensor_group_hold_off = msm_sensor_group_hold_off,
 	.sensor_set_fps = msm_sensor_set_fps,
 	.sensor_write_exp_gain = msm_sensor_write_exp_gain1,
-/* LGE_CHANGE_S, add snapshot exp gain, 2012-03-14, chaehee.lim@lge.com */
+/*                                                                      */
 	.sensor_write_snapshot_exp_gain = msm_sensor_write_exp_gain1,
-/* LGE_CHANGE_E, add snapshot exp gain, 2012-03-14, chaehee.lim@lge.com */
+/*                                                                      */
 	.sensor_setting = msm_sensor_setting,
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
 	.sensor_mode_init = msm_sensor_mode_init,
@@ -294,9 +290,9 @@ static struct msm_sensor_fn_t imx132_func_tbl = {
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = imx132_sensor_power_up,
 	.sensor_power_down = imx132_sensor_power_down,
-//Start LGE_BSP_CAMERA : au069 patch - jonghwan.ko@lge.com
+//                                                        
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
-//End  LGE_BSP_CAMERA : au069 patch - jonghwan.ko@lge.com
+//                                                       
 };
 
 static struct msm_sensor_reg_t imx132_regs = {
@@ -384,23 +380,11 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	rc = gpio_request(MSM_VT_PWR_EN, "VT_PWR_EN");
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN);
-		rc = gpio_request(MSM_CAM2_RST_EN, "VTCAM_RST_EN");
-	}
+
+	rc = gpio_request(MSM_CAM2_RST_EN, "VTCAM_RST_EN");
 	if (rc) {
 		LDBGE("%s: PM request gpio failed\n", __func__);
 	}
-#elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN);
-		rc = gpio_request(MSM_CAM2_RST_EN, "VTCAM_RST_EN");
-	}
-	if (rc) {
-		LDBGE("%s: PM request gpio failed\n", __func__);
-	}
-#endif
 
 	rc = msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
@@ -414,23 +398,11 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	rc =pm8xxx_gpio_config(MSM_VT_PWR_EN, &gpio35_param);
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		rc =pm8xxx_gpio_config(MSM_CAM2_RST_EN, &gpio28_param);
-	}
+
+	rc =pm8xxx_gpio_config(MSM_CAM2_RST_EN, &gpio28_param);
 	if (rc) {
 		LDBGE("%s: pm8xxx_gpio_config on failed\n", __func__);
 	}
-#elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		rc =pm8xxx_gpio_config(MSM_CAM2_RST_EN, &gpio28_param);
-	}
-	if (rc) {
-		LDBGE("%s: pm8xxx_gpio_config on failed\n", __func__);
-	}
-#endif
 
 	rc = gpio_direction_output(MSM_VT_PWR_EN, 0);
 
@@ -454,24 +426,7 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 	usleep(10);
 
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		rc = gpio_direction_output(MSM_CAM2_RST_EN, 1);
-	}
-#elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		rc = gpio_direction_output(MSM_CAM2_RST_EN, 1);
-	}
-#endif
-	else {
-		rc = msm_camera_config_gpio_table(data, 1);
-		if (rc < 0) {
-			LDBGE("%s: config gpio failed\n", __func__);
-			goto config_gpio_failed;
-		}
-	}
+	rc = gpio_direction_output(MSM_CAM2_RST_EN, 1);
 
 	if (s_ctrl->clk_rate != 0)
 		imx132_cam_clk_info->clk_rate = s_ctrl->clk_rate;
@@ -494,27 +449,8 @@ int32_t imx132_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	return rc;
 
 enable_clk_failed:
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		rc = gpio_direction_output(MSM_CAM2_RST_EN, 0);
-	}
-#elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		rc = gpio_direction_output(MSM_CAM2_RST_EN, 0);
-	}
-#endif
-	else {
-		msm_camera_config_gpio_table(data, 0);
-		}
-config_gpio_failed:
-	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
-			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
-			s_ctrl->sensordata->sensor_platform_info->num_vreg,
-			s_ctrl->vreg_seq,
-			s_ctrl->num_vreg_seq,
-			s_ctrl->reg_ptr, 0);
+	rc = gpio_direction_output(MSM_CAM2_RST_EN, 0);
+
 enable_vreg_failed:
 	msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
@@ -536,17 +472,17 @@ int32_t imx132_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	CDBG("%s\n", __func__);
 	pr_err("%s\n", __func__);
 
-  /* LGE_CHANGE_S, soojung.lim@lge.com, 2012-10-31, Wise screen / Because of the display engine  */
+  /*                                                                                             */
 sub_cam_id_for_keep_screen_on = -1;
-  /* LGE_CHANGE_E, soojung.lim@lge.com, 2012-10-31, Wise screen / Because of the display engine  */
+  /*                                                                                             */
 
-/*LGE_UPDATE_S Color Engine Switch for camera, 2012.11.19, elin.lee@lge.com*/
+/*                                                                         */
 #ifdef LGIT_COLOR_ENGINE_SWITCH
       if(system_state != SYSTEM_BOOTING) {
         mipi_lgit_lcd_color_engine_on();
       }
 #endif
-/*LGE_UPDATE_E Color Engine Switch for camera, 2012.11.19, elin.lee@lge.com*/
+/*                                                                         */
 
 	if (data->sensor_platform_info->i2c_conf &&
 		data->sensor_platform_info->i2c_conf->use_i2c_mux)
@@ -560,26 +496,13 @@ sub_cam_id_for_keep_screen_on = -1;
 		imx132_cam_clk_info, s_ctrl->cam_clk, ARRAY_SIZE(imx132_cam_clk_info), 0);
 
 
-/* LGE_CHANGE_S, increase timing margin, 2012.06.19, yt.jeon@lge.com */
+/*                                                                   */
     usleep(5);
-/* LGE_CHANGE_E, increase timing margin, 2012.06.19, yt.jeon@lge.com */
+/*                                                                   */
 
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		rc = gpio_direction_output(MSM_CAM2_RST_EN, 0 );
-	}
-#elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		rc = gpio_direction_output(MSM_CAM2_RST_EN, 0 );
-	}
-#endif
-	 else {
-		msm_camera_config_gpio_table(data, 0);
-	}
+	rc = gpio_direction_output(MSM_CAM2_RST_EN, 0 );
 
-/* LGE_CHANGE_S, Avoid Kernel Panic, 2012.11.12, jungki.kim[Start] */
+/*                                                                 */
 	if(s_ctrl->reg_ptr != NULL) {
 	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
 		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
@@ -599,7 +522,7 @@ sub_cam_id_for_keep_screen_on = -1;
 		// NULL!
 		LDBGE("%s: No Regulator Pointer!\n", __func__);
 	}
-/* LGE_CHANGE_E, Avoid Kernel Panic, 2012.11.12, jungki.kim[End] */
+/*                                                               */
 
 	rc = gpio_direction_output(MSM_VT_PWR_EN, 0);
 	if (rc) {
@@ -609,17 +532,8 @@ sub_cam_id_for_keep_screen_on = -1;
 	msm_camera_request_gpio_table(data, 0);
 
 	gpio_free(MSM_VT_PWR_EN);
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-	if(lge_get_board_revno() >= HW_REV_C ||lge_get_board_revno() == HW_REV_1_0){
-		LDBGI("%s: Revision [%d] MSM_CAM2_RST_EN GPIO No.%d\n",__func__, lge_get_board_revno(), MSM_CAM2_RST_EN );
-		gpio_free(MSM_CAM2_RST_EN);
-	}
-#elif defined(CONFIG_MACH_APQ8064_GVDCM)
-	if(lge_get_board_revno() >= HW_REV_C){
-		pr_err("%s: Revision check! MSM_CAM2_RST_EN GPIO No.%d\n",__func__,MSM_CAM2_RST_EN );
-		gpio_free(MSM_CAM2_RST_EN);
-	}
-#endif
+
+	gpio_free(MSM_CAM2_RST_EN);
 
 	return 0;
 }

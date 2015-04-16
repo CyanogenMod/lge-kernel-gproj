@@ -22,26 +22,27 @@
 #include <linux/leds.h>
 #include <linux/errno.h>
 #include <linux/i2c.h>
-#include <mach/gpio.h>
+#include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/hrtimer.h>
 #include <linux/types.h>
+#include <linux/platform_data/flash_lm3559.h>
 #include <mach/camera.h>
-//Start LGE_BSP_CAMERA : zsl_flash - jonghwan.ko@lge.com
+//                                                      
 #include <linux/gpio.h>
-//End  LGE_BSP_CAMERA : zsl_flash - jonghwan.ko@lge.com
-/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+//                                                     
+/*                                                                              */
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
-/* LGE_CHANGE E, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+/*                                                                              */
 
-#define LM3559_I2C_NAME  				"lm3559"
+#define LM3559_I2C_NAME  			"lm3559"
 
-#define LM3559_POWER_OFF				0
-#define LM3559_POWER_ON					1
+#define LM3559_POWER_OFF			0
+#define LM3559_POWER_ON				1
 
 /* Register Descriptions */
-#define LM3559_REG_ENABLE				0x10
-#define LM3559_REG_GPIO					0x20
+#define LM3559_REG_ENABLE			0x10
+#define LM3559_REG_GPIO				0x20
 #define LM3559_REG_VLED_MONITOR			0x30
 #define LM3559_REG_ADC_DELAY			0x31
 #define LM3559_REG_VIN_MONITOR			0x80
@@ -49,12 +50,12 @@
 #define LM3559_REG_TORCH_BRIGHTNESS		0xA0
 #define LM3559_REG_FLASH_BRIGHTNESS		0xB0
 #define LM3559_REG_FLASH_DURATION		0xC0
-#define LM3559_REG_FLAGS				0xD0
+#define LM3559_REG_FLAGS			0xD0
 #define LM3559_REG_CONFIGURATION1		0xE0
 #define LM3559_REG_CONFIGURATION2		0xF0
-#define LM3559_REG_PRIVACY				0x11
-#define LM3559_REG_MESSAGE_INDICATOR	0x12
-#define LM3559_REG_INDICATOR_BLINKING	0x13
+#define LM3559_REG_PRIVACY			0x11
+#define LM3559_REG_MESSAGE_INDICATOR		0x12
+#define LM3559_REG_INDICATOR_BLINKING		0x13
 #define LM3559_REG_PRIVACY_PWM			0x14
 
 enum led_status {
@@ -68,10 +69,9 @@ enum led_status {
 struct led_flash_platform_data {
 	int gpio_en;
 };
-
 static int lm3559_onoff_state = LM3559_POWER_OFF;
 
-static struct led_flash_platform_data *lm3559_led_flash_pdata = NULL;
+static struct lm3559_flash_platform_data *lm3559_led_flash_pdata = NULL;
 static struct i2c_client *lm3559_i2c_client = NULL;
 
 int lm3559_write_reg(struct i2c_client *client, unsigned char addr, unsigned char data)
@@ -141,15 +141,14 @@ void lm3559_enable_torch_mode(enum led_status state)
 {
 	pr_err("%s: state = %d\n", __func__, state);
 
-    if (state == LM3559_LED_LOW) {
+	if (state == LM3559_LED_LOW) {
 		/* 011 011 : 112.5 mA */
-/* LGE_CHANGE_S, decrease camcorder flash current for docomo heat test, 2013.02.22, jungryoul.choi@lge.com */
-#if defined(CONFIG_MACH_APQ8064_J1KD) || defined(CONFIG_MACH_APQ8064_J1D)
+#if defined(CONFIG_MACH_APQ8064_L05E) //112.5 --> 28.125 yt.jeon 0314 DCM spec
+		pr_err("%s: in torch mode (L05E)\n", __func__);
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_TORCH_BRIGHTNESS, 0x00);
 #else
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_TORCH_BRIGHTNESS, 0x1B);
 #endif
-/* LGE_CHANGE_E, decrease camcorder flash current for docomo heat test, 2013.02.22, jungryoul.choi@lge.com */
 	} else {
 		/* 111 111 : 225 mA */
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_TORCH_BRIGHTNESS, 0x3F);
@@ -182,26 +181,28 @@ void lm3559_enable_flash_mode(enum led_status state)
 	pr_err("%s: After - LM3559_REG_FLASH_DURATION[0x%x]\n",__func__,data);
 	lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_DURATION, data);
 
-	lm3559_write_reg(lm3559_i2c_client, LM3559_REG_GPIO, 0x09); /* LGE_CHANGE, Disable TX1, TX2 to prevent black lined image when data is comming, 2013.03.26, jungryoul.choi@lge.com */
+	lm3559_write_reg(lm3559_i2c_client, LM3559_REG_GPIO, 0x09); /*                                                                                                                    */
 
-	if(state == LM3559_LED_LOW){
-		/* 0001 0001 : 112.5 mA */
+	if (state == LM3559_LED_LOW) {
+		/* 0001 0001 : 112.5 mA => 0100 0100: 281.25 mA*/
 		CDBG("[LM3559_LED_LOW]LM3559_REG_FLASH_BRIGHTNESS \n");
-/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+#if defined(CONFIG_MACH_APQ8064_L05E) //                                                                   
+		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_BRIGHTNESS, 0x00);
+#else
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_BRIGHTNESS, 0x44);
-/* LGE_CHANGE E, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+#endif
 	}
-	else{
-		/*0011 0011 : 225 mA => 0110 0110 : 393.75 mA */
+	else {
+		/*0011 0011 : 225 mA => 0110 0110 : 393.75 mA => 1010 1010: 618.75 mA*/
 		CDBG("[LM3559_LED_HIGH]LM3559_REG_FLASH_BRIGHTNESS \n");
-/* LGE_CHANGE_S, Change flash LED driving current for L1m, 2012-07-24, jinw.kim*/
+/*                                                                             */
 #if defined(CONFIG_MACH_MSM8960_L1m)
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_BRIGHTNESS, 0x88);
 #else
 		lm3559_write_reg(lm3559_i2c_client, LM3559_REG_FLASH_BRIGHTNESS, 0x99);
-		/* LGE_CHANGE, Reduce flash current from 1237.5mA(0xAA) to 1125mA(0x99) , 2012.12.04, jungryoul.choi@lge.com */
+		/*                                                                                                           */
 #endif
-/* LGE_CHANGE_E, Change flash LED driving current for L1m, 2012-07-24, jinw.kim*/
+/*                                                                             */
 	}
 	lm3559_write_reg(lm3559_i2c_client, LM3559_REG_ENABLE, 0x1B);
 }
@@ -227,23 +228,28 @@ void lm3559_config_gpio_off(void)
 void lm3559_led_enable(void)
 {
 	pr_err("%s: Start\n", __func__);
-	gpio_set_value(lm3559_led_flash_pdata->gpio_en, 1);
+	gpio_set_value_cansleep(lm3559_led_flash_pdata->gpio_en, 1);
 	lm3559_onoff_state = LM3559_POWER_ON;
 }
 
 void lm3559_led_disable(void)
 {
 	pr_err("%s: Start\n", __func__);
-	gpio_set_value(lm3559_led_flash_pdata->gpio_en, 0);
+	gpio_set_value_cansleep(lm3559_led_flash_pdata->gpio_en, 0);
 	lm3559_onoff_state = LM3559_POWER_OFF;
 }
 
 int lm3559_flash_set_led_state(int led_state)
 {
-	int rc = 0;
-/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+	int err = 0;
+
+#if defined(CONFIG_MACH_APQ8064_AWIFI)
+    pr_err("%s: flash is not available on awifi\n", __func__);
+#else
+	
+/*                                                                              */
 	int batt_temp = 0;
-/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+/*                                                                              */
 
 	pr_err("%s: led_state = %d\n", __func__, led_state);
 
@@ -257,16 +263,20 @@ int lm3559_flash_set_led_state(int led_state)
 		break;
 	case MSM_CAMERA_LED_HIGH:
 		lm3559_led_enable();
-/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+/*                                                                              */
 		batt_temp = pm8921_batt_temperature();
+#if defined(CONFIG_MACH_APQ8064_L05E) //                                                                  
+		if(batt_temp > -50) {
+#else
 		if(batt_temp > -100) {
+#endif
 			pr_err("%s: Working on LED_HIGH Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
-			lm3559_enable_flash_mode(LM3559_LED_HIGH);
+		lm3559_enable_flash_mode(LM3559_LED_HIGH);
 		} else {
 			pr_err("%s: Working on LED_LOW Flash mode (Battery temperature = %d)\n", __func__, batt_temp);
 			lm3559_enable_flash_mode(LM3559_LED_LOW);
 		}
-/* LGE_CHANGE S, Low temperature exception handling, 2012-04-26 ku.kwon@lge.com */
+/*                                                                              */
 		break;
 	case MSM_CAMERA_LED_INIT:
 		lm3559_config_gpio_on();
@@ -275,11 +285,12 @@ int lm3559_flash_set_led_state(int led_state)
 		lm3559_config_gpio_off();
 		break;
 	default:
-		rc = -EFAULT;
+		err = -EINVAL;
 		break;
 	}
+#endif
 
-	return rc;
+	return err;
 }
 
 EXPORT_SYMBOL(lm3559_flash_set_led_state);
@@ -287,40 +298,56 @@ EXPORT_SYMBOL(lm3559_flash_set_led_state);
 static void lm3559_flash_led_set(struct led_classdev *led_cdev,
 	enum led_brightness value)
 {
+#if defined(CONFIG_MACH_APQ8064_AWIFI)
+    pr_err("%s: flash is not available on awifi\n", __func__);
+#else
 	pr_err("%s: led_cdev->brightness[%d]\n", __func__, value);
 
 	led_cdev->brightness = value;
 
-    if(value)
+	if (value)
 		lm3559_enable_torch_mode(LM3559_LED_LOW);
-    else
+	else
 		lm3559_led_disable();
+#endif	
 }
 
 static struct led_classdev lm3559_flash_led = {
-	.name			= "spotlight",
+	.name = "spotlight",
 	.brightness_set	= lm3559_flash_led_set,
 };
 
 static int lm3559_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-	int rc = 0;
+	int err = 0;
 
     pr_err("%s: start\n", __func__);
-
-	if (i2c_get_clientdata(client))
-		return -EBUSY;
-
 	lm3559_i2c_client = client;
 	lm3559_led_flash_pdata = client->dev.platform_data;
 
-	led_classdev_register(&client->dev, &lm3559_flash_led);
+	if (lm3559_led_flash_pdata == NULL) {
+	    pr_err("%s: platform_data is NULL\n", __func__);
+	    return -EINVAL;
+	}
 
-	return rc;
+	err = led_classdev_register(&client->dev, &lm3559_flash_led);
+	if (err < 0) {
+		pr_err("%s: failed to register\n", __func__);
+		return err;
+	}
+
+	pr_err("%s: probe stop\n", __func__);
+
+	return err;
 }
 
 static int lm3559_remove(struct i2c_client *client)
 {
+	led_classdev_unregister(&lm3559_flash_led);
+
+	lm3559_i2c_client = NULL;
+	lm3559_led_flash_pdata = NULL;
+
 	return 0;
 }
 
@@ -330,18 +357,18 @@ static const struct i2c_device_id lm3559_ids[] = {
 };
 
 static struct i2c_driver lm3559_driver = {
-	.probe 	  = lm3559_probe,
+	.probe    = lm3559_probe,
 	.remove   = lm3559_remove,
 	.id_table = lm3559_ids,
 	.driver   = {
 		.name =  LM3559_I2C_NAME,
 		.owner= THIS_MODULE,
-    },
+	},
 };
 static int __init lm3559_init(void)
 {
 	pr_err("%s: start\n", __func__);
-    return i2c_add_driver(&lm3559_driver);
+	return i2c_add_driver(&lm3559_driver);
 }
 
 static void __exit lm3559_exit(void)

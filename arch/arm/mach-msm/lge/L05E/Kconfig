@@ -1,0 +1,17 @@
+config BOARD_HEADER_FILE
+	string "LGE board specific header file name"
+	default ""
+
+config MACH_APQ8064_L05E
+	depends on ARCH_APQ8064
+	select MACH_LGE
+		bool "MSM8960 L05E"
+	help
+	  Support for the LGE Fusion3 J1D(Docomo) device.
+
+config LGE_USB_DIAG_DISABLE
+	default n
+	bool "Disable diag function"
+	help
+	 Provide method of diag enable or disable
+

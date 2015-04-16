@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/include/mach/board_lge.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  * Copyright (c) 2012, LGE Inc.
  * Author: Brian Swetland <swetland@google.com>
  *
@@ -19,12 +19,16 @@
 #ifndef __ASM_ARCH_MSM_BOARD_LGE_H
 #define __ASM_ARCH_MSM_BOARD_LGE_H
 
+#ifdef CONFIG_ANDROID_PERSISTENT_RAM
+#define LGE_PERSISTENT_RAM_SIZE	(SZ_1M)
+#endif
+
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 #define LGE_RAM_CONSOLE_SIZE	(124*SZ_1K * 2)
 #endif
 
-#ifdef CONFIG_LGE_HANDLE_PANIC
-#define LGE_CRASH_LOG_SIZE	(4*SZ_1K)
+#ifdef CONFIG_LGE_CRASH_HANDLER
+#define LGE_CRASH_LOG_SIZE	(4*SZ_1K + SZ_1K)
 #endif
 
 typedef enum {
@@ -77,6 +81,10 @@ void lge_pm_read_cable_info(void);
 acc_cable_type lge_pm_get_cable_type(void);
 unsigned lge_pm_get_ta_current(void);
 unsigned lge_pm_get_usb_current(void);
+#ifdef CONFIG_MACH_APQ8064_ALTEV
+unsigned lge_pm_get_cable_type_adc(void);
+unsigned lge_get_board_revno_adc(void);
+#endif
 #endif
 
 #ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
@@ -107,11 +115,11 @@ struct kcal_platform_data {
 #endif
 
 #ifdef CONFIG_LGE_PM
-/* LGE_S kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+/*                                                         */
 struct bms_batt_info_type{
 	int mode;
 };
-/* LGE_E kwangjae1.lee@lge.com 2012-06-11 Add bms debugger */
+/*                                                         */
 struct pseudo_batt_info_type {
 	int mode;
 	int id;
@@ -149,14 +157,37 @@ enum lge_boot_cable_type {
     LGE_BOOT_NO_INIT_CABLE,
 };
 
-#ifdef CONFIG_ANDROID_RAM_CONSOLE
-void __init lge_add_ramconsole_devices(void);
+void __init lge_reserve(void);
+
+#ifdef CONFIG_ANDROID_PERSISTENT_RAM
+void __init lge_add_persistent_ram(void);
+#else
+static inline void __init lge_add_persistent_ram(void)
+{
+	/* empty */
+}
 #endif
 
-#ifdef CONFIG_LGE_HANDLE_PANIC
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+void __init lge_add_ramconsole_devices(void);
+#else
+static inline void __init lge_add_ramconsole_devices(void)
+{
+	/* empty */
+}
+#endif
+
+#ifdef CONFIG_LGE_CRASH_HANDLER
 void __init lge_add_panic_handler_devices(void);
 int lge_get_magic_for_subsystem(void);
 void lge_set_magic_for_subsystem(const char *subsys_name);
+int get_ssr_magic_number(void);
+void set_ssr_magic_number(const char *subsys_name);
+#else
+static inline void __init lge_add_panic_handler_devices(void)
+{
+	/* empty */
+}
 #endif
 
 #ifdef CONFIG_LGE_QFPROM_INTERFACE
@@ -179,4 +210,4 @@ void __init lge_add_boot_time_checker(void);
 #ifdef CONFIG_LGE_ECO_MODE
 void __init lge_add_lge_kernel_devices(void);
 #endif
-#endif // __ASM_ARCH_MSM_BOARD_LGE_H
+#endif //                           

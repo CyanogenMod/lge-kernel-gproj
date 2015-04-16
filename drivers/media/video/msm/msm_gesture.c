@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -76,8 +76,18 @@ static int msm_gesture_proc_ctrl_cmd(struct msm_gesture_ctrl *p_gesture_ctrl,
 	uint32_t value_len;
 
 	tmp_cmd = (struct msm_ctrl_cmd *)ctrl->value;
+	if (!access_ok(VERIFY_READ, tmp_cmd, sizeof(struct msm_ctrl_cmd))){
+                pr_err("%s: Invalid user data!\n", __func__);
+                return -EINVAL;
+	}
 	uptr_cmd = (void __user *)ctrl->value;
 	uptr_value = (void __user *)tmp_cmd->value;
+
+	if(tmp_cmd->length > 0xffff) {
+                pr_err("%s Integer Overflow occurred \n",__func__);
+                rc = -EINVAL;
+                goto end;
+       }
 	value_len = tmp_cmd->length;
 
 	D("%s: cmd type = %d, up1=0x%x, ulen1=%d, up2=0x%x, ulen2=%d\n",

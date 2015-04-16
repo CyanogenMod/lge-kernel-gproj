@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  */
-//youngil.yun@lge.com 2012-07-09 - start
+//                                      
 #include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/i2c.h>
@@ -22,22 +22,19 @@
 #include <linux/spi/spi.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 
-#ifdef CONFIG_MACH_APQ8064_GVDCM
-#include "../../../../../arch/arm/mach-msm/lge/gv/board-gv.h"
-#else
-#include "../../../../../arch/arm/mach-msm/lge/gk/board-gk.h"
-#endif
-#include "msm_camera_i2c_mux.h"
-//youngil.yun@lge.com 2012-07-09 - end
+#include "../../../../../arch/arm/mach-msm/lge/gvar/board-gvar.h"
 
-#if 1 // Start LGE_BSP_CAMERA::kyounghoon.noh@lge.com 2012-06-26
+#include "msm_camera_i2c_mux.h"
+//                                    
+
+#if 1 //                                                        
 #include "msm.h"
 #include "msm_ispif.h"
-#endif // End LGE_BSP_CAMERA::kyounghoon.noh@lge.com 2012-06-26
+#endif //                                                      
 #include "msm_sensor.h"
 #include <mach/board_lge.h>
 
-/* LGE_CHANGE_S, Define Camera Log, 2012.10.18 jungki.kim@lge.com */
+/*                                                                */
 #define CAMERA_DEBUG 1
 #define LDBGE(fmt,args...) printk(KERN_EMERG "[CAM/E][ERR] "fmt,##args)
 #if (CAMERA_DEBUG)
@@ -45,7 +42,7 @@
 #else
 #define LDBGI(args...) do {} while(0)
 #endif
-/* LGE_CHANGE_E, Define Camera Log, 2012.10.18 jungki.kim@lge.com */
+/*                                                                */
 
 #if 1 //def CE1702
 #define CE1702_FLASH_BIN00_FILE "CE170F00.bin"
@@ -67,18 +64,18 @@
 
 #define ISP_HOST_INT PM8921_GPIO_PM_TO_SYS(20)
 #define ISP_STBY PM8921_GPIO_PM_TO_SYS(13)
-/* LGE_CHANGE_S, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[Start] */
+/*                                                                          */
 #define ISP_RST PM8921_GPIO_PM_TO_SYS(27)
-/* LGE_CHANGE_E, For GK/GV Rev.E bring-up, 2012.10.26, gayoung85.lee[End] */
+/*                                                                        */
 
 #define CE1702_OK      0
 #define CE1702_NOK     1
 
 #define SPI_DRIVER_NAME "ce1702_spi"
 
-/* LGE_CHANGE_S,  For isp bin location change, 2012.10.22, gayoung85.lee[Start] */
+/*                                                                              */
 //#define ISP_BIN_LOCATION_SDCARD_FLAG
-/* LGE_CHANGE_E,  For isp bin location change, 2012.10.22, gayoung85.lee[End] */
+/*                                                                            */
 
 #define CHIPID 0
 #if (CHIPID == 0)
@@ -117,7 +114,7 @@ typedef enum
   CE1702_ISP_MAX
 }check_isp_bin;
 
-/* LGE_CHANGE_S, Define For CE1702 output mode, 2012.11.10, elin.lee*/
+/*                                                                  */
 typedef enum
 {
    CE1702_MODE_PREVIEW = 0,
@@ -128,13 +125,13 @@ typedef enum
    CE1702_MODE_LOW_LIGHT_SHOT,
    CE1702_FRAME_MAX
 }check_isp_mode;
-/* LGE_CHANGE_E, Define For CE1702 output mode, 2012.11.10, elin.lee*/
+/*                                                                  */
 
 struct ce1702_work {
 	struct work_struct work;
 };
 
-/* LGE_CHANGE_S, Define For CE1702 Sensor To Understand Easier, 2012.10.22, jungki.kim[Start] */
+/*                                                                                            */
 #define AF_MODE_UNCHANGED	-1
 #define AF_MODE_NORMAL		0
 #define AF_MODE_MACRO			1
@@ -189,7 +186,30 @@ struct ce1702_work {
 #define CE1702_SIZE_QQCIF		0x00	//160x120
 //#define CE1702_SIZE_TV_THB	0x04	//480x270
 
-/* LGE_CHANGE_E, Define For CE1702 Sensor To Understand Easier, 2012.10.22, jungki.kim[End] */
+/*                                                                                                           */
+// This MUST BE THE SAME AS IN hardware/qcom/camera/QCamera_Intf.h !!
+#define CAMERA_EFFECT_OFF		0
+#define CAMERA_EFFECT_MONO		1
+#define CAMERA_EFFECT_NEGATIVE		2
+#define CAMERA_EFFECT_SOLARIZE		3
+#define CAMERA_EFFECT_SEPIA		4
+#define CAMERA_EFFECT_POSTERIZE         5
+#define CAMERA_EFFECT_WHITEBOARD	6
+#define CAMERA_EFFECT_BLACKBOARD	7
+#define CAMERA_EFFECT_AQUA		8
+#define CAMERA_EFFECT_EMBOSS		9
+#define CAMERA_EFFECT_SKETCH		10
+#define CAMERA_EFFECT_NEON		11
+#define CAMERA_EFFECT_USER_DEFINED1     12
+#define CAMERA_EFFECT_USER_DEFINED2     13
+#define CAMERA_EFFECT_USER_DEFINED3     14
+#define CAMERA_EFFECT_USER_DEFINED4     15
+#define CAMERA_EFFECT_USER_DEFINED5     16
+#define CAMERA_EFFECT_USER_DEFINED6     17
+#define CAMERA_EFFECT_MAX               18
+/*                                                                                                         */
+
+/*                                                                                          */
 
 struct ce1702_size_type {
 	uint16_t width;
@@ -197,7 +217,7 @@ struct ce1702_size_type {
 	uint16_t size_val;
 };
 
-/* LGE_CHANGE_S, Support ManualSceneMode for CE1702, 2012.10.28, gayoung85.lee[Start] */
+/*                                                                                    */
 typedef enum {
   CAMERA_SCENE_OFF = 0,
   CAMERA_SCENE_AUTO = 1,
@@ -218,10 +238,10 @@ typedef enum {
   CAMERA_SCENE_THEATRE,
   CAMERA_SCENE_ACTION,
   CAMERA_SCENE_AR,
-  CAMERA_SCENE_SMARTSHUTTER,  /* LGE_CHANGE Smart Shutter, 2012-01-11 sungmin.woo@lge.com */
+  CAMERA_SCENE_SMARTSHUTTER,  /*                                                          */
   CAMERA_SCENE_MAX
 } camera_scene_mode_type;
-/* LGE_CHANGE_E, Support ManualSceneMode for CE1702, 2012.10.28, gayoung85.lee[End] */
+/*                                                                                  */
 
 
 extern int dest_location_firmware;
@@ -232,6 +252,8 @@ int32_t ce1702_power_down(struct msm_sensor_ctrl_t *s_ctrl);
 int32_t ce1702_match_id(struct msm_sensor_ctrl_t *s_ctrl);
 extern int32_t ce1702_i2c_read(unsigned short   saddr,unsigned char cmd_addr, unsigned char *cmd_data, int cmd_len, unsigned char *rdata, int length);
 extern int32_t ce1702_i2c_write(unsigned short saddr, unsigned short waddr, unsigned char *wdata, uint32_t length);
+//extern inline void init_suspend(void);
+//extern inline void deinit_suspend(void);
 extern void init_suspend(void);
 extern void deinit_suspend(void);
 extern void ce1702_sysfs_add(struct kobject* kobj);
@@ -240,7 +262,7 @@ extern void ce1702_store_isp_eventlog(void);
 extern  void ce1702_wq_ISP_upload(struct work_struct *work);
 extern long ce1702_check_flash_version(void);
 
-/* LGE_CHANGE_S, Define to use every scope, 2012.10.24, jungki.kim[Start] */
+/*                                                                        */
 extern long ce1702_isp_fw_full_upload(void);
 int8_t ce1702_sensor_set_led_flash_mode_for_AF(int32_t led_mode);
 int8_t ce1702_set_caf(int mode);
@@ -257,6 +279,6 @@ int8_t ce1702_set_manual_focus_length(struct msm_sensor_ctrl_t *s_ctrl, int32_t 
 int8_t ce1702_set_window(struct msm_sensor_ctrl_t *s_ctrl, int16_t *window, int16_t sw);
 int8_t ce1702_set_VCM_default_position(struct msm_sensor_ctrl_t *s_ctrl);
 int8_t ce1702_switching_exif_gps(bool onoff);
-/* LGE_CHANGE_E, Define to use every scope, 2012.10.24, jungki.kim[End] */
+/*                                                                      */
 void CE_FwStart(void);
 

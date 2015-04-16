@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -505,6 +505,8 @@ DECLARE_TASKLET(vpe_tasklet, vpe_do_tasklet, 0);
 
 static irqreturn_t vpe_parse_irq(int irq_num, void *data)
 {
+	if(!vpe_ctrl || !vpe_ctrl->vpebase)
+		return IRQ_HANDLED;
 	vpe_ctrl->irq_status = msm_camera_io_r_mb(vpe_ctrl->vpebase +
 							VPE_INTR_STATUS_OFFSET);
 	msm_camera_io_w_mb(vpe_ctrl->irq_status, vpe_ctrl->vpebase +
@@ -550,6 +552,11 @@ int vpe_enable(uint32_t clk_rate, struct msm_cam_media_controller *mctl)
 		goto vpe_clk_failed;
 
 #ifdef CONFIG_MSM_IOMMU
+	if (mctl->domain == NULL) {
+		pr_err("%s: iommu domain not initialized\n", __func__);
+		rc = -EINVAL;
+		goto src_attach_failed;
+	}
 	rc = iommu_attach_device(mctl->domain, vpe_ctrl->iommu_ctx_src);
 	if (rc < 0) {
 		pr_err("%s: Device attach failed\n", __func__);
@@ -560,13 +567,13 @@ int vpe_enable(uint32_t clk_rate, struct msm_cam_media_controller *mctl)
 		pr_err("%s: Device attach failed\n", __func__);
 		goto dst_attach_failed;
 	}
-/* LGE_CHANGE_S, Patch for ION free, 2013.1.8, gayoung85.lee[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+/*                                                                  */
+#if defined(CONFIG_LGE_GK_CAMERA) ||defined(CONFIG_MACH_APQ8064_AWIFI)
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	msm_camera_v4l2_get_ion_client(mctl->pcam_ptr);
 #endif
 #endif
-/* LGE_CHANGE_E, Patch for ION free, 2013.1.8, gayoung85.lee[End] */
+/*                                                                */
 #endif
 	return rc;
 
@@ -601,13 +608,13 @@ int vpe_disable(struct msm_cam_media_controller *mctl)
 #ifdef CONFIG_MSM_IOMMU
 	iommu_detach_device(mctl->domain, vpe_ctrl->iommu_ctx_dst);
 	iommu_detach_device(mctl->domain, vpe_ctrl->iommu_ctx_src);
-/* LGE_CHANGE_S, Patch for ION free, 2013.1.8, gayoung85.lee[Start] */
-#if defined(CONFIG_MACH_APQ8064_GKKT) || defined(CONFIG_MACH_APQ8064_GKSK) || defined(CONFIG_MACH_APQ8064_GKU) || defined(CONFIG_MACH_APQ8064_GKATT) || defined (CONFIG_MACH_APQ8064_GVDCM) || defined(CONFIG_MACH_APQ8064_GVKT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
+/*                                                                  */
+#if defined(CONFIG_LGE_GK_CAMERA) ||defined(CONFIG_MACH_APQ8064_AWIFI)
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	msm_camera_v4l2_put_ion_client(mctl->pcam_ptr);
 #endif
 #endif	
-/* LGE_CHANGE_E, Patch for ION free, 2013.1.8, gayoung85.lee[End] */
+/*                                                                */
 #endif
 	disable_irq(vpe_ctrl->vpeirq->start);
 	tasklet_kill(&vpe_tasklet);
@@ -1026,12 +1033,13 @@ static int msm_vpe_subdev_close(struct v4l2_subdev *sd,
 			frame_info->p_mctl->client, mctl->domain_num);
 		msm_mctl_unmap_user_frame(&frame_info->dest_frame,
 			frame_info->p_mctl->client, mctl->domain_num);
-// LGE_CHANGE_S, youngwook.song@lge.com 2012.12.30, this Patch is for ION MMUNMAP
+//                                                                               
 // Because of this, getting VT during the video capture always goes to Kernel Crash.
 		kfree(frame_info);
 		vpe_ctrl->pp_frame_info = NULL;
-// LGE_CHANGE_E, youngwook.song@lge.com 2012.12.30, this Patch is for ION MMUNMAP
+//                                                                               
 	}
+	vpe_ctrl->pp_frame_info = NULL;
 	/* Drain the payload queue. */
 	msm_queue_drain(&vpe_ctrl->eventData_q, list_eventdata);
 	atomic_dec(&vpe_ctrl->active);

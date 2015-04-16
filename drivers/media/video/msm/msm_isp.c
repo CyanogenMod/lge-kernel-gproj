@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,7 +86,8 @@ int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
 {
 	int image_mode;
 	uint32_t vfe_output_mode = pmctl->vfe_output_mode;
-	vfe_output_mode &= ~(VFE_OUTPUTS_RDI0|VFE_OUTPUTS_RDI1|VFE_OUTPUTS_RDI2);
+	vfe_output_mode &= ~(VFE_OUTPUTS_RDI0|
+		VFE_OUTPUTS_RDI1|VFE_OUTPUTS_RDI2);
 	if (vfe_msg == VFE_MSG_OUTPUT_PRIMARY) {
 		switch (vfe_output_mode) {
 		case VFE_OUTPUTS_MAIN_AND_PREVIEW:
@@ -283,14 +284,14 @@ static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
 	struct v4l2_subdev *sd,	unsigned int notification,  void *arg)
 {
 	int rc = 0;
-// Start LGE_BSP_CAMERA::john.park@lge.com 2012-08-15 v4l2_event data type changing from static to kmalloc for preventing stack-overflow 	
+//                                                                                                                                        
 #if 0 // prevent stack-overflow	
 	struct v4l2_event v4l2_evt;
 #else
 	#define	v4l2_evt (*_v4l2_evt)
 	struct v4l2_event *_v4l2_evt;
 #endif
-// End LGE_BSP_CAMERA::john.park@lge.com 2012-08-15 v4l2_event data type changing from static to kmalloc for preventing stack-overflow
+//                                                                                                                                    
 	struct msm_isp_event_ctrl *isp_event;
 	struct msm_free_buf buf;
 
@@ -312,7 +313,7 @@ static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
 		return -ENOMEM;
 	}
 
-// Start LGE_BSP_CAMERA::john.park@lge.com 2012-08-15 v4l2_event data type changing from static to kmalloc for preventing stack-overflow 
+//                                                                                                                                       
 #if 1 // prevent stack-overflow
 	_v4l2_evt = kmalloc( sizeof(struct v4l2_event), GFP_ATOMIC);
 	if (!_v4l2_evt) {
@@ -321,7 +322,7 @@ static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
 		return -ENOMEM;
 	}
 #endif
-// End LGE_BSP_CAMERA::john.park@lge.com 2012-08-15 v4l2_event data type changing from static to kmalloc for preventing stack-overflow
+//                                                                                                                                    
 	v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
 					MSM_CAM_RESP_STAT_EVT_MSG;
 	v4l2_evt.id = 0;
@@ -375,7 +376,6 @@ static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
 			case MSG_ID_OUTPUT_TERTIARY3:
 				msgid = VFE_MSG_OUTPUT_TERTIARY3;
 				break;
-
 			default:
 				pr_err("%s: Invalid VFE output id: %d\n",
 					   __func__, isp_output->output_id);
@@ -406,18 +406,16 @@ static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
 		struct msm_stats_buf *stats_buf = NULL;
 
 		isp_event->isp_data.isp_msg.msg_id = MSG_ID_STATS_COMPOSITE;
-		stats->aec.buff = msm_pmem_stats_ptov_lookup(pmctl,
-					stats->aec.buff, &(stats->aec.fd));
-		stats->awb.buff = msm_pmem_stats_ptov_lookup(pmctl,
-					stats->awb.buff, &(stats->awb.fd));
-		stats->af.buff = msm_pmem_stats_ptov_lookup(pmctl,
-					stats->af.buff, &(stats->af.fd));
-		stats->ihist.buff = msm_pmem_stats_ptov_lookup(pmctl,
-					stats->ihist.buff, &(stats->ihist.fd));
-		stats->rs.buff = msm_pmem_stats_ptov_lookup(pmctl,
-					stats->rs.buff, &(stats->rs.fd));
-		stats->cs.buff = msm_pmem_stats_ptov_lookup(pmctl,
-					stats->cs.buff, &(stats->cs.fd));
+		CDBG("%s: aec (%d, %x) awb (%d, %x) af (%d, %x) ", __func__,
+			stats->aec.fd, (uint32_t)stats->aec.buff,
+			stats->awb.fd, (uint32_t)stats->awb.buff,
+			stats->af.fd, (uint32_t)stats->af.buff);
+		CDBG("%s: rs (%d, %x) cs(%d, %x) ihist(%d, %x)", __func__,
+			stats->rs.fd, (uint32_t)stats->rs.buff,
+			stats->cs.fd, (uint32_t)stats->cs.buff,
+			stats->ihist.fd, (uint32_t)stats->ihist.buff);
+		CDBG("%s:bhist/skin(%d, %x) ", __func__,
+			stats->skin.fd, (uint32_t)stats->skin.buff);
 
 		stats_buf = kmalloc(sizeof(struct msm_stats_buf), GFP_ATOMIC);
 		if (!stats_buf) {
@@ -512,12 +510,12 @@ static int msm_isp_notify_vfe(struct msm_cam_media_controller *pmctl,
 	v4l2_event_queue(pmctl->config_device->config_stat_event_queue.pvdev,
 			 &v4l2_evt);
 
-// Start LGE_BSP_CAMERA::john.park@lge.com 2012-08-15 v4l2_event data type changing from static to kmalloc for preventing stack-overflow 
+//                                                                                                                                       
 #if 1 // prevent stack-overflow
 	kfree(_v4l2_evt);
 	#undef v4l2_evt
 #endif
-// End LGE_BSP_CAMERA::john.park@lge.com 2012-08-15 v4l2_event data type changing from static to kmalloc for preventing stack-overflow
+//                                                                                                                                    
 
 	return rc;
 }
