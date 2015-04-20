@@ -312,7 +312,7 @@ static int tz_init(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale)
 	if (pwrscale->priv == NULL)
 		return -ENOMEM;
 	priv->idle_dcvs = 0;
-	priv->governor = TZ_GOVERNOR_ONDEMAND;
+	priv->governor = TZ_GOVERNOR_SIMPLE;
 	spin_lock_init(&tz_lock);
 	kgsl_pwrscale_policy_add_files(device, pwrscale, &tz_attr_group);
 	for (i = 0; i < pwr->num_pwrlevels - 1; i++) {
