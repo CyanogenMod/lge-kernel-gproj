@@ -51,7 +51,7 @@
 #define MSG_ID_AXI_ERROR                32
 #define MSG_ID_CAMIF_OVERFLOW           33
 #define MSG_ID_VIOLATION                34
-#define MSG_ID_VFE_ERROR              35
+#define MSG_ID_CAMIF_ERROR              35
 #define MSG_ID_BUS_OVERFLOW             36
 #define MSG_ID_SOF_ACK                  37
 #define MSG_ID_STOP_REC_ACK             38
@@ -236,7 +236,12 @@
 #define VFE_CMD_COLORXFORM_ENC_UPDATE                   160
 #define VFE_CMD_COLORXFORM_VIEW_UPDATE                  161
 #define VFE_CMD_TEST_GEN_CFG                            162
-#define VFE_CMD_STOP_RECORDING_DONE                     163
+#define VFE_CMD_SELECT_RDI                              163
+#define VFE_CMD_SET_STATS_VER                           164
+#define VFE_CMD_RGB_ALL_CFG                             165
+#define VFE_CMD_RGB_ALL_UPDATE                          166
+#define VFE_CMD_STOP_RECORDING_DONE                     167
+#define VFE_CMD_MAX                                     168
 
 struct msm_isp_cmd {
 	int32_t  id;
@@ -346,6 +351,12 @@ struct msm_vpe_clock_rate {
 #define VFE_OUTPUTS_RDI0                BIT(11)
 #define VFE_OUTPUTS_RDI1                BIT(12)
 #define VFE_OUTPUTS_RDI2                BIT(13)
+
+#define	VFE_RDI_COMPOSITE				(1 << 0)
+#define	VFE_RDI_NON_COMPOSITE			(1 << 1)
+
+#define VFE_STATS_TYPE_LEGACY		0
+#define VFE_STATS_TYPE_BAYER		(1 << 2)
 
 struct msm_frame_info {
 	uint32_t inst_handle;

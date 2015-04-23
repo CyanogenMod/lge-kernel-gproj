@@ -51,7 +51,7 @@
 #endif
 #include <linux/string.h>
 #include <linux/skbuff.h>
-#include <linux/splice.h>
+#include <misc/splice.h>
 #include <linux/cache.h>
 #include <linux/rtnetlink.h>
 #include <linux/init.h>

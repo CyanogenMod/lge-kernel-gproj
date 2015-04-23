@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,10 +11,10 @@
  *
  */
 
-/* LGE_CHANGE_S, change for shutter lag shortening, 2012.06.29, kyounghoon.noh@lge.com */
+/*                                                                                     */
 #include "msm.h"
 #include "msm_ispif.h"
-/* LGE_CHANGE_E, change for shutter lag shortening, 2012.06.29, kyounghoon.noh@lge.com */
+/*                                                                                     */
 #include "msm_sensor.h"
 #define SENSOR_NAME "imx091"
 #define PLATFORM_DRIVER_NAME "msm_camera_imx091"
@@ -285,7 +285,7 @@ static struct msm_camera_i2c_reg_conf imx091_recommend_settings[] = {
 };
 
 static struct msm_camera_i2c_reg_conf imx091_comm1_settings[] = {
-// Start LGE_BSP_CAMERA::john.park@lge.com 2012-08-09 shutter lag shortening
+//                                                                          
 #if 0 // for cropping EOF mode
 	{0x3035,	0x10},
 	{0x303B,	0x14},
@@ -301,7 +301,7 @@ static struct msm_camera_i2c_reg_conf imx091_comm1_settings[] = {
 	{0x303D,	0x00},
 	{0x0100,	0x10},
 #endif	
-// End LGE_BSP_CAMERA::john.park@lge.com 2012-08-09 shutter lag shortening	
+//                                                                         
 };
 
 static struct msm_camera_i2c_reg_conf imx091_comm2_part1_settings[] = {
@@ -444,7 +444,7 @@ static struct msm_sensor_output_reg_addr_t imx091_reg_addr = {
 	.frame_length_lines = 0x0340,
 };
 
-/* LGE_CHANGE_S, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+/*                                                                                       */
 
 static struct msm_sensor_id_info_t imx091_id_info = {
 	.sensor_id_reg_addr = 0x0000,
@@ -466,7 +466,7 @@ static struct msm_camera_power_seq_t imx091_power_seq[] = {
 	{CONFIG_CLK, 1},
 	{CONFIG_I2C_MUX, 0},
 };
-/* LGE_CHANGE_E, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+/*                                                                                       */
 
 static struct msm_sensor_exp_gain_info_t imx091_exp_gain_info = {
 	.coarse_int_time_addr = 0x0202,
@@ -492,13 +492,13 @@ static struct msm_camera_i2c_client imx091_sensor_i2c_client = {
 };
 
 
-/* LGE_CHANGE_S, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+/*                                                                                       */
 static int __init msm_sensor_init_module(void)
 {
 	pr_err("__jrchoi: %s: E\n", __func__);
 	return i2c_add_driver(&imx091_i2c_driver);
 }
-/* LGE_CHANGE_E, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+/*                                                                                       */
 
 static struct v4l2_subdev_core_ops imx091_subdev_core_ops = {
 	.ioctl = msm_sensor_subdev_ioctl,
@@ -514,7 +514,7 @@ static struct v4l2_subdev_ops imx091_subdev_ops = {
 	.video  = &imx091_subdev_video_ops,
 };
 
-/* LGE_CHANGE_S, change for shutter lag shortening, 2012.06.29, kyounghoon.noh@lge.com */
+/*                                                                                     */
 int32_t imx091_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			int update_type, int res)
 {
@@ -597,7 +597,7 @@ int32_t imx091_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
 }
 
 int32_t imx091_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
-		uint16_t gain, uint32_t line)
+		uint16_t gain, uint32_t line, int32_t luma_avg, uint16_t fgain)
 {
 	uint32_t fl_lines;
 	uint8_t offset;
@@ -666,14 +666,14 @@ int32_t imx091_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
 
 	return 0;
 }
-/* LGE_CHANGE_E, change for shutter lag shortening, 2012.06.29, kyounghoon.noh@lge.com */
+/*                                                                                     */
 
 static struct msm_sensor_fn_t imx091_func_tbl = {
 	.sensor_start_stream = msm_sensor_start_stream,
 	.sensor_stop_stream = msm_sensor_stop_stream,
 	.sensor_group_hold_on = msm_sensor_group_hold_on,
 	.sensor_group_hold_off = msm_sensor_group_hold_off,
-/* LGE_CHANGE_S, change for shutter lag shortening, 2012.06.29, kyounghoon.noh@lge.com */
+/*                                                                                     */
 #if 0  // QCT
 	.sensor_set_fps = msm_sensor_set_fps,
 	.sensor_write_exp_gain = msm_sensor_write_exp_gain1,
@@ -685,20 +685,20 @@ static struct msm_sensor_fn_t imx091_func_tbl = {
 	.sensor_write_snapshot_exp_gain = imx091_sensor_write_exp_gain1,
 	.sensor_setting = imx091_sensor_setting,
 #endif
-/* LGE_CHANGE_E, change for shutter lag shortening, 2012.06.29, kyounghoon.noh@lge.com */
+/*                                                                                     */
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
 	.sensor_mode_init = msm_sensor_mode_init,
 	.sensor_get_output_info = msm_sensor_get_output_info,
 	.sensor_config = msm_sensor_config,
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
-/* LGE_CHANGE_S, change for shutter lag shortening, 2012.06.29, kyounghoon.noh@lge.com */
+/*                                                                                     */
 #if 0 // QCT
 	.sensor_adjust_frame_lines = msm_sensor_adjust_frame_lines1,
 #else
 	//.sensor_adjust_frame_lines = msm_sensor_adjust_frame_lines,
 #endif
-/* LGE_CHANGE_E, change for shutter lag shortening, 2012.06.29, kyounghoon.noh@lge.com */
+/*                                                                                     */
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
 };
 
@@ -726,10 +726,10 @@ static struct msm_sensor_ctrl_t imx091_s_ctrl = {
 	.vreg_seq = imx091_veg_seq,
 	.num_vreg_seq = ARRAY_SIZE(imx091_veg_seq),
 	.sensor_output_reg_addr = &imx091_reg_addr,
-/* LGE_CHANGE_S, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+/*                                                                                       */
 	.power_seq = &imx091_power_seq[0],
 	.num_power_seq = ARRAY_SIZE(imx091_power_seq),
-/* LGE_CHANGE_E, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+/*                                                                                       */
 	.sensor_id_info = &imx091_id_info,
 	.sensor_exp_gain_info = &imx091_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
@@ -743,8 +743,8 @@ static struct msm_sensor_ctrl_t imx091_s_ctrl = {
 //	.clk_rate = MSM_SENSOR_MCLK_24HZ,
 };
 
-/* LGE_CHANGE_S, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+/*                                                                                       */
 module_init(msm_sensor_init_module);
-/* LGE_CHANGE_E, Code refining for Jelly bean from G-MR ver. , 2012.11.03 youngwook.song */
+/*                                                                                       */
 MODULE_DESCRIPTION("Sony 13MP Bayer sensor driver");
 MODULE_LICENSE("GPL v2");

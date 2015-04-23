@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,7 +160,7 @@ static int __devinit i2c_mux_probe(struct platform_device *pdev)
 i2c_mux_no_resource:
 	mutex_destroy(&mux_device->mutex);
 	kfree(mux_device);
-	return 0;
+	return rc;
 }
 
 static struct platform_driver i2c_mux_driver = {

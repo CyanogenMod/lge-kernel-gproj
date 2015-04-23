@@ -79,9 +79,9 @@
 #define   ADDR2_OFFSET           10
 #define   ACTION_OFFSET          24
 
-/* A DFS channel can be ACTIVE for max 30000 msec, from the last
+/* A DFS channel can be ACTIVE for max 9000 msec, from the last
    received Beacon/Prpbe Resp. */
-#define   MAX_TIME_TO_BE_ACTIVE_CHANNEL 30000
+#define   MAX_TIME_TO_BE_ACTIVE_CHANNEL 9000
 
 
 
@@ -711,6 +711,11 @@ void limSendSmeMgmtFrameInd(
                 limLog( pMac, LOGE, FL("Unable to active the gLimRemainOnChannelTimer"));
             } 
     }
+    else
+    {
+       if(frameType == SIR_MAC_MGMT_ACTION)
+            limLog( pMac, LOGE, FL("Rx: NO REMAIN ON CHANNEL and recd action frame "));
+    }
 
     limSysProcessMmhMsgApi(pMac, &mmhMsg, ePROT);
     return;
@@ -809,7 +814,7 @@ void limSendP2PActionFrame(tpAniSirGlobal pMac, tpSirMsgQ pMsg)
     tANI_U8             txFlag = 0;
     tpSirMacFrameCtl    pFc = (tpSirMacFrameCtl ) pMbMsg->data;
     tANI_U8             noaLen = 0;
-    tANI_U8             noaStream[SIR_MAX_NOA_ATTR_LEN + SIR_P2P_IE_HEADER_LEN];
+    tANI_U8             noaStream[SIR_MAX_NOA_ATTR_LEN + (2*SIR_P2P_IE_HEADER_LEN)];
     tANI_U8             origLen = 0;
     tANI_U8             sessionId = 0;
     v_U8_t              *pP2PIe = NULL;

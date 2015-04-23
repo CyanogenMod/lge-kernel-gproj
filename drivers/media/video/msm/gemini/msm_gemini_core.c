@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,7 +142,7 @@ void *msm_gemini_core_framedone_irq(int gemini_irq_status, void *context)
 	buf_p = msm_gemini_hw_pingpong_active_buffer(&we_pingpong_buf);
 	if (buf_p) {
 		buf_p->framedone_len = msm_gemini_hw_encode_output_size();
-		GMN_DBG("%s:%d] framedone_len %d\n", __func__, __LINE__,
+		pr_err("%s:%d] framedone_len %d\n", __func__, __LINE__,
 			buf_p->framedone_len);
 	}
 
@@ -177,7 +177,7 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 	spin_unlock_irqrestore(&reset_lock, flags);
 	gemini_irq_status = msm_gemini_hw_irq_get_status();
 
-	GMN_DBG("%s:%d] gemini_irq_status = %0x\n", __func__, __LINE__,
+	pr_err("%s:%d] gemini_irq_status = %0x\n", __func__, __LINE__,
 		gemini_irq_status);
 
 	/*For reset and framedone IRQs, clear all bits*/
@@ -202,6 +202,34 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 				context, data);
 	}
 
+	if (msm_gemini_hw_irq_is_reset_ack(gemini_irq_status)) {
+		data = msm_gemini_core_reset_ack_irq(gemini_irq_status,
+			context);
+		if (msm_gemini_irq_handler)
+			msm_gemini_irq_handler(
+				MSM_GEMINI_HW_MASK_COMP_RESET_ACK,
+				context, data);
+	}
+
+	/* Unexpected/unintended HW interrupt */
+	if (msm_gemini_hw_irq_is_err(gemini_irq_status) &&
+		!msm_gemini_hw_irq_is_frame_done(gemini_irq_status)) {
+		data = msm_gemini_core_err_irq(gemini_irq_status, context);
+		if (msm_gemini_irq_handler) {
+			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_ERR,
+				context, data);
+			data = msm_gemini_core_fe_pingpong_irq(
+					gemini_irq_status, context);
+			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_FE,
+				context, data);
+			data = msm_gemini_core_we_pingpong_irq(
+					gemini_irq_status, context);
+			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_WE,
+				context, data);
+		}
+		return IRQ_HANDLED;
+	}
+
 	if (msm_gemini_hw_irq_is_fe_pingpong(gemini_irq_status)) {
 		data = msm_gemini_core_fe_pingpong_irq(gemini_irq_status,
 			context);
@@ -216,23 +244,6 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 			context);
 		if (msm_gemini_irq_handler)
 			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_WE,
-				context, data);
-	}
-
-	if (msm_gemini_hw_irq_is_reset_ack(gemini_irq_status)) {
-		data = msm_gemini_core_reset_ack_irq(gemini_irq_status,
-			context);
-		if (msm_gemini_irq_handler)
-			msm_gemini_irq_handler(
-				MSM_GEMINI_HW_MASK_COMP_RESET_ACK,
-				context, data);
-	}
-
-	/* Unexpected/unintended HW interrupt */
-	if (msm_gemini_hw_irq_is_err(gemini_irq_status)) {
-		data = msm_gemini_core_err_irq(gemini_irq_status, context);
-		if (msm_gemini_irq_handler)
-			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_ERR,
 				context, data);
 	}
 

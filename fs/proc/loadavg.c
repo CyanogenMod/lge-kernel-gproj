@@ -43,3 +43,4 @@ static int __init proc_loadavg_init(void)
 	return 0;
 }
 module_init(proc_loadavg_init);
+

@@ -41,6 +41,12 @@
 #define AGC_FIXED_GAIN              12
 #endif
 
+#define AGC_ATK_TIME			5
+#define AGC_REL_TIME			11
+#define AGC_HOLD_TIME			0
+#define AGC_OUTPUT_LIMIT_LEVEL		26
+#define AGC_MAX_GAIN			12
+#define AGC_NOISE_GATE_THRESHOLD	1
 
 #if defined(CONFIG_MACH_APQ8064_GKKT)||defined(CONFIG_MACH_APQ8064_GKSK)||defined(CONFIG_MACH_APQ8064_GKU)||defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
 #define GPIO_EAR_SENSE_N             38
@@ -129,6 +135,12 @@ static struct audio_amp_platform_data amp_platform_data =  {
 	.agc_compression_rate = AGC_COMPRESIION_RATE,
 	.agc_output_limiter_disable = AGC_OUTPUT_LIMITER_DISABLE,
 	.agc_fixed_gain = AGC_FIXED_GAIN,
+	.ATK_time = AGC_ATK_TIME,
+	.REL_time = AGC_REL_TIME,
+	.Hold_time = AGC_HOLD_TIME,
+	.Output_limit_level = AGC_OUTPUT_LIMIT_LEVEL,
+	.Noise_Gate_Threshold = AGC_NOISE_GATE_THRESHOLD,
+	.AGC_Max_Gain = AGC_MAX_GAIN,
 };
 #endif
 

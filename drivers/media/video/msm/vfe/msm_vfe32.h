@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,8 +126,8 @@
 #define VFE_IRQ_STATUS0_ASYNC_TIMER2  0x40000000  /* bit 30 */
 #define VFE_IRQ_STATUS0_ASYNC_TIMER3  0x80000000  /* bit 32 */
 
-#define VFE_IRQ_STATUS1_RDI0_REG_UPDATE_MASK  0x4000000  /*bit 26*/
-#define VFE_IRQ_STATUS1_RDI1_REG_UPDATE_MASK  0x8000000  /*bit 27*/
+#define VFE_IRQ_STATUS1_RDI0_REG_UPDATE_MASK  0x4000000 /*bit 26*/
+#define VFE_IRQ_STATUS1_RDI1_REG_UPDATE_MASK  0x8000000 /*bit 27*/
 #define VFE_IRQ_STATUS1_RDI2_REG_UPDATE_MASK  0x10000000 /*bit 28*/
 
 /*TODOs the irq status passed from axi to vfe irq handler does not account
@@ -163,11 +163,14 @@
 /* For DBPC bit 0 is set to zero and other's 1 */
 #define DBPC_MASK 0xFFFFFFFE
 
-/* For DBPC bit 1 is set to zero and other's 1 */
+/* For DBCC bit 1 is set to zero and other's 1 */
 #define DBCC_MASK 0xFFFFFFFD
 
+/* For ABCC bit 1 is set to zero and other's 1 */
+#define ABCC_MASK 0xFFFFFFFB
+
 /* For DBPC/ABF/DBCC/ABCC bits are set to 1 all others 0 */
-#define DEMOSAIC_MASK 0xF
+#define DEMOSAIC_MASK 0x10F
 
 /* For MCE enable bit 28 set to zero and other's 1 */
 #define MCE_EN_MASK 0xEFFFFFFF
@@ -307,6 +310,9 @@ enum vfe_output_state {
 #define V33_PCA_ROLL_OFF_CFG_OFF2             0x000007A8
 #define V33_PCA_ROLL_OFF_TABLE_SIZE           (17 + (13*4))
 #define V33_PCA_ROLL_OFF_LUT_BANK_SEL_MASK    0x00010000
+
+#define V33_ABCC_LUT_TABLE_SIZE       512
+#define V33_ABCC_LUT_BANK_SEL_MASK    0x00000100
 
 #define V32_COLOR_COR_OFF 0x00000388
 #define V32_COLOR_COR_LEN 52
@@ -542,6 +548,12 @@ enum VFE_YUV_INPUT_COSITING_MODE {
 };
 
 #define VFE32_GAMMA_NUM_ENTRIES  64
+
+#define VFE32_GAMMA_CH0_G_POS    0
+
+#define VFE32_GAMMA_CH1_B_POS    32
+
+#define VFE32_GAMMA_CH2_R_POS    64
 
 #define VFE32_LA_TABLE_LENGTH    64
 
@@ -894,6 +906,7 @@ struct vfe32_frame_extra {
 #define VFE_BUS_STATS_SKIN_BHIST_WR_PONG_ADDR    0x00000140
 #define VFE_BUS_STATS_SKIN_BHIST_UB_CFG          0x00000144
 #define VFE_CAMIF_COMMAND               0x000001E0
+#define VFE_CAMIF_FRAME_CFG		0x000001EC
 #define VFE_CAMIF_STATUS                0x00000204
 #define VFE_REG_UPDATE_CMD              0x00000260
 #define VFE_DEMUX_GAIN_0                0x00000288
@@ -981,6 +994,7 @@ struct vfe_share_ctrl_t {
 	uint16_t cmd_type;
 	uint8_t vfe_reset_flag;
 	uint8_t dual_enabled;
+	uint8_t lp_mode;
 
 	uint8_t axi_ref_cnt;
 	uint16_t comp_output_mode;
@@ -1001,6 +1015,8 @@ struct vfe_share_ctrl_t {
 	atomic_t rdi1_update_ack_pending;
 	atomic_t rdi2_update_ack_pending;
 
+	uint8_t stream_error;
+	uint32_t rdi_comp;
 };
 
 struct axi_ctrl_t {
@@ -1020,11 +1036,12 @@ struct axi_ctrl_t {
 	struct vfe_share_ctrl_t *share_ctrl;
 	struct device *iommu_ctx_imgwr;
 	struct device *iommu_ctx_misc;
-/* LGE_CHANGE_S, camera recovery patch, 2013.2.4, jungki.kim[Start] */
+	uint32_t simultaneous_sof_frame;
+/*                                                                  */
 #ifdef LGE_GK_CAMERA_BSP
 	struct mutex state_mutex;
 #endif
-/* LGE_CHANGE_E, camera recovery patch, 2013.2.4, jungki.kim[End] */
+/*                                                                */
 };
 
 struct vfe32_ctrl_type {
@@ -1038,6 +1055,7 @@ struct vfe32_ctrl_type {
 	int8_t update_rolloff;
 	int8_t update_la;
 	int8_t update_gamma;
+	int8_t update_abcc;
 
 	struct vfe_share_ctrl_t *share_ctrl;
 

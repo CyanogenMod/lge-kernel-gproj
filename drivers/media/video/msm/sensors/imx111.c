@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,18 +38,18 @@ static struct msm_camera_i2c_reg_conf imx111_groupoff_settings[] = {
 };
 
 static struct msm_camera_i2c_reg_conf imx111_prev_settings[] = {
-	/*LGE_CHANGE_S
-	Add sensor's option able to flip and morror to correct orientation
-	2011.11.15 jinsang.yun@lge.com
-	Seperate D1L-a from others
-	2011.12.19 ku.kwon@lge.com
-	*/
+	/*            
+                                                                   
+                               
+                           
+                           
+ */
 #if defined(CONFIG_MACH_MSM8960_D1LA) || defined(CONFIG_MACH_MSM8960_D1LV)
 	{0x0101, 0x03}, /* read out direction */
 #else
 	{0x0101, 0x00}, /* read out direction */
 #endif
-	/*LGE_CHANGE_E*/
+	/*            */
 	{0x0305, 0x02},
 	{0x0307, 0x38},
 	{0x30A4, 0x02},
@@ -61,7 +61,7 @@ static struct msm_camera_i2c_reg_conf imx111_prev_settings[] = {
 	{0x0205, 0xC0},
 // randy added : e
 	{0x0340, 0x04},
-	{0x0341, 0xE6},  
+	{0x0341, 0xE6},
 	{0x0342, 0x0D},
 	{0x0343, 0xD0},
 	{0x0344, 0x00},
@@ -80,7 +80,7 @@ static struct msm_camera_i2c_reg_conf imx111_prev_settings[] = {
 	{0x0383, 0x03},
 	{0x0385, 0x01},
 	{0x0387, 0x03},
-	{0x3033, 0x00},  
+	{0x3033, 0x00},
 	{0x303D, 0x10},
 	{0x303E, 0x40},
 	{0x3040, 0x08},
@@ -97,16 +97,16 @@ static struct msm_camera_i2c_reg_conf imx111_prev_settings[] = {
 	{0x3079, 0x00},
 	{0x307A, 0x00},
 	{0x309B, 0x28},
-	{0x309E, 0x00},  
+	{0x309E, 0x00},
 	{0x30A0, 0x14},
 	{0x30A1, 0x09},
 	{0x30AA, 0x03},
-	{0x30B2, 0x05},  
+	{0x30B2, 0x05},
 	{0x30D5, 0x09},
 	{0x30D6, 0x01},
 	{0x30D7, 0x01},
-	{0x30D8, 0x64},  
-	{0x30D9, 0x89},  
+	{0x30D8, 0x64},
+	{0x30D9, 0x89},
 	{0x30DE, 0x02},
 	{0x30DF, 0x20},
 	{0x3102, 0x08},
@@ -126,24 +126,24 @@ static struct msm_camera_i2c_reg_conf imx111_prev_settings[] = {
 	{0x3348, 0xE0},
 	//sensor NR
 	{0x30D0, 0xC0},
-	{0x30CF, 0x0E},	
-	{0x3640, 0x0F}, //0F~7F, default 1D	
+	{0x30CF, 0x0E},
+	{0x3640, 0x0F}, //0F~7F, default 1D
 };
 
 static struct msm_camera_i2c_reg_conf imx111_video_settings[] = {
 	/* Video E 30 fps */
-	/*LGE_CHANGE_S
-	Add sensor's option able to flip and morror to correct orientation
-	2011.11.15 jinsang.yun@lge.com
-	Seperate D1L-a from others
-	2011.12.19 ku.kwon@lge.com
-	*/
+	/*            
+                                                                   
+                               
+                           
+                           
+ */
 #if defined(CONFIG_MACH_MSM8960_D1LA) || defined(CONFIG_MACH_MSM8960_D1LV)
 	{0x0101, 0x03}, /* read out direction */
 #else
 	{0x0101, 0x00}, /* read out direction */
 #endif
-	/*LGE_CHANGE_E*/
+	/*            */
 	{0x0305, 0x02},
 	{0x0307, 0x32},
 	{0x30A4, 0x02},
@@ -214,24 +214,24 @@ static struct msm_camera_i2c_reg_conf imx111_video_settings[] = {
 	{0x3348, 0xA0},
 	//sensor NR
 	{0x30D0, 0xC0},
-	{0x30CF, 0x0E},	
-	{0x3640, 0x0F}, //0F~7F, default 1D	
+	{0x30CF, 0x0E},
+	{0x3640, 0x0F}, //0F~7F, default 1D
 };
 
 static struct msm_camera_i2c_reg_conf imx111_snap_settings[] = {
 	/* 22 fps */
-	/*LGE_CHANGE_S
-	Add sensor's option able to flip and morror to correct orientation
-	2011.11.15 jinsang.yun@lge.com
-	Seperate D1L-a from others
-	2011.12.19 ku.kwon@lge.com
-	*/
+	/*            
+                                                                   
+                               
+                           
+                           
+ */
 #if defined(CONFIG_MACH_MSM8960_D1LA) || defined(CONFIG_MACH_MSM8960_D1LV)
 	{0x0101, 0x03}, /* read out direction */
 #else
 	{0x0101, 0x00}, /* read out direction */
 #endif
-	/*LGE_CHANGE_E*/
+	/*            */
 	{0x0305, 0x02},
 	{0x0307, 0x53},
 	{0x30A4, 0x02},
@@ -243,7 +243,7 @@ static struct msm_camera_i2c_reg_conf imx111_snap_settings[] = {
 	{0x0205, 0xAC},
 // randy added : e
 	{0x0340, 0x09},
-	{0x0341, 0xBA},  
+	{0x0341, 0xBA},
 	{0x0342, 0x0D},
 	{0x0343, 0xD0},
 	{0x0344, 0x00},
@@ -262,7 +262,7 @@ static struct msm_camera_i2c_reg_conf imx111_snap_settings[] = {
 	{0x0383, 0x01},
 	{0x0385, 0x01},
 	{0x0387, 0x01},
-	{0x3033, 0x00},  
+	{0x3033, 0x00},
 	{0x303D, 0x00},
 	{0x303E, 0x41},
 	{0x3040, 0x08},
@@ -279,16 +279,16 @@ static struct msm_camera_i2c_reg_conf imx111_snap_settings[] = {
 	{0x3079, 0x00},
 	{0x307A, 0x00},
 	{0x309B, 0x20},
-	{0x309E, 0x00},  
+	{0x309E, 0x00},
 	{0x30A0, 0x14},
 	{0x30A1, 0x08},
 	{0x30AA, 0x03},
-	{0x30B2, 0x07},  
+	{0x30B2, 0x07},
 	{0x30D5, 0x00},
 	{0x30D6, 0x85},
 	{0x30D7, 0x2A},
-	{0x30D8, 0x64},  
-	{0x30D9, 0x89},  
+	{0x30D8, 0x64},
+	{0x30D9, 0x89},
 	{0x30DE, 0x00},
 	{0x30DF, 0x20},
 	{0x3102, 0x10},
@@ -308,8 +308,8 @@ static struct msm_camera_i2c_reg_conf imx111_snap_settings[] = {
 	{0x3348, 0xE0},
 	//sensor NR
 	{0x30D0, 0xC0},
-	{0x30CF, 0x0E},	
-	{0x3640, 0x0F}, //0F~7F, default 1D	
+	{0x30CF, 0x0E},
+	{0x3640, 0x0F}, //0F~7F, default 1D
 };
 
 static struct msm_camera_i2c_reg_conf imx111_recommend_settings[] = {
@@ -350,7 +350,7 @@ static struct msm_camera_i2c_reg_conf imx111_comm1_settings[] = {
 static struct msm_camera_i2c_reg_conf imx111_comm2_part1_settings[] = {
 	{0x0307, 0x53},
 	{0x0340, 0x09},
-	{0x0341, 0xBA},  
+	{0x0341, 0xBA},
 	{0x034C, 0x0C},
 	{0x034D, 0xD0},
 	{0x034E, 0x09},
@@ -383,8 +383,8 @@ static struct msm_camera_i2c_reg_conf imx111_comm2_part1_settings[] = {
 
 static struct msm_camera_i2c_reg_conf imx111_comm2_part2_settings[] = {
 	{0x30B1, 0x43},
-	{0x3311, 0x80}, 
-	{0x3311, 0x00},  
+	{0x3311, 0x80},
+	{0x3311, 0x00},
 };
 
 static struct msm_camera_i2c_conf_array imx111_comm_confs[] = {
@@ -418,10 +418,10 @@ static struct msm_camera_i2c_conf_array imx111_confs[] = {
 	ARRAY_SIZE(imx111_prev_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
 	{&imx111_video_settings[0],
 	ARRAY_SIZE(imx111_video_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
-/* LGE_CHANGE_S, Camera Zero shutter lag patch, 2012.01.12 jungryoul.choi@lge.com */
+/*                                                                                */
 	{&imx111_snap_settings[0],
 	ARRAY_SIZE(imx111_snap_settings), 0, MSM_CAMERA_I2C_BYTE_DATA},
-/* LGE_CHANGE_E, Camera Zero shutter lag patch, 2012.01.12 jungryoul.choi@lge.com */
+/*                                                                                */
 };
 
 static struct msm_sensor_output_info_t imx111_dimensions[] = {
@@ -439,7 +439,7 @@ static struct msm_sensor_output_info_t imx111_dimensions[] = {
 		.x_output = 0x668, /* 1640 */
 		.y_output = 0x4D0, /* 1232 */
 		.line_length_pclk = 0xDD0, /* 3536 */
-		.frame_length_lines = 0x4E6, /* 1254 */  
+		.frame_length_lines = 0x4E6, /* 1254 */
 		.vt_pixel_clk = 134400000,
 		.op_pixel_clk = 134400000,
 	},
@@ -452,7 +452,7 @@ static struct msm_sensor_output_info_t imx111_dimensions[] = {
 		.vt_pixel_clk = 200000000,
 		.op_pixel_clk = 200000000,
 	},
-/* LGE_CHANGE_S, Camera Zero shutter lag patch, 2012.01.12 jungryoul.choi@lge.com */
+/*                                                                                */
 	{
 		/* 22.5 fps */
 		.x_output = 0x0CD0, /* 3280 */
@@ -462,16 +462,16 @@ static struct msm_sensor_output_info_t imx111_dimensions[] = {
 		.vt_pixel_clk = 199200000,
 		.op_pixel_clk = 199200000,
 	},
-/* LGE_CHANGE_E, Camera Zero shutter lag patch, 2012.01.12 jungryoul.choi@lge.com */
+/*                                                                                */
 };
 
 #if 0 // Move to Userspace
 static struct msm_camera_csid_vc_cfg imx111_cid_cfg[] = {
 	{0, CSI_RAW10, CSI_DECODE_10BIT},
 	{1, CSI_EMBED_DATA, CSI_DECODE_8BIT},
-//Start LGE_BSP_CAMERA : add by mutul for MIPI debug - jonghwan.ko@lge.com
+//                                                                        
 	{2, CSI_RESERVED_DATA_0, CSI_DECODE_8BIT},
-//End  LGE_BSP_CAMERA : add by mutul for MIPI debug - jonghwan.ko@lge.com
+//                                                                       
 };
 
 static struct msm_camera_csi2_params imx111_csi_params = {
@@ -493,9 +493,9 @@ static struct msm_camera_csi2_params *imx111_csi_params_array[] = {
 	&imx111_csi_params,
 	&imx111_csi_params,
 	&imx111_csi_params,
-/* LGE_CHANGE_S, Camera Zero shutter lag patch, 2012.01.12 jungryoul.choi@lge.com */
+/*                                                                                */
 	&imx111_csi_params,
-/* LGE_CHANGE_E, Camera Zero shutter lag patch, 2012.01.12 jungryoul.choi@lge.com */
+/*                                                                                */
 };
 #endif
 
@@ -570,7 +570,7 @@ int32_t imx111_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 				imx111_comm_confs[0].conf,
 				imx111_comm_confs[0].size,
 				imx111_comm_confs[0].data_type);
-         printk("[tykim] %s: csi_lane_assign not setting\n", __func__); /* LGE_CHANGE, Camera Setting for ES2, 2012.04.03, soojung.lim@lge.com */
+         printk("[tykim] %s: csi_lane_assign not setting\n", __func__); /*                                                                     */
 		} else {
 			msm_sensor_write_res_settings(s_ctrl, res);
 			v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,
@@ -612,7 +612,7 @@ int32_t imx111_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
 }
 
 int32_t imx111_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
-		uint16_t gain, uint32_t line)
+		uint16_t gain, uint32_t line, int32_t luma_avg, uint16_t fgain)
 {
 	uint32_t fl_lines;
 	uint8_t offset;
@@ -678,7 +678,7 @@ int32_t imx111_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
 #define BLUE_START 	0xA1
 #define CRC_ADDR	0x7E
 #define R_REF_ADDR  0x80
-uint8_t imx111_afcalib_data[4]; //LGE
+uint8_t imx111_afcalib_data[4]; //   
 int32_t imx_i2c_read_eeprom_burst(unsigned char saddr,
 		unsigned char *rxdata, int length)
 {
@@ -728,7 +728,7 @@ static int imx111_read_eeprom_data(struct msm_sensor_ctrl_t *s_ctrl, struct sens
 	printk("[QCTK_EEPROM] b_over_g = 0x%4x\n", cfg->cfg.calib_info.b_over_g);
 	cfg->cfg.calib_info.gr_over_gb = (eepromdata[5]<<8) |eepromdata[4];
 	printk("[QCTK_EEPROM] gr_over_gb = 0x%4x\n", cfg->cfg.calib_info.gr_over_gb);
-    // Start LGE_BSP_CAMERA::seongjo.kim@lge.com EEPROM Enable at IMX111&IMX091
+    //                                                                         
 	// for AF Cal Data
 	imx111_afcalib_data[0] = eepromdata[7];
 	imx111_afcalib_data[1] = eepromdata[6];
@@ -736,7 +736,7 @@ static int imx111_read_eeprom_data(struct msm_sensor_ctrl_t *s_ctrl, struct sens
 	imx111_afcalib_data[3] = eepromdata[8];
 	printk("[QCTK_EEPROM][AF] act_start = %d\n",(eepromdata[6]<<8) |eepromdata[7]);
 	printk("[QCTK_EEPROM][AF] act_macro = %d\n",(eepromdata[8]<<8) |eepromdata[9]);
-	// End LGE_BSP_CAMERA::seongjo.kim@lge.com EEPROM Enable at IMX111&IMX091
+	//                                                                       
 
 	for (i = 0; i < ROLLOFF_CALDATA_SIZE; i++) {
 		cfg->cfg.calib_info.rolloff.r_gain[i] = eepromdata[RED_START + i];
@@ -815,7 +815,7 @@ static int imx111_read_eeprom_data(struct msm_sensor_ctrl_t *s_ctrl, struct sens
 		for (i = 0; i < 17; i++) {
 		cfg->cfg.calib_info.rolloff.red_ref[i] = eepromdata[R_REF_ADDR + i];
 		printk("[QCTK_EEPROM] R_ref(0x%x)\n", cfg->cfg.calib_info.rolloff.red_ref[i]);
-		}								
+		}
 	} else {
 		cfg->cfg.calib_info.rolloff.red_ref[0] = 0xFE;
 		cfg->cfg.calib_info.rolloff.red_ref[1] = eepromdata[0xC6];
@@ -824,7 +824,7 @@ static int imx111_read_eeprom_data(struct msm_sensor_ctrl_t *s_ctrl, struct sens
 		cfg->cfg.calib_info.rolloff.red_ref[4] = eepromdata[0xC9];
 	}
 	#endif
-	
+
 	#if 0
 	printk("%s: crc_from_eeprom(0x%x), cal_crc(0x%x)\n", __func__,
 	(eepromdata[CRC_ADDR] << 8) | eepromdata[CRC_ADDR+1], crc_5100& 0xFFFF);
@@ -838,19 +838,19 @@ static int imx111_read_eeprom_data(struct msm_sensor_ctrl_t *s_ctrl, struct sens
 		}
 	#endif
 	#if 0
-	// for AWB data - from Rolloff data 															
-	cfg->cfg.calib_info.r_over_g = (uint16_t)(((((uint32_t)cfg->cfg.calib_info.rolloff.r_gain[ROLLOFF_CALDATA_SIZE / 2])<<10)						 
-									+ ((uint32_t)(cfg->cfg.calib_info.rolloff.gr_gain[ROLLOFF_CALDATA_SIZE / 2]) >> 1)) 	
-									/ (uint32_t)cfg->cfg.calib_info.rolloff.gr_gain[ROLLOFF_CALDATA_SIZE / 2]); 		
-	printk("[QCTK_EEPROM] r_over_g = 0x%4x\n", cfg->cfg.calib_info.r_over_g);										
-	cfg->cfg.calib_info.b_over_g = (uint16_t)(((((uint32_t)cfg->cfg.calib_info.rolloff.b_gain[ROLLOFF_CALDATA_SIZE / 2])<<10)						 
-									+ ((uint32_t)(cfg->cfg.calib_info.rolloff.gb_gain[ROLLOFF_CALDATA_SIZE / 2]) >> 1)) 	
-									/ (uint32_t)cfg->cfg.calib_info.rolloff.gb_gain[ROLLOFF_CALDATA_SIZE / 2]); 		
-	printk("[QCTK_EEPROM] b_over_g = 0x%4x\n", cfg->cfg.calib_info.b_over_g);										
-	cfg->cfg.calib_info.gr_over_gb = (uint16_t)(((((uint32_t)cfg->cfg.calib_info.rolloff.gr_gain[ROLLOFF_CALDATA_SIZE / 2])<<10)						 
-									+ ((uint32_t)(cfg->cfg.calib_info.rolloff.gb_gain[ROLLOFF_CALDATA_SIZE / 2]) >> 1)) 	
-									/ (uint32_t)cfg->cfg.calib_info.rolloff.gb_gain[ROLLOFF_CALDATA_SIZE / 2]); 		
-	printk("[QCTK_EEPROM] gr_over_gb = 0x%4x\n", cfg->cfg.calib_info.gr_over_gb);																		 
+	// for AWB data - from Rolloff data
+	cfg->cfg.calib_info.r_over_g = (uint16_t)(((((uint32_t)cfg->cfg.calib_info.rolloff.r_gain[ROLLOFF_CALDATA_SIZE / 2])<<10)
+									+ ((uint32_t)(cfg->cfg.calib_info.rolloff.gr_gain[ROLLOFF_CALDATA_SIZE / 2]) >> 1))
+									/ (uint32_t)cfg->cfg.calib_info.rolloff.gr_gain[ROLLOFF_CALDATA_SIZE / 2]);
+	printk("[QCTK_EEPROM] r_over_g = 0x%4x\n", cfg->cfg.calib_info.r_over_g);
+	cfg->cfg.calib_info.b_over_g = (uint16_t)(((((uint32_t)cfg->cfg.calib_info.rolloff.b_gain[ROLLOFF_CALDATA_SIZE / 2])<<10)
+									+ ((uint32_t)(cfg->cfg.calib_info.rolloff.gb_gain[ROLLOFF_CALDATA_SIZE / 2]) >> 1))
+									/ (uint32_t)cfg->cfg.calib_info.rolloff.gb_gain[ROLLOFF_CALDATA_SIZE / 2]);
+	printk("[QCTK_EEPROM] b_over_g = 0x%4x\n", cfg->cfg.calib_info.b_over_g);
+	cfg->cfg.calib_info.gr_over_gb = (uint16_t)(((((uint32_t)cfg->cfg.calib_info.rolloff.gr_gain[ROLLOFF_CALDATA_SIZE / 2])<<10)
+									+ ((uint32_t)(cfg->cfg.calib_info.rolloff.gb_gain[ROLLOFF_CALDATA_SIZE / 2]) >> 1))
+									/ (uint32_t)cfg->cfg.calib_info.rolloff.gb_gain[ROLLOFF_CALDATA_SIZE / 2]);
+	printk("[QCTK_EEPROM] gr_over_gb = 0x%4x\n", cfg->cfg.calib_info.gr_over_gb);
 	#endif
 	printk("%s: X\n", __func__);
 	return 0;
@@ -890,9 +890,9 @@ static struct msm_sensor_fn_t imx111_func_tbl = {
 	.sensor_get_eeprom_data = imx111_read_eeprom_data,	//randy@qualcomm.com for calibration 2012.03.25
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
-//Start LGE_BSP_CAMERA : au069 patch - jonghwan.ko@lge.com
+//                                                        
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
-//End  LGE_BSP_CAMERA : au069 patch - jonghwan.ko@lge.com
+//                                                       
 };
 
 static struct msm_sensor_reg_t imx111_regs = {
