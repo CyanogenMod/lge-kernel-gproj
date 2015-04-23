@@ -529,4 +529,12 @@ config UDV
 	default n
 	bool "CPU: Undervolt -100 mV"
 
+config UDCL
+	default n
+	bool "CPU: Underclock to 100 MHz"
+	
+config OVCL
+	default n
+	bool "CPU: Overclock to 1.9 GHz"
+
 endif # POWER_SUPPLY
