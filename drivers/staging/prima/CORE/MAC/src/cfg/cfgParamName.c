@@ -350,6 +350,10 @@ unsigned char *gCfgParamName[] = {
     (unsigned char *)"ENABLE_MCC_ADAPTIVE_SCHED",
     (unsigned char *)"DISABLE_LDPC_WITH_TXBF_AP",
     (unsigned char *)"AP_LINK_MONITOR_TIMEOUT",
+    (unsigned char *)"BTC_ACTIVE_WLAN_LEN",
+    (unsigned char *)"BTC_ACTIVE_BT_LEN",
+    (unsigned char *)"BTC_SAP_ACTIVE_WLAN_LEN",
+    (unsigned char *)"BTC_SAP_ACTIVE_BT_LEN",
 };
 
 
