@@ -15,7 +15,7 @@ mkdir builded/GEEB/system
 mkdir builded/GEEB/system/lib
 mkdir builded/GEEB/system/lib/modules
 echo Выбор конфига E975
-make e975_defconfig
+make nitrogen_e975_defconfig
 echo Сборка ядра
 make -j8 -o4
 echo Копирование скомпилированного ядра
@@ -29,7 +29,7 @@ cp drivers/crypto/msm/qcrypto.ko builded/GEEHRC/system/lib/modules/qcrypto.ko
 cp drivers/media/radio/radio-iris-transport.ko builded/GEEHRC/system/lib/modules/radio-iris-transport.ko
 cp drivers/scsi/scsi_wait_scan.ko builded/GEEHRC/system/lib/modules/scsi_wait_scan.ko
 echo Выбор конфига E970
-make e970_defconfig
+make nitrogen_e970_defconfig
 echo Сборка ядра
 make -j8 -o4
 echo Копирование скомпилированного ядра
