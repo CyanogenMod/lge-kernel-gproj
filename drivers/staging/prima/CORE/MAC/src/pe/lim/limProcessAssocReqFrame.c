@@ -651,8 +651,8 @@ limProcessAssocReqFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,
             && psessionEntry->pLimStartBssReq->rsnIE.length)
         {
             limLog(pMac, LOGE,
-                   FL("AP supports RSN enabled authentication"));
-
+                   FL("RSN enabled auth, Re/Assoc req from STA: "MAC_ADDRESS_STR),
+                       MAC_ADDR_ARRAY(pHdr->sa));
             if(pAssocReq->rsnPresent)
             {
                 if(pAssocReq->rsn.length)
@@ -1126,9 +1126,8 @@ if (limPopulateMatchingRateSet(pMac,
                              subType, true, authType, peerIdx, true,
                              (tSirResultCodes) eSIR_MAC_UNSPEC_FAILURE_STATUS, psessionEntry);
 
-        /*return it from here rather than goto error statement.This is done as the memory is getting free twice*/
-        return;
-        //goto error;
+        pAssocReq = psessionEntry->parsedAssocReq[pStaDs->assocId];
+        goto error;
     }
 
     palCopyMemory( pMac->hHdd, (tANI_U8 *) &pStaDs->mlmStaContext.propRateSet,
@@ -1171,14 +1170,21 @@ if (limPopulateMatchingRateSet(pMac,
                  * STA when UPASD is not supported.
                  */
                 limLog( pMac, LOGE, FL( "AP do not support UPASD REASSOC Failed" ));
+                /* During wlan fuzz tests for softAP when mal-formed assoc req is
+                 * sent to AP due to delSTA is not done in firmnware UMAC is
+                 * stuck in some bad state.if we set this flag delsta will happen
+                 * and UMAC will recover*/
+                if (updateContext)
+                {
+                    pStaDs->mlmStaContext.updateContext = 1;
+                }
                 limRejectAssociation(pMac, pHdr->sa,
                                      subType, true, authType, peerIdx, true,
                                      (tSirResultCodes) eSIR_MAC_WME_REFUSED_STATUS, psessionEntry);
 
 
-                /*return it from here rather than goto error statement.This is done as the memory is getting free twice in this uapsd scenario*/
-                return;
-                //goto error;
+                pAssocReq = psessionEntry->parsedAssocReq[pStaDs->assocId];
+                goto error;
             }
             else
             {
@@ -1227,9 +1233,8 @@ if (limPopulateMatchingRateSet(pMac,
                                   true, pStaDs->mlmStaContext.authType, pStaDs->assocId, true,
                                   (tSirResultCodes) eSIR_MAC_UNSPEC_FAILURE_STATUS, psessionEntry);
 
-            /*return it from here rather than goto error statement.This is done as the memory is getting free twice*/
-            return;
-            //goto error;
+            pAssocReq = psessionEntry->parsedAssocReq[pStaDs->assocId];
+            goto error;
         }
     }
     else
@@ -1251,6 +1256,7 @@ if (limPopulateMatchingRateSet(pMac,
 
                 //Restoring the state back.
                 pStaDs->mlmStaContext.mlmState = mlmPrevState;
+                pAssocReq = psessionEntry->parsedAssocReq[pStaDs->assocId];
                 goto error;
             }
         }
@@ -1266,6 +1272,7 @@ if (limPopulateMatchingRateSet(pMac,
 
                     //Restoring the state back.
                     pStaDs->mlmStaContext.mlmState = mlmPrevState;
+                    pAssocReq = psessionEntry->parsedAssocReq[pStaDs->assocId];
                     goto error;
             }
 
@@ -1403,6 +1410,7 @@ void limSendMlmAssocInd(tpAniSirGlobal pMac, tpDphHashNode pStaDs, tpPESession p
             if((pMlmAssocInd->rsnIE.length + pAssocReq->wpa.length) >= SIR_MAC_MAX_IE_LENGTH)
             {
                 PELOGE(limLog(pMac, LOGE, FL("rsnIEdata index out of bounds %d"), pMlmAssocInd->rsnIE.length);)
+                palFreeMemory(pMac->hHdd, pMlmAssocInd);
                 return;
             }
             pMlmAssocInd->rsnIE.rsnIEdata[pMlmAssocInd->rsnIE.length] = SIR_MAC_WPA_EID;
