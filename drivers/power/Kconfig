@@ -537,4 +537,8 @@ config OVCL
 	default n
 	bool "CPU: Overclock to 1.9 GHz"
 
+config GPU_OVCL
+	default n
+	bool "GPU: Overclock to 622 MHz"
+
 endif # POWER_SUPPLY
