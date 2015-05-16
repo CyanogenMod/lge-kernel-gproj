@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Architecture
+export ARCH=arm
+# Subarchitecture
+export SUBARCH=arm
+# The kernel configuration by default
+export KERNEL_DEFCONFIG=nitrogen_e975_defconfig
+# The path to the compiler
+export PATH=$PATH:../Toolchain/Linaro-4.9.3/bin
+# The path to the cross compiler
+export CROSS_COMPILE=../Toolchain/Linaro-4.9.3/bin/arm-cortex_a15-linux-gnueabihf-
+
 echo Автосборщик Nitrogen Kernel
 mkdir builded
 mkdir builded/GEEHRC
@@ -15,8 +26,8 @@ mkdir builded/GEEB/system
 mkdir builded/GEEB/system/lib
 mkdir builded/GEEB/system/lib/modules
 echo Выбор конфига E975
-make nitrogen_e975_defconfig
 echo Сборка ядра
+make nitrogen_e975_defconfig
 make -j8 -o4
 echo Копирование скомпилированного ядра
 cp arch/arm/boot/zImage builded/GEEHRC/tmp/anykernel/zImage
@@ -29,8 +40,8 @@ cp drivers/crypto/msm/qcrypto.ko builded/GEEHRC/system/lib/modules/qcrypto.ko
 cp drivers/media/radio/radio-iris-transport.ko builded/GEEHRC/system/lib/modules/radio-iris-transport.ko
 cp drivers/scsi/scsi_wait_scan.ko builded/GEEHRC/system/lib/modules/scsi_wait_scan.ko
 echo Выбор конфига E970
-make nitrogen_e970_defconfig
 echo Сборка ядра
+make nitrogen_e970_defconfig
 make -j8 -o4
 echo Копирование скомпилированного ядра
 cp arch/arm/boot/zImage builded/GEEB/tmp/anykernel/zImage
