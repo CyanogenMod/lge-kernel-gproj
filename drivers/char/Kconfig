@@ -289,6 +289,14 @@ config NVRAM
 	  To compile this driver as a module, choose M here: the
 	  module will be called nvram.
 
+config FRANDOM
+        tristate "Fast random number generator"
+        default n
+        ---help---
+          Make sure to install the attached udev rule file properly, or /dev/frandom and
+          /dev/erandom will be readable by root only (on most systems, depending on
+          the default permissions set by your system's udev rules).
+
 #
 # These legacy RTC drivers just cause too many conflicts with the generic
 # RTC framework ... let's not even try to coexist any more.

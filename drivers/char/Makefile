@@ -35,6 +35,7 @@ ifeq ($(CONFIG_GENERIC_NVRAM),y)
 else
   obj-$(CONFIG_NVRAM)	+= nvram.o
 endif
+obj-$(CONFIG_FRANDOM)      	+= frandom.o
 obj-$(CONFIG_TOSHIBA)		+= toshiba.o
 obj-$(CONFIG_I8K)		+= i8k.o
 obj-$(CONFIG_DS1620)		+= ds1620.o
