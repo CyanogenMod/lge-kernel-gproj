@@ -34,14 +34,9 @@
 @ A little glue here to select the correct code below for the ARM CPU
 @ that is being targetted.
 
-<<<<<<< HEAD
 #include <linux/linkage.h>
 
 .text
-=======
-.text
-.code	32
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 
 .type	AES_Te,%object
 .align	5
@@ -151,17 +146,9 @@ AES_Te:
 
 @ void AES_encrypt(const unsigned char *in, unsigned char *out,
 @ 		 const AES_KEY *key) {
-<<<<<<< HEAD
 .align	5
 ENTRY(AES_encrypt)
 	adr	r3,AES_encrypt
-=======
-.global AES_encrypt
-.type   AES_encrypt,%function
-.align	5
-AES_encrypt:
-	sub	r3,pc,#8		@ AES_encrypt
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 	stmdb   sp!,{r1,r4-r12,lr}
 	mov	r12,r0		@ inp
 	mov	r11,r2
@@ -251,20 +238,8 @@ AES_encrypt:
 	strb	r6,[r12,#14]
 	strb	r3,[r12,#15]
 #endif
-<<<<<<< HEAD
 	ldmia	sp!,{r4-r12,pc}
 ENDPROC(AES_encrypt)
-=======
-#if __ARM_ARCH__>=5
-	ldmia	sp!,{r4-r12,pc}
-#else
-	ldmia   sp!,{r4-r12,lr}
-	tst	lr,#1
-	moveq	pc,lr			@ be binary compatible with V4, yet
-	.word	0xe12fff1e			@ interoperable with Thumb ISA:-)
-#endif
-.size	AES_encrypt,.-AES_encrypt
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 
 .type   _armv4_AES_encrypt,%function
 .align	2
@@ -403,19 +378,10 @@ _armv4_AES_encrypt:
 	ldr	pc,[sp],#4		@ pop and return
 .size	_armv4_AES_encrypt,.-_armv4_AES_encrypt
 
-<<<<<<< HEAD
 .align	5
 ENTRY(private_AES_set_encrypt_key)
 _armv4_AES_set_encrypt_key:
 	adr	r3,_armv4_AES_set_encrypt_key
-=======
-.global private_AES_set_encrypt_key
-.type   private_AES_set_encrypt_key,%function
-.align	5
-private_AES_set_encrypt_key:
-_armv4_AES_set_encrypt_key:
-	sub	r3,pc,#8		@ AES_set_encrypt_key
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 	teq	r0,#0
 	moveq	r0,#-1
 	beq	.Labrt
@@ -682,23 +648,11 @@ _armv4_AES_set_encrypt_key:
 
 .Ldone:	mov	r0,#0
 	ldmia   sp!,{r4-r12,lr}
-<<<<<<< HEAD
 .Labrt:	mov	pc,lr
 ENDPROC(private_AES_set_encrypt_key)
 
 .align	5
 ENTRY(private_AES_set_decrypt_key)
-=======
-.Labrt:	tst	lr,#1
-	moveq	pc,lr			@ be binary compatible with V4, yet
-	.word	0xe12fff1e			@ interoperable with Thumb ISA:-)
-.size	private_AES_set_encrypt_key,.-private_AES_set_encrypt_key
-
-.global private_AES_set_decrypt_key
-.type   private_AES_set_decrypt_key,%function
-.align	5
-private_AES_set_decrypt_key:
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 	str	lr,[sp,#-4]!            @ push lr
 #if 0
 	@ kernel does both of these in setkey so optimise this bit out by
@@ -780,20 +734,8 @@ private_AES_set_decrypt_key:
 	bne	.Lmix
 
 	mov	r0,#0
-<<<<<<< HEAD
 	ldmia	sp!,{r4-r12,pc}
 ENDPROC(private_AES_set_decrypt_key)
-=======
-#if __ARM_ARCH__>=5
-	ldmia	sp!,{r4-r12,pc}
-#else
-	ldmia   sp!,{r4-r12,lr}
-	tst	lr,#1
-	moveq	pc,lr			@ be binary compatible with V4, yet
-	.word	0xe12fff1e			@ interoperable with Thumb ISA:-)
-#endif
-.size	private_AES_set_decrypt_key,.-private_AES_set_decrypt_key
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 
 .type	AES_Td,%object
 .align	5
@@ -899,17 +841,9 @@ AES_Td:
 
 @ void AES_decrypt(const unsigned char *in, unsigned char *out,
 @ 		 const AES_KEY *key) {
-<<<<<<< HEAD
 .align	5
 ENTRY(AES_decrypt)
 	adr	r3,AES_decrypt
-=======
-.global AES_decrypt
-.type   AES_decrypt,%function
-.align	5
-AES_decrypt:
-	sub	r3,pc,#8		@ AES_decrypt
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 	stmdb   sp!,{r1,r4-r12,lr}
 	mov	r12,r0		@ inp
 	mov	r11,r2
@@ -999,20 +933,8 @@ AES_decrypt:
 	strb	r6,[r12,#14]
 	strb	r3,[r12,#15]
 #endif
-<<<<<<< HEAD
 	ldmia	sp!,{r4-r12,pc}
 ENDPROC(AES_decrypt)
-=======
-#if __ARM_ARCH__>=5
-	ldmia	sp!,{r4-r12,pc}
-#else
-	ldmia   sp!,{r4-r12,lr}
-	tst	lr,#1
-	moveq	pc,lr			@ be binary compatible with V4, yet
-	.word	0xe12fff1e			@ interoperable with Thumb ISA:-)
-#endif
-.size	AES_decrypt,.-AES_decrypt
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 
 .type   _armv4_AES_decrypt,%function
 .align	2
@@ -1112,13 +1034,9 @@ _armv4_AES_decrypt:
 	and	r9,lr,r1,lsr#8
 
 	ldrb	r7,[r10,r7]		@ Td4[s1>>0]
-<<<<<<< HEAD
  ARM(	ldrb	r1,[r10,r1,lsr#24]  )	@ Td4[s1>>24]
  THUMB(	add	r1,r10,r1,lsr#24    ) 	@ Td4[s1>>24]
  THUMB(	ldrb	r1,[r1]		    )
-=======
-	ldrb	r1,[r10,r1,lsr#24]	@ Td4[s1>>24]
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 	ldrb	r8,[r10,r8]		@ Td4[s1>>16]
 	eor	r0,r7,r0,lsl#24
 	ldrb	r9,[r10,r9]		@ Td4[s1>>8]
@@ -1131,13 +1049,9 @@ _armv4_AES_decrypt:
 	ldrb	r8,[r10,r8]		@ Td4[s2>>0]
 	and	r9,lr,r2,lsr#16
 
-<<<<<<< HEAD
  ARM(	ldrb	r2,[r10,r2,lsr#24]  )	@ Td4[s2>>24]
  THUMB(	add	r2,r10,r2,lsr#24    )	@ Td4[s2>>24]
  THUMB(	ldrb	r2,[r2]		    )
-=======
-	ldrb	r2,[r10,r2,lsr#24]	@ Td4[s2>>24]
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 	eor	r0,r0,r7,lsl#8
 	ldrb	r9,[r10,r9]		@ Td4[s2>>16]
 	eor	r1,r8,r1,lsl#16
@@ -1150,13 +1064,9 @@ _armv4_AES_decrypt:
 	and	r9,lr,r3		@ i2
 
 	ldrb	r9,[r10,r9]		@ Td4[s3>>0]
-<<<<<<< HEAD
  ARM(	ldrb	r3,[r10,r3,lsr#24]  )	@ Td4[s3>>24]
  THUMB(	add	r3,r10,r3,lsr#24    )	@ Td4[s3>>24]
  THUMB(	ldrb	r3,[r3]		    )
-=======
-	ldrb	r3,[r10,r3,lsr#24]	@ Td4[s3>>24]
->>>>>>> 5c16f4d... arm/crypto: Add optimized AES and SHA1 routines
 	eor	r0,r0,r7,lsl#16
 	ldr	r7,[r11,#0]
 	eor	r1,r1,r8,lsl#8
