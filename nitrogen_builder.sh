@@ -54,7 +54,7 @@ cp ../nkbuild/drivers/crypto/msm/qce40.ko ../builded/GEEB/system/lib/modules/qce
 cp ../nkbuild/drivers/crypto/msm/qcedev.ko ../builded/GEEB/system/lib/modules/qcedev.ko
 cp ../nkbuild/drivers/crypto/msm/qcrypto.ko ../builded/GEEB/system/lib/modules/qcrypto.ko
 cp ../nkbuild/drivers/media/radio/radio-iris-transport.ko ../builded/GEEB/system/lib/modules/radio-iris-transport.ko
-cp ../nkbuild/drivers/scsi/scsi_wait_scan.ko ../../builded/GEEB/system/lib/modules/scsi_wait_scan.ko
+cp ../nkbuild/drivers/scsi/scsi_wait_scan.ko ../builded/GEEB/system/lib/modules/scsi_wait_scan.ko
 echo Сборка завершена! Kernel находится по адресу:
 echo ../builded
 echo ../builded/GEEHRC
