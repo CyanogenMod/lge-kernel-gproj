@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 4
 SUBLEVEL = 107
-EXTRAVERSION = _NitroGen_0.3.3_GPROJ
+EXTRAVERSION = _Nitrogen_3.4
 NAME = Saber-toothed Squirrel
 
 # *DOCUMENTATION*
