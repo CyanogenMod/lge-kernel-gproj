@@ -484,7 +484,6 @@ static struct acpu_level tbl_slow[] __initdata = {
 	{ 1, {  1728000, HFPLL, 1, 0x40 }, L2(16), 1200000 },
 	{ 1, {  1810000, HFPLL, 1, 0x40 }, L2(16), 1225000 },
 	{ 1, {  1972000, HFPLL, 1, 0x40 }, L2(16), 1250000 },
-	{ 1, {  2026000, HFPLL, 1, 0x40 }, L2(16), 1275000 },
 #endif
 #else
 #ifdef CONFIG_UDCL
@@ -522,7 +521,6 @@ static struct acpu_level tbl_slow[] __initdata = {
 	{ 1, {  1728000, HFPLL, 1, 0x40 }, L2(16), 1300000 },
 	{ 1, {  1810000, HFPLL, 1, 0x40 }, L2(16), 1325000 },
 	{ 1, {  1972000, HFPLL, 1, 0x40 }, L2(16), 1350000 },
-	{ 1, {  2026000, HFPLL, 1, 0x40 }, L2(16), 1375000 },
 #endif
 #endif
 	{ 0, { 0 } }
@@ -565,7 +563,6 @@ static struct acpu_level tbl_nom[] __initdata = {
 	{ 1, {  1728000, HFPLL, 1, 0x40 }, L2(16), 1150000 },
 	{ 1, {  1810000, HFPLL, 1, 0x40 }, L2(16), 1175000 },
 	{ 1, {  1972000, HFPLL, 1, 0x40 }, L2(16), 1200000 },
-	{ 1, {  2026000, HFPLL, 1, 0x40 }, L2(16), 1225000 },
 #endif
 #else
 #ifdef CONFIG_UDCL
@@ -603,7 +600,6 @@ static struct acpu_level tbl_nom[] __initdata = {
 	{ 1, {  1728000, HFPLL, 1, 0x40 }, L2(16), 1250000 },
 	{ 1, {  1810000, HFPLL, 1, 0x40 }, L2(16), 1275000 },
 	{ 1, {  1972000, HFPLL, 1, 0x40 }, L2(16), 1300000 },
-	{ 1, {  2026000, HFPLL, 1, 0x40 }, L2(16), 1325000 },
 #endif
 #endif
 	{ 0, { 0 } }
@@ -646,7 +642,6 @@ static struct acpu_level tbl_fast[] __initdata = {
 	{ 1, {  1728000, HFPLL, 1, 0x40 }, L2(16), 1100000 },
 	{ 1, {  1810000, HFPLL, 1, 0x40 }, L2(16), 1125000 },
 	{ 1, {  1972000, HFPLL, 1, 0x40 }, L2(16), 1150000 },
-	{ 1, {  2026000, HFPLL, 1, 0x40 }, L2(16), 1175000 },
 #endif
 #else
 #ifdef CONFIG_UDCL
@@ -684,7 +679,6 @@ static struct acpu_level tbl_fast[] __initdata = {
 	{ 1, {  1728000, HFPLL, 1, 0x40 }, L2(16), 1200000 },
 	{ 1, {  1810000, HFPLL, 1, 0x40 }, L2(16), 1225000 },
 	{ 1, {  1972000, HFPLL, 1, 0x40 }, L2(16), 1250000 },
-	{ 1, {  2026000, HFPLL, 1, 0x40 }, L2(16), 1275000 },
 #endif
 #endif
 	{ 0, { 0 } }
