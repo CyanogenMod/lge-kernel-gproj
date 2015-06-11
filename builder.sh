@@ -28,7 +28,6 @@ export CROSS_COMPILE=../$dir_toolchain/$toolchain_prefix
 
 export KBUILD_OUTPUT=../$dir_kbuild
 
-rm -irf ../$dir_kbuild
 mkdir ../$dir_kbuild
 # E975
 test -d ../$dir_kbuilded                              || mkdir ../$dir_kbuilded
