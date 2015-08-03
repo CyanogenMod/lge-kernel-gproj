@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,9 +135,9 @@ struct msm_sensor_fn_t {
 	int32_t (*sensor_set_fps) (struct msm_sensor_ctrl_t *,
 			struct fps_cfg *);
 	int32_t (*sensor_write_exp_gain) (struct msm_sensor_ctrl_t *,
-			uint16_t, uint32_t);
+			uint16_t, uint32_t, int32_t, uint16_t);
 	int32_t (*sensor_write_snapshot_exp_gain) (struct msm_sensor_ctrl_t *,
-			uint16_t, uint32_t);
+			uint16_t, uint32_t, int32_t, uint16_t);
 	int32_t (*sensor_setting) (struct msm_sensor_ctrl_t *,
 			int update_type, int rt);
 	int32_t (*sensor_csi_setting) (struct msm_sensor_ctrl_t *,
@@ -160,7 +160,14 @@ struct msm_sensor_fn_t {
 	void (*sensor_adjust_frame_lines) (struct msm_sensor_ctrl_t *s_ctrl);
 	int32_t (*sensor_get_csi_params)(struct msm_sensor_ctrl_t *,
 		struct csi_lane_params_t *);
-/* LGE_CHANGE_S, Added For CE1702 For GK/GV, 2012.10.22, jungki.kim[Start] */
+	int (*sensor_set_vision_mode)(struct msm_sensor_ctrl_t *s_ctrl,
+			int32_t vision_mode_enable);
+	int (*sensor_set_vision_ae_control)(
+			struct msm_sensor_ctrl_t *s_ctrl, int ae_mode);
+	int32_t (*sensor_read_eeprom)(struct msm_sensor_ctrl_t *);
+	int32_t (*sensor_hdr_update)(struct msm_sensor_ctrl_t *,
+		 struct sensor_hdr_update_parm_t *);
+/*                                                                         */
 	int32_t (*sensor_special_effect) (struct msm_sensor_ctrl_t *, uint8_t);				//Color Effect by Jungki.kim
 	int32_t (*sensor_exposure_compensation) (struct msm_sensor_ctrl_t *, uint8_t);		//Adjust Exposure by Jungki.kim
 	int8_t (*sensor_set_focus_mode_setting)(struct msm_sensor_ctrl_t *, int32_t);		//AF Mode Settings for CE1702 by jungki.kim
@@ -173,19 +180,19 @@ struct msm_sensor_fn_t {
 	int8_t (*sensor_set_antibanding_ce1702)(struct msm_sensor_ctrl_t *, int32_t);		//Set Antibanding for CE1702 by jungki.kim
 	int8_t (*sensor_set_af_window)(struct msm_sensor_ctrl_t *, int16_t *);				//Set AF Window for CE1702 by jungki.kim
 	int8_t (*sensor_set_ae_window)(struct msm_sensor_ctrl_t *, int16_t *);				//Set AE Window for CE1702 by jungki.kim
-	int (*sensor_object_tracking) (struct msm_sensor_ctrl_t *, struct rec_t*);			//add the object tracking method for GK project, 2012.10.19 youngil.yun@lge.com
+	int (*sensor_object_tracking) (struct msm_sensor_ctrl_t *, struct rec_t*);			//                                                                             
 	int8_t (*sensor_set_aec_awb_lock)(struct msm_sensor_ctrl_t *, int32_t);				//Set AEC/AWB Lock for CE1702 by jungki.kim
-	int (*sensor_dim_info) (struct msm_sensor_ctrl_t *, struct dimen_t*);				//add the sensor setting fucntion for GK project, 2012.10.19 youngil.yun@lge.com
-	int8_t (*sensor_get_cam_open_mode)(struct msm_sensor_ctrl_t *, int32_t);			//Get Current Previewing Mode by jungki.kim@lge.com
+	int (*sensor_dim_info) (struct msm_sensor_ctrl_t *, struct dimen_t*);				//                                                                              
+	int8_t (*sensor_get_cam_open_mode)(struct msm_sensor_ctrl_t *, int32_t);			//                                                 
 	int8_t (*sensor_set_iso)(struct msm_sensor_ctrl_t *, int32_t);						//Set ISO setting for ce1702 by gayoung85.lee
 	int8_t (*sensor_set_manual_scene_mode)(struct msm_sensor_ctrl_t *, int32_t);		//Support ManualSceneMode for CE1702 by gayoung85.lee
-	int (*sensor_set_gyro_data) (struct msm_sensor_ctrl_t *, uint8_t *);				//Set Gyro Data For GK/GV by junghee.eim@lge.com
+	int (*sensor_set_gyro_data) (struct msm_sensor_ctrl_t *, uint8_t *);				//                                              
 	int8_t (*sensor_set_wdr)(struct msm_sensor_ctrl_t *, int32_t);						//Support WDR for ce1702 by gayoung85.lee
-	int8_t (*sensor_set_exif_rotation)(struct msm_sensor_ctrl_t *, int);					//Insert Rotation Information In EXIF by jungki.kim@lge.com
-	int8_t (*sensor_set_exif_gps)(struct msm_sensor_ctrl_t *, struct k_exif_gps_t*);		//Set GPS Exif Tags For GK/GV by jungki.kim@lge.com
+	int8_t (*sensor_set_exif_rotation)(struct msm_sensor_ctrl_t *, int);					//                                                         
+	int8_t (*sensor_set_exif_gps)(struct msm_sensor_ctrl_t *, struct k_exif_gps_t*);		//                                                 
 	int8_t (*sensor_set_asd_enable)(struct msm_sensor_ctrl_t *, int32_t);					//Support ASD for CE1702 by gayoung85.lee
 	int32_t (*sensor_set_exif_thumbnail_size) (struct msm_sensor_ctrl_t *, struct dimen_t*);
-/* LGE_CHANGE_E, Added For CE1702 For GK/GV, 2012.10.22, jungki.kim[End] */
+/*                                                                       */
 };
 
 struct msm_sensor_csi_info {
@@ -222,6 +229,7 @@ struct msm_sensor_ctrl_t {
 	struct msm_sensor_v4l2_ctrl_info_t *msm_sensor_v4l2_ctrl_info;
 	uint16_t num_v4l2_ctrl;
 	uint8_t is_csic;
+	int8_t vision_mode_flag;
 
 	uint16_t curr_line_length_pclk;
 	uint16_t curr_frame_length_lines;

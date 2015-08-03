@@ -59,6 +59,11 @@
 
 #include "wlan_qct_pal_type.h"
 #include "wlan_qct_pal_status.h"
+/* Random signature to detect SMD OPEN NOTIFY */
+#define WPAL_MC_MSG_SMD_NOTIF_OPEN_SIG   0x09E2
+
+/* Random signature to detect SMD DATA NOTIFY */
+#define WPAL_MC_MSG_SMD_NOTIF_DATA_SIG   0xDA7A
 
 typedef struct swpt_msg wpt_msg;
 

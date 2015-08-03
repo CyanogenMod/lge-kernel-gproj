@@ -663,11 +663,424 @@ static inline void* dhd_rxf_dequeue(dhd_pub_t *dhdp)
 
 	dhd_os_rxfunlock(dhdp);
 
-	return skb;
+/* Return interface pointer */
+static inline dhd_if_t *dhd_get_ifp(dhd_pub_t *dhdp, uint32 ifidx)
+{
+	ASSERT(ifidx < DHD_MAX_IFS);
+	if (ifidx >= DHD_MAX_IFS) {
+		return NULL;
+	}
+	return dhdp->info->iflist[ifidx];
 }
 #endif /* defined(DHDTHREAD) && defined(RXFRAME_THREAD) */
 
 static int dhd_process_cid_mac(dhd_pub_t *dhdp, bool prepost)
+{
+	dhd_info_t *dhd = (dhd_info_t *)dhdp->info;
+
+	if (prepost) { /* pre process */
+		dhd_read_macaddr(dhd);
+	} else { /* post process */
+		dhd_write_macaddr(&dhd->pub.mac);
+	}
+
+	return 0;
+}
+
+#if defined(PKT_FILTER_SUPPORT) && !defined(GAN_LITE_NAT_KEEPALIVE_FILTER)
+static bool
+_turn_on_arp_filter(dhd_pub_t *dhd, int op_mode)
+{
+	bool _apply = FALSE;
+	/* In case of IBSS mode, apply arp pkt filter */
+	if (op_mode & DHD_FLAG_IBSS_MODE) {
+		_apply = TRUE;
+		goto exit;
+	}
+	/* In case of P2P GO or GC, apply pkt filter to pass arp pkt to host */
+	if ((dhd->arp_version == 1) &&
+		(op_mode & (DHD_FLAG_P2P_GC_MODE | DHD_FLAG_P2P_GO_MODE))) {
+		_apply = TRUE;
+		goto exit;
+	}
+
+exit:
+	return _apply;
+}
+#endif /* PKT_FILTER_SUPPORT && !GAN_LITE_NAT_KEEPALIVE_FILTER */
+
+void dhd_set_packet_filter(dhd_pub_t *dhd)
+{
+#ifdef PKT_FILTER_SUPPORT
+	int i;
+
+	DHD_TRACE(("%s: enter\n", __FUNCTION__));
+	if (dhd_pkt_filter_enable) {
+		for (i = 0; i < dhd->pktfilter_count; i++) {
+			dhd_pktfilter_offload_set(dhd, dhd->pktfilter[i]);
+		}
+	}
+#endif /* PKT_FILTER_SUPPORT */
+}
+
+void dhd_enable_packet_filter(int value, dhd_pub_t *dhd)
+{
+#ifdef PKT_FILTER_SUPPORT
+	int i;
+
+	DHD_TRACE(("%s: enter, value = %d\n", __FUNCTION__, value));
+	/* 1 - Enable packet filter, only allow unicast packet to send up */
+	/* 0 - Disable packet filter */
+	if (dhd_pkt_filter_enable && (!value ||
+	    (dhd_support_sta_mode(dhd) && !dhd->dhcp_in_progress)))
+	    {
+		for (i = 0; i < dhd->pktfilter_count; i++) {
+#ifndef GAN_LITE_NAT_KEEPALIVE_FILTER
+			if (value && (i == DHD_ARP_FILTER_NUM) &&
+				!_turn_on_arp_filter(dhd, dhd->op_mode)) {
+				DHD_TRACE(("Do not turn on ARP white list pkt filter:"
+					"val %d, cnt %d, op_mode 0x%x\n",
+					value, i, dhd->op_mode));
+				continue;
+			}
+#endif /* !GAN_LITE_NAT_KEEPALIVE_FILTER */
+			dhd_pktfilter_offload_enable(dhd, dhd->pktfilter[i],
+				value, dhd_master_mode);
+		}
+	}
+#endif /* PKT_FILTER_SUPPORT */
+}
+
+static int dhd_set_suspend(int value, dhd_pub_t *dhd)
+{
+#ifndef SUPPORT_PM2_ONLY
+	int power_mode = PM_MAX;
+#endif /* SUPPORT_PM2_ONLY */
+	/* wl_pkt_filter_enable_t	enable_parm; */
+	char iovbuf[32];
+	int bcn_li_dtim = 0; /* Default bcn_li_dtim in resume mode is 0 */
+#ifndef ENABLE_FW_ROAM_SUSPEND
+	uint roamvar = 1;
+#endif /* ENABLE_FW_ROAM_SUSPEND */
+	uint nd_ra_filter = 0;
+	int ret = 0;
+
+	if (!dhd)
+		return -ENODEV;
+
+	dhdp->sta_pool = sta_pool;
+	dhdp->staid_allocator = staid_allocator;
+
+	/* Initialize all sta(s) for the pre-allocated free pool. */
+	bzero((uchar *)sta_pool, sta_pool_memsz);
+	for (idx = max_sta; idx >= 1; idx--) { /* skip sta_pool[0] */
+		sta = &sta_pool[idx];
+		sta->idx = id16_map_alloc(staid_allocator);
+		ASSERT(sta->idx <= max_sta);
+	}
+	/* Now place them into the pre-allocated free pool. */
+	for (idx = 1; idx <= max_sta; idx++) {
+		sta = &sta_pool[idx];
+		dhd_sta_free(dhdp, sta);
+	}
+
+	return BCME_OK;
+}
+
+/** Destruct the pool of dhd_sta_t objects.
+ * Caller must ensure that no STA objects are currently associated with an if.
+ */
+static void
+dhd_sta_pool_fini(dhd_pub_t *dhdp, int max_sta)
+{
+	dhd_sta_pool_t * sta_pool = (dhd_sta_pool_t *)dhdp->sta_pool;
+
+	if (sta_pool) {
+		int idx;
+		int sta_pool_memsz = ((max_sta + 1) * sizeof(dhd_sta_t));
+		for (idx = 1; idx <= max_sta; idx++) {
+			ASSERT(sta_pool[idx].ifp == DHD_IF_NULL);
+			ASSERT(sta_pool[idx].idx == ID16_INVALID);
+		}
+		MFREE(dhdp->osh, dhdp->sta_pool, sta_pool_memsz);
+		dhdp->sta_pool = NULL;
+	}
+
+	id16_map_fini(dhdp->osh, dhdp->staid_allocator);
+	dhdp->staid_allocator = NULL;
+}
+
+
+
+/* Clear the pool of dhd_sta_t objects for built-in type driver */
+static void
+dhd_sta_pool_clear(dhd_pub_t *dhdp, int max_sta)
+{
+	int idx, sta_pool_memsz;
+	dhd_sta_t * sta;
+	dhd_sta_pool_t * sta_pool;
+	void *staid_allocator;
+
+	if (!dhdp) {
+		DHD_ERROR(("%s: dhdp is NULL\n", __FUNCTION__));
+		return;
+	}
+
+	sta_pool = (dhd_sta_pool_t *)dhdp->sta_pool;
+	staid_allocator = dhdp->staid_allocator;
+
+	if (!sta_pool) {
+		DHD_ERROR(("%s: sta_pool is NULL\n", __FUNCTION__));
+		return;
+	}
+
+	if (!staid_allocator) {
+		DHD_ERROR(("%s: staid_allocator is NULL\n", __FUNCTION__));
+		return;
+	}
+
+	/* clear free pool */
+	sta_pool_memsz = ((max_sta + 1) * sizeof(dhd_sta_t));
+	bzero((uchar *)sta_pool, sta_pool_memsz);
+
+	/* dhd_sta objects per radio are managed in a table. id#0 reserved. */
+	id16_map_clear(staid_allocator, max_sta, 1);
+
+	/* Initialize all sta(s) for the pre-allocated free pool. */
+	for (idx = max_sta; idx >= 1; idx--) { /* skip sta_pool[0] */
+		sta = &sta_pool[idx];
+		sta->idx = id16_map_alloc(staid_allocator);
+		ASSERT(sta->idx <= max_sta);
+	}
+	/* Now place them into the pre-allocated free pool. */
+	for (idx = 1; idx <= max_sta; idx++) {
+		sta = &sta_pool[idx];
+		dhd_sta_free(dhdp, sta);
+	}
+}
+
+
+/** Find STA with MAC address ea in an interface's STA list. */
+dhd_sta_t *
+dhd_find_sta(void *pub, int ifidx, void *ea)
+{
+	dhd_sta_t *sta, *next;
+	dhd_if_t *ifp;
+	unsigned long flags;
+
+	ASSERT(ea != NULL);
+	ifp = dhd_get_ifp((dhd_pub_t *)pub, ifidx);
+	if (ifp == NULL)
+		return DHD_STA_NULL;
+
+	DHD_IF_STA_LIST_LOCK(ifp, flags);
+
+	list_for_each_entry_safe(sta, next, &ifp->sta_list, list) {
+		if (!memcmp(sta->ea.octet, ea, ETHER_ADDR_LEN)) {
+			DHD_IF_STA_LIST_UNLOCK(ifp, flags);
+			return sta;
+		}
+	}
+
+	DHD_IF_STA_LIST_UNLOCK(ifp, flags);
+
+	return DHD_STA_NULL;
+}
+
+/** Add STA into the interface's STA list. */
+dhd_sta_t *
+dhd_add_sta(void *pub, int ifidx, void *ea)
+{
+	dhd_sta_t *sta;
+	dhd_if_t *ifp;
+	unsigned long flags;
+
+	ASSERT(ea != NULL);
+	ifp = dhd_get_ifp((dhd_pub_t *)pub, ifidx);
+	if (ifp == NULL)
+		return DHD_STA_NULL;
+
+	sta = dhd_sta_alloc((dhd_pub_t *)pub);
+	if (sta == DHD_STA_NULL) {
+		DHD_ERROR(("%s: Alloc failed\n", __FUNCTION__));
+		return DHD_STA_NULL;
+	}
+
+	memcpy(sta->ea.octet, ea, ETHER_ADDR_LEN);
+
+	/* link the sta and the dhd interface */
+	sta->ifp = ifp;
+	sta->ifidx = ifidx;
+	INIT_LIST_HEAD(&sta->list);
+
+	DHD_IF_STA_LIST_LOCK(ifp, flags);
+
+	list_add_tail(&sta->list, &ifp->sta_list);
+
+#if defined(BCM_GMAC3)
+	if (ifp->fwdh) {
+		ASSERT(ISALIGNED(ea, 2));
+		/* Add sta to WOFA forwarder. */
+		fwder_reassoc(ifp->fwdh, (uint16 *)ea, (wofa_t)sta);
+	}
+#endif /* BCM_GMAC3 */
+
+	DHD_IF_STA_LIST_UNLOCK(ifp, flags);
+
+	return sta;
+}
+
+/** Delete STA from the interface's STA list. */
+void
+dhd_del_sta(void *pub, int ifidx, void *ea)
+{
+	dhd_sta_t *sta, *next;
+	dhd_if_t *ifp;
+	unsigned long flags;
+
+	ASSERT(ea != NULL);
+	ifp = dhd_get_ifp((dhd_pub_t *)pub, ifidx);
+	if (ifp == NULL)
+		return;
+
+	DHD_IF_STA_LIST_LOCK(ifp, flags);
+
+	list_for_each_entry_safe(sta, next, &ifp->sta_list, list) {
+		if (!memcmp(sta->ea.octet, ea, ETHER_ADDR_LEN)) {
+#if defined(BCM_GMAC3)
+			if (ifp->fwdh) { /* Found a sta, remove from WOFA forwarder. */
+				ASSERT(ISALIGNED(ea, 2));
+				fwder_deassoc(ifp->fwdh, (uint16 *)ea, (wofa_t)sta);
+			}
+#endif /* BCM_GMAC3 */
+			list_del(&sta->list);
+			dhd_sta_free(&ifp->info->pub, sta);
+		}
+	}
+
+	DHD_IF_STA_LIST_UNLOCK(ifp, flags);
+
+	return;
+}
+
+/** Add STA if it doesn't exist. Not reentrant. */
+dhd_sta_t*
+dhd_findadd_sta(void *pub, int ifidx, void *ea)
+{
+	dhd_sta_t *sta;
+
+	sta = dhd_find_sta(pub, ifidx, ea);
+
+	if (!sta) {
+		/* Add entry */
+		sta = dhd_add_sta(pub, ifidx, ea);
+	}
+
+	return sta;
+}
+#else
+static inline void dhd_if_flush_sta(dhd_if_t * ifp) { }
+static inline void dhd_if_del_sta_list(dhd_if_t *ifp) {}
+static inline int dhd_sta_pool_init(dhd_pub_t *dhdp, int max_sta) { return BCME_OK; }
+static inline void dhd_sta_pool_fini(dhd_pub_t *dhdp, int max_sta) {}
+dhd_sta_t *dhd_findadd_sta(void *pub, int ifidx, void *ea) { return NULL; }
+void dhd_del_sta(void *pub, int ifidx, void *ea) {}
+#endif /* PCIE_FULL_DONGLE */
+
+
+/* Returns dhd iflist index correspondig the the bssidx provided by apps */
+int dhd_bssidx2idx(dhd_pub_t *dhdp, uint32 bssidx)
+{
+	dhd_if_t *ifp;
+	dhd_info_t *dhd = dhdp->info;
+	int i;
+
+	ASSERT(bssidx < DHD_MAX_IFS);
+	ASSERT(dhdp);
+
+	for (i = 0; i < DHD_MAX_IFS; i++) {
+		ifp = dhd->iflist[i];
+		if (ifp && (ifp->bssidx == bssidx)) {
+			DHD_TRACE(("Index manipulated for %s from %d to %d\n",
+				ifp->name, bssidx, i));
+			break;
+		}
+	}
+	return i;
+}
+
+static inline int dhd_rxf_enqueue(dhd_pub_t *dhdp, void* skb)
+{
+	uint32 store_idx;
+	uint32 sent_idx;
+
+	if (!skb) {
+		DHD_ERROR(("dhd_rxf_enqueue: NULL skb!!!\n"));
+		return BCME_ERROR;
+	}
+
+	dhd_os_rxflock(dhdp);
+	store_idx = dhdp->store_idx;
+	sent_idx = dhdp->sent_idx;
+	if (dhdp->skbbuf[store_idx] != NULL) {
+		/* Make sure the previous packets are processed */
+		dhd_os_rxfunlock(dhdp);
+#ifdef RXF_DEQUEUE_ON_BUSY
+		DHD_TRACE(("dhd_rxf_enqueue: pktbuf not consumed %p, store idx %d sent idx %d\n",
+			skb, store_idx, sent_idx));
+		return BCME_BUSY;
+#else /* RXF_DEQUEUE_ON_BUSY */
+		DHD_ERROR(("dhd_rxf_enqueue: pktbuf not consumed %p, store idx %d sent idx %d\n",
+			skb, store_idx, sent_idx));
+		/* removed msleep here, should use wait_event_timeout if we
+		 * want to give rx frame thread a chance to run
+		 */
+#if defined(WAIT_DEQUEUE)
+		OSL_SLEEP(1);
+#endif
+		return BCME_ERROR;
+#endif /* RXF_DEQUEUE_ON_BUSY */
+	}
+	DHD_TRACE(("dhd_rxf_enqueue: Store SKB %p. idx %d -> %d\n",
+		skb, store_idx, (store_idx + 1) & (MAXSKBPEND - 1)));
+	dhdp->skbbuf[store_idx] = skb;
+	dhdp->store_idx = (store_idx + 1) & (MAXSKBPEND - 1);
+	dhd_os_rxfunlock(dhdp);
+
+	return BCME_OK;
+}
+
+static inline void* dhd_rxf_dequeue(dhd_pub_t *dhdp)
+{
+	uint32 store_idx;
+	uint32 sent_idx;
+	void *skb;
+
+	dhd_os_rxflock(dhdp);
+
+	store_idx = dhdp->store_idx;
+	sent_idx = dhdp->sent_idx;
+	skb = dhdp->skbbuf[sent_idx];
+
+	if (skb == NULL) {
+		dhd_os_rxfunlock(dhdp);
+		DHD_ERROR(("dhd_rxf_dequeue: Dequeued packet is NULL, store idx %d sent idx %d\n",
+			store_idx, sent_idx));
+		return NULL;
+	}
+
+	dhdp->skbbuf[sent_idx] = NULL;
+	dhdp->sent_idx = (sent_idx + 1) & (MAXSKBPEND - 1);
+
+	DHD_TRACE(("dhd_rxf_dequeue: netif_rx_ni(%p), sent idx %d\n",
+		skb, sent_idx));
+
+	dhd_os_rxfunlock(dhdp);
+
+	return skb;
+}
+
+int dhd_process_cid_mac(dhd_pub_t *dhdp, bool prepost)
 {
 	dhd_info_t *dhd = (dhd_info_t *)dhdp->info;
 
@@ -2866,7 +3279,23 @@ dhd_stop(struct net_device *net)
 		if (!dhd_download_fw_on_driverload) {
 			if ((dhd->dhd_state & DHD_ATTACH_STATE_ADD_IF) &&
 				(dhd->dhd_state & DHD_ATTACH_STATE_CFG80211)) {
-				dhd_cleanup_virt_ifaces(dhd);
+				int i;
+				dhd_if_t *ifp;
+
+				dhd_net_if_lock_local(dhd);
+				for (i = 1; i < DHD_MAX_IFS; i++)
+					dhd_remove_if(&dhd->pub, i, FALSE);
+
+				/* remove sta list for primary interface */
+				ifp = dhd->iflist[0];
+				if (ifp && ifp->net) {
+					dhd_if_del_sta_list(ifp);
+				}
+#ifdef PCIE_FULL_DONGLE
+				/* Initialize STA info list */
+				INIT_LIST_HEAD(&ifp->sta_list);
+#endif
+				dhd_net_if_unlock_local(dhd);
 			}
 		}
 	}

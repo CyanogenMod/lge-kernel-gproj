@@ -68,6 +68,10 @@
 #include "../../../sound/soc/codecs/wcd9310.h"
 #endif /*CONFIG_LGE_AUX_NOISE*/
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+#include <linux/fastchg.h>
+#endif
+
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
 
@@ -1253,6 +1257,11 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 		dev_err(motg->phy.dev,
 			"Failed notifying %d charger type to PMIC\n",
 							motg->chg_type);
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	if (force_fast_charge > 0)
+		mA = IDEV_ACA_CHG_MAX;
+#endif
 
 	if (motg->cur_power == mA)
 		return;

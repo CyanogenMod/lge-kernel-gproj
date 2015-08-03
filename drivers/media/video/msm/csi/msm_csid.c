@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,7 @@ static int msm_csid_cid_lut(
 			((csid_lut_params->vc_cfg[i].cid % 4) * 8));
 		msm_camera_io_w(val, csidbase + CSID_CID_LUT_VC_0_ADDR +
 			(csid_lut_params->vc_cfg[i].cid >> 2) * 4);
+
 		val = (csid_lut_params->vc_cfg[i].decode_format << 4) | 0x3;
 		msm_camera_io_w(val, csidbase + CSID_CID_n_CFG_ADDR +
 			(csid_lut_params->vc_cfg[i].cid * 4));
@@ -120,12 +121,11 @@ static int msm_csid_config(struct csid_device *csid_dev,
 	return rc;
 }
 
-static void msm_csid_reset(struct csid_device *csid_dev);
 static irqreturn_t msm_csid_irq(int irq_num, void *data)
 {
 	uint32_t irq;
 	struct csid_device *csid_dev = data;
-	if (!csid_dev) {
+	if (!csid_dev||!csid_dev->base) {
 		pr_err("%s:%d csid_dev NULL\n", __func__, __LINE__);
 		return IRQ_HANDLED;
 	}
@@ -134,9 +134,6 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 		 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
 			complete(&csid_dev->reset_complete);
-#ifdef LGE_GK_CAMERA_BSP
-	else msm_csid_reset(csid_dev);
-#endif
 	msm_camera_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
 }
@@ -174,13 +171,47 @@ static struct msm_cam_clk_info csid_8960_clk_info[] = {
 	{"csi_pclk", -1},
 };
 
-static struct msm_cam_clk_info csid_8974_clk_info[] = {
-	{"csi_ahb_clk", -1},
-	{"csi_src_clk", 200000000},
-	{"csi_clk", -1},
-	{"csi_phy_clk", -1},
-	{"csi_pix_clk", -1},
-	{"csi_rdi_clk", -1},
+static struct msm_cam_clk_info csid0_8974_clk_info[] = {
+	{"csi0_ahb_clk", -1},
+	{"csi0_src_clk", 200000000},
+	{"csi0_clk", -1},
+	{"csi0_phy_clk", -1},
+	{"csi0_pix_clk", -1},
+	{"csi0_rdi_clk", -1},
+};
+
+static struct msm_cam_clk_info csid1_8974_clk_info[] = {
+	{"csi1_ahb_clk", -1},
+	{"csi1_src_clk", 200000000},
+	{"csi1_clk", -1},
+	{"csi1_phy_clk", -1},
+	{"csi1_pix_clk", -1},
+	{"csi1_rdi_clk", -1},
+};
+
+static struct msm_cam_clk_info csid2_8974_clk_info[] = {
+	{"csi2_ahb_clk", -1},
+	{"csi2_src_clk", 200000000},
+	{"csi2_clk", -1},
+	{"csi2_phy_clk", -1},
+	{"csi2_pix_clk", -1},
+	{"csi2_rdi_clk", -1},
+};
+
+static struct msm_cam_clk_info csid3_8974_clk_info[] = {
+	{"csi3_ahb_clk", -1},
+	{"csi3_src_clk", 200000000},
+	{"csi3_clk", -1},
+	{"csi3_phy_clk", -1},
+	{"csi3_pix_clk", -1},
+	{"csi3_rdi_clk", -1},
+};
+
+static struct msm_cam_clk_setting csid_8974_clk_info[] = {
+	{&csid0_8974_clk_info[0], ARRAY_SIZE(csid0_8974_clk_info)},
+	{&csid1_8974_clk_info[0], ARRAY_SIZE(csid1_8974_clk_info)},
+	{&csid2_8974_clk_info[0], ARRAY_SIZE(csid2_8974_clk_info)},
+	{&csid3_8974_clk_info[0], ARRAY_SIZE(csid3_8974_clk_info)},
 };
 
 static struct camera_vreg_t csid_8960_vreg_info[] = {
@@ -194,6 +225,7 @@ static struct camera_vreg_t csid_8974_vreg_info[] = {
 static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 {
 	int rc = 0;
+	uint8_t core_id = 0;
 
 	if (!csid_version) {
 		pr_err("%s:%d csid_version NULL\n", __func__, __LINE__);
@@ -237,7 +269,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 			csid_8960_clk_info, csid_dev->csid_clk,
 			ARRAY_SIZE(csid_8960_clk_info), 1);
 		if (rc < 0) {
-			pr_err("%s: regulator enable failed\n", __func__);
+			pr_err("%s: clock enable failed\n", __func__);
 			goto clk_enable_failed;
 		}
 	} else if (CSID_VERSION == CSID_VERSION_V3) {
@@ -258,11 +290,23 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 		}
 
 		rc = msm_cam_clk_enable(&csid_dev->pdev->dev,
-			csid_8974_clk_info, csid_dev->csid_clk,
-			ARRAY_SIZE(csid_8974_clk_info), 1);
+			csid_8974_clk_info[0].clk_info, csid_dev->csid0_clk,
+			csid_8974_clk_info[0].num_clk_info, 1);
 		if (rc < 0) {
-			pr_err("%s: regulator enable failed\n", __func__);
-			goto clk_enable_failed;
+			pr_err("%s: clock enable failed\n", __func__);
+			goto csid0_clk_enable_failed;
+		}
+		core_id = csid_dev->pdev->id;
+		if (core_id) {
+			rc = msm_cam_clk_enable(&csid_dev->pdev->dev,
+				csid_8974_clk_info[core_id].clk_info,
+				csid_dev->csid_clk,
+				csid_8974_clk_info[core_id].num_clk_info, 1);
+			if (rc < 0) {
+				pr_err("%s: clock enable failed\n",
+					__func__);
+				goto clk_enable_failed;
+			}
 		}
 	}
 
@@ -279,6 +323,12 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	return rc;
 
 clk_enable_failed:
+	if (CSID_VERSION == CSID_VERSION_V3) {
+		msm_cam_clk_enable(&csid_dev->pdev->dev,
+			csid_8974_clk_info[0].clk_info, csid_dev->csid0_clk,
+			csid_8974_clk_info[0].num_clk_info, 0);
+	}
+csid0_clk_enable_failed:
 	if (CSID_VERSION <= CSID_VERSION_V2) {
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
 			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
@@ -307,6 +357,7 @@ vreg_config_failed:
 static int msm_csid_release(struct csid_device *csid_dev)
 {
 	uint32_t irq;
+	uint8_t core_id = 0;
 
 	if (csid_dev->csid_state != CSID_POWER_UP) {
 		pr_err("%s: csid invalid state %d\n", __func__,
@@ -332,8 +383,16 @@ static int msm_csid_release(struct csid_device *csid_dev)
 			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
 	} else if (csid_dev->hw_version == CSID_VERSION_V3) {
-		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_8974_clk_info,
-			csid_dev->csid_clk, ARRAY_SIZE(csid_8974_clk_info), 0);
+		core_id = csid_dev->pdev->id;
+		if (core_id)
+			msm_cam_clk_enable(&csid_dev->pdev->dev,
+				csid_8974_clk_info[core_id].clk_info,
+				csid_dev->csid_clk,
+				csid_8974_clk_info[core_id].num_clk_info, 0);
+
+		msm_cam_clk_enable(&csid_dev->pdev->dev,
+			csid_8974_clk_info[0].clk_info, csid_dev->csid0_clk,
+			csid_8974_clk_info[0].num_clk_info, 0);
 
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
 			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
@@ -385,6 +444,13 @@ static long msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 			sizeof(struct msm_camera_csid_params))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
+			break;
+		}
+		if (csid_params.lut_params.num_cid < 1 ||
+			csid_params.lut_params.num_cid > 16) {
+			pr_err("%s: %d num_cid outside range\n",
+				__func__, __LINE__);
+			rc = -EINVAL;
 			break;
 		}
 		vc_cfg = kzalloc(csid_params.lut_params.num_cid *
@@ -555,7 +621,7 @@ static int __devinit csid_probe(struct platform_device *pdev)
 csid_no_resource:
 	mutex_destroy(&new_csid_dev->mutex);
 	kfree(new_csid_dev);
-	return 0;
+	return rc;
 }
 
 static const struct of_device_id msm_csid_dt_match[] = {

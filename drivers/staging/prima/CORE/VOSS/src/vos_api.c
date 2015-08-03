@@ -107,6 +107,9 @@
 /* Approximate amount of time to wait for WDA to stop WDI */
 #define VOS_WDA_STOP_TIMEOUT WDA_STOP_TIMEOUT 
 
+/* Approximate amount of time to wait for WDA to issue a DUMP req */
+#define VOS_WDA_RESP_TIMEOUT WDA_STOP_TIMEOUT
+
 /*---------------------------------------------------------------------------
  * Data definitions
  * ------------------------------------------------------------------------*/
@@ -501,11 +504,29 @@ VOS_STATUS vos_preStart( v_CONTEXT_t vosContext )
    VOS_TRACE(VOS_MODULE_ID_SYS, VOS_TRACE_LEVEL_INFO,
              "vos prestart");
 
-   VOS_ASSERT(gpVosContext == pVosContext);
+   if (gpVosContext != pVosContext)
+   {
+      VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                "%s: Context mismatch", __func__);
+      VOS_ASSERT(0);
+      return VOS_STATUS_E_INVAL;
+   }
 
-   VOS_ASSERT( NULL != pVosContext->pMACContext);
+   if (pVosContext->pMACContext == NULL)
+   {
+       VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+            "%s: MAC NULL context", __func__);
+       VOS_ASSERT(0);
+       return VOS_STATUS_E_INVAL;
+   }
 
-   VOS_ASSERT( NULL != pVosContext->pWDAContext);
+   if (pVosContext->pWDAContext == NULL)
+   {
+       VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+          "%s: WDA NULL context", __func__);
+       VOS_ASSERT(0);
+       return VOS_STATUS_E_INVAL;
+   }
 
    /* call macPreStart */
    vStatus = macPreStart(gpVosContext->pMACContext);
@@ -659,6 +680,10 @@ VOS_STATUS vos_start( v_CONTEXT_t vosContext )
      }
      VOS_ASSERT(0);
      vos_event_reset( &(gpVosContext->wdaCompleteEvent) );
+     if (vos_is_logp_in_progress(VOS_MODULE_ID_VOSS, NULL))
+     {
+         VOS_BUG(0);
+     }
      WDA_setNeedShutdown(vosContext);
      return VOS_STATUS_E_FAILURE;
   }
@@ -1017,6 +1042,7 @@ v_VOID_t* vos_get_context( VOS_MODULE_ID moduleId,
 
     case VOS_MODULE_ID_SME:
     case VOS_MODULE_ID_PE:
+    case VOS_MODULE_ID_PMC:
     {
       /* 
       ** In all these cases, we just return the MAC Context
@@ -1138,6 +1164,31 @@ void vos_set_load_unload_in_progress(VOS_MODULE_ID moduleId, v_U8_t value)
    gpVosContext->isLoadUnloadInProgress = value;
 }
 
+v_U8_t vos_is_reinit_in_progress(VOS_MODULE_ID moduleId, v_VOID_t *moduleContext)
+{
+  if (gpVosContext == NULL)
+  {
+    VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+        "%s: global voss context is NULL", __func__);
+    return 1;
+  }
+
+   return gpVosContext->isReInitInProgress;
+}
+
+void vos_set_reinit_in_progress(VOS_MODULE_ID moduleId, v_U8_t value)
+{
+  if (gpVosContext == NULL)
+  {
+    VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+        "%s: global voss context is NULL", __func__);
+    return;
+  }
+
+   gpVosContext->isReInitInProgress = value;
+}
+
+
 /**---------------------------------------------------------------------------
   
   \brief vos_alloc_context() - allocate a context within the VOSS global Context
@@ -1222,6 +1273,7 @@ VOS_STATUS vos_alloc_context( v_VOID_t *pVosContext, VOS_MODULE_ID moduleID,
     }
     case VOS_MODULE_ID_SME:
     case VOS_MODULE_ID_PE:
+    case VOS_MODULE_ID_PMC:
     case VOS_MODULE_ID_HDD:
     case VOS_MODULE_ID_HDD_SOFTAP:
     default:
@@ -1347,6 +1399,7 @@ VOS_STATUS vos_free_context( v_VOID_t *pVosContext, VOS_MODULE_ID moduleID,
     case VOS_MODULE_ID_HDD:
     case VOS_MODULE_ID_SME:
     case VOS_MODULE_ID_PE:
+    case VOS_MODULE_ID_PMC:
     case VOS_MODULE_ID_HDD_SOFTAP:
     default:
     {     
@@ -1599,7 +1652,7 @@ VOS_STATUS vos_tx_mq_serialize( VOS_MQ_ID msgQueueId, vos_msg_t *pMsg )
     default:
 
     VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-              "Trying to queue msg into unknown Tx Msg queue ID %d",
+              "%s: Trying to queue msg into unknown Tx Msg queue ID %d",
                __func__, msgQueueId);
 
     return VOS_STATUS_E_FAILURE;
@@ -1709,7 +1762,7 @@ VOS_STATUS vos_rx_mq_serialize( VOS_MQ_ID msgQueueId, vos_msg_t *pMsg )
     default:
 
     VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-              "Trying to queue msg into unknown Rx Msg queue ID %d",
+              "%s: Trying to queue msg into unknown Rx Msg queue ID %d",
                __func__, msgQueueId);
 
     return VOS_STATUS_E_FAILURE;
@@ -1948,14 +2001,6 @@ VOS_STATUS vos_shutdown(v_CONTEXT_t vosContext)
 
   ((pVosContextType)vosContext)->pMACContext = NULL;
 
-  vosStatus = vos_nv_close();
-  if (!VOS_IS_STATUS_SUCCESS(vosStatus))
-  {
-     VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-         "%s: Failed to close NV", __func__);
-     VOS_ASSERT( VOS_IS_STATUS_SUCCESS( vosStatus ) );
-  }
-
   vosStatus = sysClose( vosContext );
   if (!VOS_IS_STATUS_SUCCESS(vosStatus))
   {
@@ -2116,4 +2161,51 @@ VOS_STATUS vos_wlanRestart(void)
    /* Reload the driver */
    vstatus = wlan_hdd_restart_driver(pHddCtx);
    return vstatus;
+}
+
+
+/**
+  @brief vos_fwDumpReq()
+
+  This function is called to issue dump commands to Firmware
+
+  @param
+       cmd - Command No. to execute
+       arg1 - argument 1 to cmd
+       arg2 - argument 2 to cmd
+       arg3 - argument 3 to cmd
+       arg4 - argument 4 to cmd
+  @return
+       NONE
+*/
+v_VOID_t vos_fwDumpReq(tANI_U32 cmd, tANI_U32 arg1, tANI_U32 arg2,
+                        tANI_U32 arg3, tANI_U32 arg4)
+{
+   VOS_STATUS vStatus          = VOS_STATUS_SUCCESS;
+
+   /* Reset wda wait event */
+   vos_event_reset(&gpVosContext->wdaCompleteEvent);
+
+   WDA_HALDumpCmdReq(NULL, cmd, arg1, arg2, arg3, arg4, NULL);
+
+   /* Need to update time out of complete */
+   vStatus = vos_wait_single_event(&gpVosContext->wdaCompleteEvent,
+                                   VOS_WDA_RESP_TIMEOUT );
+
+   if (vStatus != VOS_STATUS_SUCCESS)
+   {
+      if (vStatus == VOS_STATUS_E_TIMEOUT)
+      {
+         VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+          "%s: Timeout occurred before WDA HAL DUMP complete\n", __func__);
+      }
+      else
+      {
+         VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+           "%s: reporting other error", __func__);
+      }
+   }
+
+   return;
+
 }

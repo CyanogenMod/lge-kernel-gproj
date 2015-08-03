@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,11 +18,21 @@
 #include <linux/pmic8058-pwm.h>
 #include <linux/hrtimer.h>
 #include <linux/export.h>
+#include <linux/timer.h>
+#include <linux/workqueue.h>
 #include <mach/pmic.h>
 #include <mach/camera.h>
 #include <mach/gpio.h>
 #include "msm_camera_i2c.h"
 
+struct flash_work {
+	struct work_struct my_work;
+	int    x;
+};
+struct flash_work *work;
+static struct timer_list flash_timer;
+static int timer_state;
+static struct workqueue_struct *flash_wq;
 struct i2c_client *sx150x_client;
 struct timer_list timer_flash;
 static struct msm_camera_sensor_info *sensor_data;
@@ -33,8 +43,8 @@ enum msm_cam_flash_stat{
 };
 
 
-/* [patch for Enabling flash LED for camera]
-  * 2012-03-14, jinsool.lee@lge.com
+/*                                          
+                                   
   */
 extern int lm3559_flash_set_led_state(int state);
 
@@ -283,6 +293,23 @@ int msm_camera_flash_led(
 	return rc;
 }
 
+static void flash_wq_function(struct work_struct *work)
+{
+	if (tps61310_client) {
+		i2c_client.client = tps61310_client;
+		i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+		msm_camera_i2c_write(&i2c_client, 0x01,
+				0x46, MSM_CAMERA_I2C_BYTE_DATA);
+	}
+	return;
+}
+
+void flash_timer_callback(unsigned long data)
+{
+	queue_work(flash_wq, (struct work_struct *)work );
+	mod_timer(&flash_timer, jiffies + msecs_to_jiffies(10000));
+}
+
 int msm_camera_flash_external(
 	struct msm_camera_sensor_flash_external *external,
 	unsigned led_state)
@@ -388,6 +415,11 @@ error:
 				sc628a_client = NULL;
 			}
 			if (tps61310_client) {
+				if (timer_state) {
+					del_timer(&flash_timer);
+					kfree((void *)work);
+					timer_state = 0;
+				}
 				i2c_del_driver(&tps61310_i2c_driver);
 				tps61310_client = NULL;
 			}
@@ -413,6 +445,11 @@ error:
 				i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
 				rc = msm_camera_i2c_write(&i2c_client, 0x01,
 					0x00, MSM_CAMERA_I2C_BYTE_DATA);
+				if (timer_state) {
+					del_timer(&flash_timer);
+					kfree((void *)work);
+					timer_state = 0;
+				}
 			}
 			gpio_set_value_cansleep(external->led_en, 0);
 			gpio_set_value_cansleep(external->led_flash_en, 0);
@@ -434,7 +471,13 @@ error:
 				i2c_client.client = tps61310_client;
 				i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
 				rc = msm_camera_i2c_write(&i2c_client, 0x01,
-					0x86, MSM_CAMERA_I2C_BYTE_DATA);
+					0x46, MSM_CAMERA_I2C_BYTE_DATA);
+				flash_wq = alloc_workqueue("my_queue",WQ_MEM_RECLAIM,1);
+				work = (struct flash_work *)kmalloc(sizeof(struct flash_work), GFP_KERNEL);
+				INIT_WORK( (struct work_struct *)work, flash_wq_function );
+				setup_timer(&flash_timer, flash_timer_callback, 0);
+				mod_timer(&flash_timer, jiffies + msecs_to_jiffies(10000));
+				timer_state = 1;
 			}
 		}
 		break;
@@ -762,11 +805,11 @@ int msm_flash_ctrl(struct msm_camera_sensor_info *sdata,
 	sensor_data = sdata;
 	switch (flash_info->flashtype) {
 	case LED_FLASH:
-	#if !defined(CONFIG_MACH_APQ8064_GKKT) && !defined(CONFIG_MACH_APQ8064_GKSK) && !defined(CONFIG_MACH_APQ8064_GKU) && !defined(CONFIG_MACH_APQ8064_GKATT) && !defined(CONFIG_MACH_APQ8064_GVDCM)  && !defined(CONFIG_MACH_APQ8064_GVKT) && !defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-		/* [patch for Enabling flash LED for camera]
-		* 2012-03-14, jinsool.lee@lge.com
-		*  This feature is for G... 
-		*/
+	#if !defined(CONFIG_LGE_GK_CAMERA)
+		/*                                          
+                                   
+                              
+  */
 
 		rc = lm3559_flash_set_led_state(flash_info->ctrl_data.led_state);
 
