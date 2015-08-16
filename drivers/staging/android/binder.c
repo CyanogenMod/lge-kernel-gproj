@@ -3715,13 +3715,6 @@ static int __init binder_init(void)
 				    &binder_transaction_log_failed,
 				    &binder_transaction_log_fops);
 	}
-/* LGE_CHANGE
- * Enabled binder error message to get the reason of binder error
- * 2012-07-31, yongmin.jung@lge.com
- */
-#ifdef CONFIG_MACH_LGE
-	binder_debug_mask = BINDER_DEBUG_TOP_ERRORS;
-#endif
 	return ret;
 }
 
